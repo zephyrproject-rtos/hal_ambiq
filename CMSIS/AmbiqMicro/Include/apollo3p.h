@@ -18096,7 +18096,7 @@ typedef enum {                                  /*!< CLKGEN_CLOCKENSTAT_CLOCKENS
   CLKGEN_CLOCKENSTAT_CLOCKENSTAT_CTIMER6A_CLKEN = 268435456,/*!< CTIMER6A_CLKEN : Clock enable for the CTIMER6A                */
   CLKGEN_CLOCKENSTAT_CLOCKENSTAT_CTIMER6B_CLKEN = 536870912,/*!< CTIMER6B_CLKEN : Clock enable for the CTIMER6B                */
   CLKGEN_CLOCKENSTAT_CLOCKENSTAT_CTIMER7A_CLKEN = 1073741824,/*!< CTIMER7A_CLKEN : Clock enable for the CTIMER7A               */
-  CLKGEN_CLOCKENSTAT_CLOCKENSTAT_CTIMER7B_CLKEN = -2147483648,/*!< CTIMER7B_CLKEN : Clock enable for the CTIMER7B              */
+  CLKGEN_CLOCKENSTAT_CLOCKENSTAT_CTIMER7B_CLKEN = 2147483648U,/*!< CTIMER7B_CLKEN : Clock enable for the CTIMER7B              */
 } CLKGEN_CLOCKENSTAT_CLOCKENSTAT_Enum;
 
 /* =====================================================  CLOCKEN2STAT  ====================================================== */
@@ -18122,7 +18122,7 @@ typedef enum {                                  /*!< CLKGEN_CLOCKEN2STAT_CLOCKEN
   CLKGEN_CLOCKEN2STAT_CLOCKEN2STAT_UART1HF_CLKEN = 131072,/*!< UART1HF_CLKEN : Clock enable for the UART1 HF                   */
   CLKGEN_CLOCKEN2STAT_CLOCKEN2STAT_WDT_CLKEN = 262144,/*!< WDT_CLKEN : Clock enable for the Watchdog timer                     */
   CLKGEN_CLOCKEN2STAT_CLOCKEN2STAT_XT_32KHZ_EN = 1073741824,/*!< XT_32KHZ_EN : Clock enable for the XT 32KHZ                   */
-  CLKGEN_CLOCKEN2STAT_CLOCKEN2STAT_FORCEHFRC = -2147483648,/*!< FORCEHFRC : HFRC is forced on Status.                          */
+  CLKGEN_CLOCKEN2STAT_CLOCKEN2STAT_FORCEHFRC = 2147483648U,/*!< FORCEHFRC : HFRC is forced on Status.                          */
 } CLKGEN_CLOCKEN2STAT_CLOCKEN2STAT_Enum;
 
 /* =====================================================  CLOCKEN3STAT  ====================================================== */
@@ -18137,7 +18137,7 @@ typedef enum {                                  /*!< CLKGEN_CLOCKEN3STAT_CLOCKEN
   CLKGEN_CLOCKEN3STAT_CLOCKEN3STAT_RTC_XT = 268435456,/*!< RTC_XT : RTC use XT [28]                                            */
   CLKGEN_CLOCKEN3STAT_CLOCKEN3STAT_clkout_xtal_en = 536870912,/*!< clkout_xtal_en : XTAL clkout enabled [29]                   */
   CLKGEN_CLOCKEN3STAT_CLOCKEN3STAT_clkout_hfrc_en = 1073741824,/*!< clkout_hfrc_en : HFRC clkout enabled [30]                  */
-  CLKGEN_CLOCKEN3STAT_CLOCKEN3STAT_flashclk_en = -2147483648,/*!< flashclk_en : Flash clk is enabled [31]                      */
+  CLKGEN_CLOCKEN3STAT_CLOCKEN3STAT_flashclk_en = 2147483648U,/*!< flashclk_en : Flash clk is enabled [31]                      */
 } CLKGEN_CLOCKEN3STAT_CLOCKEN3STAT_Enum;
 
 /* =======================================================  FREQCTRL  ======================================================== */
