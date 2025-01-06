@@ -52,6 +52,9 @@
 #ifndef AM_APOLLO510L_H
 #define AM_APOLLO510L_H
 
+#define CPU_CLK_MHZ 96
+#define CPU_CLK_DIV (96 / CPU_CLK_MHZ)
+
 #define ADC_BASE_NAME                   40038000
 #define CLKGEN_BASE_NAME                40004000
 #define CM55IPC_BASE_NAME               40034000
@@ -171,9 +174,6 @@
 #define MSPI2_REG_SIZE                  0x2c8UL
 #define OTP_REG_SIZE                    0x2c8UL
 #define PDM0_REG_SIZE                   0x16cUL
-#define PDM1_REG_SIZE                   0x16cUL
-#define PDM2_REG_SIZE                   0x16cUL
-#define PDM3_REG_SIZE                   0x16cUL
 #define PWRCTRL_REG_SIZE                0x250UL
 #define RSTGEN_REG_SIZE                 0x8860UL
 #define RTC_REG_SIZE                    0x210UL
@@ -196,11 +196,11 @@
 
 #define SSRAM_BASE_NAME                 20080000
 #define SSRAM_BASE_ADDR                 0x20080000UL
-#define SSRAM_MAX_SIZE                  0x300000UL
+#define SSRAM_MAX_SIZE                  0x1C0000UL
 
 #define MRAM_BASE_NAME                  400000
 #define MRAM_BASE_ADDR                  0x400000UL
-#define MRAM_MAX_SIZE                   0x400000UL
+#define MRAM_MAX_SIZE                   0x200000UL
 
 #define MSPI0_APERTURE_BASE_NAME        60000000
 #define MSPI0_APERTURE_BASE_ADDR        0x60000000UL
@@ -212,7 +212,7 @@
 
 #define MSPI2_APERTURE_BASE_NAME        84000000
 #define MSPI2_APERTURE_BASE_ADDR        0x84000000UL
-#define MSPI2_APERTURE_MAX_SIZE         0x4000000UL
+#define MSPI2_APERTURE_MAX_SIZE         0x8000000UL
 
 #endif // AM_APOLLO510L_H
 
