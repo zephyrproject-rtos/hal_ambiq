@@ -196,6 +196,16 @@ typedef enum
 }
 am_hal_mspi_trans_e;
 
+
+typedef enum
+{
+    AM_HAL_MSPI_SEQ_RESET_MODE,
+    AM_HAL_MSPI_SEQ_ABORT_MODE,
+    AM_HAL_MSPI_SEQ_NORM_MODE,     // one or multiple xfer with pause
+    AM_HAL_MSPI_SEQ_STREAM_MODE,   // multiple xfer with no pause
+    AM_HAL_MSPI_SEQ_LOOP_MODE,     // Looped xfer
+} am_hal_mspi_seq_mode_e;
+
 //
 //! MSPI interface mode and chip enable selection
 //
@@ -333,6 +343,8 @@ typedef enum
     AM_HAL_MSPI_REQ_SCRAMB_DIS,
     //! pConfig N/A
     AM_HAL_MSPI_REQ_SCRAMB_EN,
+    //! Pass am_hal_mspi_scramble_config_t * as pConfig
+    AM_HAL_MSPI_REQ_SCRAMB_CONFIG,
     //! Pass uint32_t * as pConfig
     AM_HAL_MSPI_REQ_XIPACK,
     //! pConfig N/A
@@ -377,7 +389,7 @@ typedef enum
     // Set writlatncy when write date to nand flash
     AM_HAL_MSPI_REQ_NAND_FLASH_SET_WLAT,
     //! Set the timing parameters
-    AM_HAL_MSPI_REQ_TIMING_SCAN,
+    AM_HAL_MSPI_REQ_TIMING_SET,
 
     AM_HAL_MSPI_REQ_MAX
 
@@ -576,6 +588,69 @@ typedef struct
 }
 am_hal_mspi_dma_transfer_t;
 
+//
+//! CQ xfer sequence configurations
+//
+typedef struct
+{
+    //! Instruction length, 0 means disable
+    uint8_t ui8InstrLen;
+    //! Address length, 0 means disable
+    uint8_t ui8AddrLen;
+    //! Turnaround in data cycles, 0 means disable
+    uint8_t ui8Turnaround;
+    //! Write latency in data cycles, 0 means disable
+    uint8_t ui8WriteLatency;
+    //! Total number of transfers in this sequence.
+    uint16_t ui16TotalPackets;
+    //! The mode of this sequence.
+    am_hal_mspi_seq_mode_e eSeqMode;
+
+} am_hal_mspi_seq_device_cfg_t;
+
+//
+//! CQ scatter transfer structure
+//
+typedef struct
+{
+    //! Direction RX: 0 = Peripheral to Memory; TX: 1 = Memory to Peripheral
+    am_hal_mspi_dir_e eDirection;
+
+    uint16_t ui16DeviceInstr;
+
+    //! External Flash Device Address
+    uint32_t ui32DeviceAddress;
+
+    //! Internal SRAM Buffer Address
+    uint32_t ui32SRAMAddress;
+
+    //! Transfer Count
+    uint32_t ui32TransferCount;
+
+    //! Priority 0 = Low (best effort); 1 = High (service immediately)
+    uint8_t ui8Priority;
+
+    //! Command Queue Transaction Gating
+    uint32_t ui32PauseCondition;
+    //! Command Queue Post-Transaction status setting
+    uint32_t ui32StatusSetClr;
+
+    uint16_t ui16PacketIndex;
+
+} am_hal_mspi_cq_scatter_xfer_t;
+
+typedef struct
+{
+    //! Scrambling Start Address
+    uint32_t scramblingStartAddr;
+
+    //! Scrambling End Address
+    uint32_t scramblingEndAddr;
+
+    //! Enable Scrambling or not
+    bool bEnable;
+
+} am_hal_mspi_scramble_config_t;
 
 //
 //! MSPI status structure.
@@ -761,6 +836,46 @@ extern uint32_t am_hal_mspi_nonblocking_transfer(void *pHandle,
                                                  am_hal_mspi_trans_e eMode,
                                                  am_hal_mspi_callback_t pfnCallback,
                                                  void *pCallbackCtxt);
+
+//*****************************************************************************
+//
+//! @brief MSPI Scatter IO transfer function using CQ
+//!
+//! @param pHandle       - Handle for the interface.
+//! @param pTransfer     - Pointer to the transaction control structure.
+//! @param pfnCallback   - Pointer the callback function to be executed when
+//!                        transaction is complete.
+//! @param pCallbackCtxt - Passed to callback function
+//!
+//! This function performs a transaction on the MSPI using
+//! Command Queue with DMA.  It handles half duplex transactions.
+//!
+//! @return status       - Generic or interface specific status.
+//
+//*****************************************************************************
+extern uint32_t am_hal_mspi_cq_scatter_xfer(void *pHandle,
+                                            am_hal_mspi_cq_scatter_xfer_t *pTransfer,
+                                            am_hal_mspi_callback_t pfnCallback,
+                                            void *pCallbackCtxt);
+
+//*****************************************************************************
+//
+//! @brief Zephyr controller callback
+//!
+//! @param user_cb       - User callback function.
+//! @param user_cb_ctx   - User callback context.
+//! @param status        - Transfer status.
+//!
+//! This is a weak function should be defined on the upper layer.
+//! It handles both async and sync interrupt driven transfers.
+//!
+//! @return
+//
+//*****************************************************************************
+extern void am_hal_mspi_zephyr_callback(void *user_cb,
+                                        void *user_cb_ctx,
+                                        uint32_t status)
+                                        __attribute ((weak));
 
 //*****************************************************************************
 //
