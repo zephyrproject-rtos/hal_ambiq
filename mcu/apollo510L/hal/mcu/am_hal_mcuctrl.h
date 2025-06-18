@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_MCUCTRL_H
@@ -28,55 +55,34 @@ extern "C"
 #define MCUCTRL_CHIPPN_PARTNUM_PN_M             0xFF000000
 #define MCUCTRL_CHIPPN_PARTNUM_PN_S             24
 
-//**********************************************************
-//! MCUCTRL XTALHSCAP defaults for Cooper
-//! Refer to App Note Apollo4 Blue 32MHz Crystal Calibration
-//**********************************************************
-#define XTALHSCAP2TRIM_DEFAULT  44
-#define XTALHSCAPTRIM_DEFAULT   4
-
-#define APOLLO5_B1                                                     \
-  ((MCUCTRL->CHIPREV  &                                                \
-    (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) ==      \
-      (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_B) |    \
-        _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV1)))
-
-#define APOLLO5_GE_B1                                                       \
-        ((MCUCTRL->CHIPREV  &                                               \
-           (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) >=    \
-           (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_B) |    \
-            _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV1)))
-
-#define APOLLO5_GT_B1                                                       \
-        ((MCUCTRL->CHIPREV  &                                               \
-           (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk))  >    \
-           (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_B) |    \
-            _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV1)))
-
-#define APOLLO5_B0                                                     \
-  ((MCUCTRL->CHIPREV  &                                                \
-    (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) ==      \
-      (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_B) |    \
+#define APOLLO510L_A0                                                     \
+  ((MCUCTRL->CHIPREV  &                                                   \
+    (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) ==         \
+      (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_A) |       \
         _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV0)))
 
-#define APOLLO5_GE_B0                                                       \
-        ((MCUCTRL->CHIPREV  &                                               \
-           (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) >=    \
-           (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_B) |    \
-            _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV0)))
-
-#define APOLLO5_A0                                                     \
-  ((MCUCTRL->CHIPREV  &                                                \
-    (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) ==      \
-      (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_A) |    \
+#define APOLLO510L_GE_A0                                                  \
+  ((MCUCTRL->CHIPREV  &                                                   \
+    (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) >=         \
+      (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_A) |       \
         _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV0)))
 
-#define APOLLO5_GE_A0                                                       \
-        ((MCUCTRL->CHIPREV  &                                               \
-           (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) >=    \
-           (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_A) |    \
-            _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV0)))
+#define APOLLO510L_GT_A0                                                  \
+  ((MCUCTRL->CHIPREV  &                                                   \
+    (MCUCTRL_CHIPREV_REVMAJ_Msk | MCUCTRL_CHIPREV_REVMIN_Msk)) >          \
+      (_VAL2FLD(MCUCTRL_CHIPREV_REVMAJ, MCUCTRL_CHIPREV_REVMAJ_A) |       \
+        _VAL2FLD(MCUCTRL_CHIPREV_REVMIN, MCUCTRL_CHIPREV_REVMIN_REV0)))
 
+#define A0_TRIMVER_1  1
+#define A0_TRIMVER_2  2
+
+#define APOLLO510L_A0_TRIMVER1    (APOLLO510L_A0 && (g_ui32TrimVer == A0_TRIMVER_1))
+#define APOLLO510L_A0_GE_TRIMVER1 (APOLLO510L_A0 && (g_ui32TrimVer >= A0_TRIMVER_1))
+#define APOLLO510L_A0_LE_TRIMVER1 (APOLLO510L_A0 && (g_ui32TrimVer <= A0_TRIMVER_1))
+
+#define APOLLO510L_A0_TRIMVER2    (APOLLO510L_A0 && (g_ui32TrimVer == A0_TRIMVER_2))
+#define APOLLO510L_A0_GE_TRIMVER2 (APOLLO510L_A0 && (g_ui32TrimVer >= A0_TRIMVER_2))
+#define APOLLO510L_A0_LE_TRIMVER2 (APOLLO510L_A0 && (g_ui32TrimVer <= A0_TRIMVER_2))
 
 //*****************************************************************************
 //
@@ -86,11 +92,6 @@ extern "C"
 // Define the size of fields derived from the PARTNUM register
 #define AM_HAL_MCUCTRL_CHIPPN_NV_SIZE_N     (_FLD2VAL(MCUCTRL_CHIPPN_MRAMSIZE, 0xFFFFFFFF) + 1)
 #define AM_HAL_MCUCTRL_CHIPPN_SRAM_SIZE_N   (_FLD2VAL(MCUCTRL_CHIPPN_SRAMSIZE, 0xFFFFFFFF) + 1)
-// #### INTERNAL BEGIN ####
-#if 0
-#define AM_HAL_MCUCTRL_CHIPPN_TCM_SIZE_N    AM_HAL_MCUCTRL_CHIPPN_SRAM_SIZE_N
-#endif
-// #### INTERNAL END ####
 
 // Define the size of fields derived from the SKU register
 #define AM_HAL_MCUCTRL_SKU_SSRAM_SIZE_N     (_FLD2VAL(MCUCTRL_SKU_SKUSRAMSIZE, 0xFFFFFFFF) + 1)
@@ -110,10 +111,18 @@ typedef enum
 {
     AM_HAL_MCUCTRL_CONTROL_EXTCLK32K_ENABLE,
     AM_HAL_MCUCTRL_CONTROL_EXTCLK32K_DISABLE,
-    AM_HAL_MCUCTRL_CONTROL_EXTCLK32M_KICK_START,
-    AM_HAL_MCUCTRL_CONTROL_EXTCLK32M_NORMAL,
-    AM_HAL_MCUCTRL_CONTROL_EXTCLK32M_DISABLE
 } am_hal_mcuctrl_control_e;
+
+
+//**************************************
+//! MCUCTRL EXT32K status enumerations
+//**************************************
+typedef enum
+{
+    AM_HAL_MCUCTRL_EXT32K_STATUS_OFF,
+    AM_HAL_MCUCTRL_EXT32K_STATUS_XTAL,
+    AM_HAL_MCUCTRL_EXT32K_STATUS_EXT_CLK,
+}am_hal_mcuctrl_ext32k_status_e;
 
 //**************************************
 //
@@ -131,25 +140,18 @@ typedef enum
 //! MCUCTRL SKU/Feature Enums
 //
 //*****************************************************************************
-typedef enum
-{
-    AM_HAL_MCUCTRL_ITCM_128K,
-    AM_HAL_MCUCTRL_ITCM_256K
-} am_hal_mcuctrl_itcm_e;
 
 typedef enum
 {
-    AM_HAL_MCUCTRL_DTCM_256K,
-    AM_HAL_MCUCTRL_DTCM_512K
+    AM_HAL_MCUCTRL_DTCM_256K
 } am_hal_mcuctrl_dtcm_e;
 
 typedef enum
 {
     AM_HAL_MCUCTRL_SSRAM_1M,
-    AM_HAL_MCUCTRL_SSRAM_2M,
-    AM_HAL_MCUCTRL_SSRAM_3M,
+    AM_HAL_MCUCTRL_SSRAM_1P75M,
 } am_hal_mcuctrl_ssram_e;
-#define AM_HAL_MCUCTRL_SSRAM_MAX    AM_HAL_MCUCTRL_SSRAM_3M
+#define AM_HAL_MCUCTRL_SSRAM_MAX    AM_HAL_MCUCTRL_SSRAM_1P75M
 
 //
 //! MRAM Size Setting
@@ -158,11 +160,9 @@ typedef enum
 {
     AM_HAL_MCUCTRL_MRAM_1M,
     AM_HAL_MCUCTRL_MRAM_2M,
-    AM_HAL_MCUCTRL_MRAM_3M,
-    AM_HAL_MCUCTRL_MRAM_4M,
 } am_hal_mcuctrl_mram_e;
 
-#define AM_HAL_MCUCTRL_MRAM_MAX     AM_HAL_MCUCTRL_MRAM_4M
+#define AM_HAL_MCUCTRL_MRAM_MAX     AM_HAL_MCUCTRL_MRAM_2M
 
 //
 //! MVE Configuration.
@@ -291,16 +291,20 @@ typedef struct
     bool                        bCM4DEBUG;          // CM4 SWD
     bool                        bFPU;               // FPU
     am_hal_mcuctrl_mve_e        eMVECfg;            // MVE
+    union                                           // Trim version info
+    {
+        uint32_t ui32trimver;
+        struct
+        {
+            uint32_t ui8TrimVerMin  : 8;    // [7:0]
+            uint32_t ui8TrimVerMaj  : 8;    // [15:8]
+            uint32_t bTrimVerValid  : 1;    // [16:16] 1 if version data valid
+            uint32_t bTrimVerPCM    : 1;    // [17:17] 1 if PCM numbering
+            uint32_t bTrimVerRsvd18 : 6;    // [23:18]
+            uint32_t bTrimVerRsvd24 : 8;    // [31:24]
+        } trimver_b;
+    };
 } am_hal_mcuctrl_feature_t;
-
-//**********************************************************
-//
-//! MCUCTRL XTALHSCAP Globals for Cooper Device
-//! Refer to App Note Apollo4 Blue 32MHz Crystal Calibration
-//
-//**********************************************************
-extern uint32_t g_ui32xtalhscap2trim;
-extern uint32_t g_ui32xtalhscaptrim;
 
 // ****************************************************************************
 //
@@ -311,6 +315,9 @@ extern uint32_t g_ui32xtalhscaptrim;
 //! @param eControl - One of the following:
 //!     AM_HAL_MCUCTRL_CONTROL_EXTCLK32K_ENABLE
 //!     AM_HAL_MCUCTRL_CONTROL_EXTCLK32K_DISABLE
+//!     AM_HAL_MCUCTRL_CONTROL_EXTCLK48M_KICK_START
+//!     AM_HAL_MCUCTRL_CONTROL_EXTCLK48M_NORMAL
+//!     AM_HAL_MCUCTRL_CONTROL_EXTCLK48M_DISABLE
 //! @param pArgs - Pointer to arguments for Control Switch Case
 //!
 //! @return status      - generic or interface specific status.
@@ -318,6 +325,21 @@ extern uint32_t g_ui32xtalhscaptrim;
 // ****************************************************************************
 extern uint32_t am_hal_mcuctrl_control(am_hal_mcuctrl_control_e eControl,
                                        void *pArgs);
+
+// ****************************************************************************
+//
+//! @brief Get current status of EXTCLK32K.
+//!
+//! @param peStatus - pointer to enum variable for query result. It will be
+//!                   written to one of the followings:
+//!                   - AM_HAL_MCUCTRL_EXT32K_STATUS_OFF: EXTCLK32K not enabled by SW
+//!                   - AM_HAL_MCUCTRL_EXT32K_STATUS_XTAL: EXTCLK32K enabled in XTAL Mode by SW
+//!                   - AM_HAL_MCUCTRL_EXT32K_STATUS_EXT_CLK: EXTCLK32K enabled in EXT_CLK mode by SW
+//!
+//! @return status      - generic or interface specific status.
+//
+// ****************************************************************************
+extern uint32_t am_hal_mcuctrl_extclk32k_status_get(am_hal_mcuctrl_ext32k_status_e *peStatus);
 
 // ****************************************************************************
 //
@@ -348,6 +370,11 @@ extern uint32_t am_hal_mcuctrl_status_get(am_hal_mcuctrl_status_t *psStatus);
 //! the type of which is dependent on the eInfo parameter.
 //!
 //! @return status      - generic or interface specific status.
+//!
+//! @note IMPORTANT - This function requires access to INFO0 and/or INFO1 data.
+//! Therefore, if either INFO0 or INFO1 is in OTP, OTP must be powered up prior
+//! to calling this function. For more information, see the description for
+//! am_hal_info0_read().
 //
 // ****************************************************************************
 extern uint32_t am_hal_mcuctrl_info_get(am_hal_mcuctrl_infoget_e eInfoGet,
@@ -357,7 +384,7 @@ extern uint32_t am_hal_mcuctrl_info_get(am_hal_mcuctrl_infoget_e eInfoGet,
 //
 //! @brief Get the count of Radio Fine Counter
 //!
-//! @return - the count of Radio Fine Counter with 0.5µs precision
+//! @return - the count of Radio Fine Counter with 0.5us precision
 //
 //*****************************************************************************
 extern uint32_t am_hal_mcuctrl_finecnt_get(void);
@@ -366,10 +393,21 @@ extern uint32_t am_hal_mcuctrl_finecnt_get(void);
 //
 //! @brief Get the count of Radio CLKN Counter
 //!
-//! @return - the count of Radio CLKN Counter with 312.5μs precision
+//! @return - the count of Radio CLKN Counter with 312.5us precision
 //
 //*****************************************************************************
 extern uint32_t am_hal_mcuctrl_clkncnt_get(void);
+
+//*****************************************************************************
+//
+//! @brief USB PHY LDO (0.9V) Switch Control
+//!
+//! @param bEnable -  TRUE: Enable  USB PHY LDO (0.9V) power-on
+//!                  FALSE: Disable USB PHY LDO (0.9V) power-off.
+//!
+//
+//*****************************************************************************
+extern void am_hal_mcuctrl_usb_phy_ldo0p9_enable(bool bEnable);
 
 //*****************************************************************************
 //
@@ -381,6 +419,17 @@ extern uint32_t am_hal_mcuctrl_clkncnt_get(void);
 //
 //*****************************************************************************
 extern void am_hal_mcuctrl_i3c_phy_pulldown_enable(bool bEnable);
+
+// ****************************************************************************
+//
+//! @brief Set Radio subsystem code base address
+//!
+//! @param ui32Codebase_addr - Radio subsystem code base address from 0x400000
+//!                            to 0x5FFFFF(2MB),16Bytes align
+//!
+//! @return status      - generic or interface specific status.
+// ****************************************************************************
+extern uint32_t am_hal_mcuctrl_rss_codebase_set(uint32_t ui32Codebase_addr);
 
 #ifdef __cplusplus
 }
@@ -394,4 +443,3 @@ extern void am_hal_mcuctrl_i3c_phy_pulldown_enable(bool bEnable);
 //! @}
 //
 //*****************************************************************************
-

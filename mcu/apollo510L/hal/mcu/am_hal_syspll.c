@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -31,6 +58,46 @@
 //*****************************************************************************
 #define AM_HAL_SYSPLL_GCD_CALC_MAX_LOOP (16)
 #define AM_HAL_SYSPLL_MODULE_NUM        (0)
+
+//
+// Minimum Frequency for System PLL clock source expected. This is used to
+// calculate PLL lock wait time. Reduce this value if System PLL is configured
+// to take in clock slower than the one defined below
+//
+#define AM_HAL_SYSPLL_CLOCK_SRC_MIN_MHZ (12)
+
+//
+// System PLL Lock time Maximum Cycle Count
+//
+#define AM_HAL_SYSPLL_MAX_LOCK_CYCLE_VCOSEL0 (1000)
+#define AM_HAL_SYSPLL_MAX_LOCK_CYCLE_VCOSEL1 (1875)
+
+//
+// Table to convert POSTDIV divider needed to POSTDIV1 and POSTDIV2
+//
+static const uint8_t am_hal_syspll_postdiv_to_divider_table[50] =
+    {
+        0x00, 0x11, 0x21, 0x31, 0x41, 0x51, 0x61, 0x71, 0x42, 0x33,
+        0x52, 0x62, 0x62, 0x72, 0x72, 0x53, 0x44, 0x63, 0x63, 0x54,
+        0x54, 0x73, 0x64, 0x64, 0x64, 0x55, 0x74, 0x74, 0x74, 0x65,
+        0x65, 0x75, 0x75, 0x75, 0x75, 0x75, 0x66, 0x76, 0x76, 0x76,
+        0x76, 0x76, 0x76, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x77
+    };
+
+//
+// Constants used to decide which generated config should be used
+//
+const uint32_t AM_HAL_SYSPLL_CFG_PTS_A[4] = { 435700, 465700, 131525, 139025 };
+const uint32_t AM_HAL_SYSPLL_CFG_PTS_B[4] = { 228000, 396000, 228000, 396000 };
+
+//*****************************************************************************
+//
+// Macros
+//
+//*****************************************************************************
+#define UI32_HZ_TO_FLT_MHZ(x)  (((float)x) / 1000000)
+#define UI32_MHZ_TO_UI32_HZ(x) (x*1000000)
+
 
 //*****************************************************************************
 //
@@ -82,9 +149,6 @@ am_hal_syspll_state_t             g_SysPLLState[AM_REG_SYSPLL_NUM_MODULES];
 //*****************************************************************************
 static float syspll_config_util_gcd(float fA, float fB)
 {
-    // #### INTERNAL BEGIN ####
-    // We are using Euclidean Algorithm in this function for GCD calculation
-    // #### INTERNAL END ####
     uint8_t gcdLoop = 0;
 
     //
@@ -180,10 +244,6 @@ static bool syspll_config_util_integer_mode_check(float fSrcClk, float fDstClk, 
     // Check both multiplier and divider are integer values and in range.
     // cast it to integer if it is, return not integer mode otherwise.
     //
-    // #### INTERNAL BEGIN ####
-    // Check and make sure that the values is within range before casting
-    // float to integer to avoid out of range values causing undefined behavior
-    // #### INTERNAL END ####
     if ((fmodf(fMultiplier, 1.0) > FLT_EPSILON) || ( roundf(fMultiplier) > AM_HAL_SYSPLL_MAX_FBDIV_INT_MODE))
     {
         return false;
@@ -283,7 +343,7 @@ static bool syspll_config_util_fraction_mode_check(float fSrcClk, float fDstClk,
     // Calculate FBDiv
     //
     fFBDiv = fClkRatio * ui32RefDivTmp;
-    ui32FBDivFracTmp = roundf(fmodf(fFBDiv, 1.0) * (1 << 24));
+    ui32FBDivFracTmp = (uint32_t)roundf(fmodf(fFBDiv, 1.0) * (1 << 24));
     fFBDiv = floorf(fFBDiv);
     if ( fFBDiv < AM_HAL_SYSPLL_MIN_FBDIV_FRAC_MODE || fFBDiv > AM_HAL_SYSPLL_MAX_FBDIV_FRAC_MODE )
     {
@@ -351,8 +411,19 @@ am_hal_syspll_config_generate(am_hal_syspll_config_t* pConfig, float fRefClkMHz,
     //
     if (bRet)
     {
-        pConfig->eVCOSel = (fVCOClkMHz > AM_HAL_SYSPLL_VCO_HI_MODE_FREQ_MIN) ? AM_HAL_SYSPLL_VCOSEL_VCOHI :
-                                                                               AM_HAL_SYSPLL_VCOSEL_VCOLO;
+
+        float FBDiv = ui16FBDivInt + (float)ui32FBDivFrac / 0x1000000;
+        float fVCOClkMHzActual = fRefClkMHz * FBDiv / ui8RefDiv;
+        float fTemp = fVCOClkMHz > fVCOClkMHzActual ? (fVCOClkMHz - fVCOClkMHzActual) * 1000000 :
+                                                      (fVCOClkMHzActual - fVCOClkMHz) * 1000000 ;
+
+        if (fTemp > AM_HAL_SYSPLL_DEFAULT_PPM)
+        {
+            return AM_HAL_STATUS_INVALID_ARG;
+        }
+
+        pConfig->eVCOSel = (fVCOClkMHz >= AM_HAL_SYSPLL_VCO_HI_MODE_FREQ_MIN) ? AM_HAL_SYSPLL_VCOSEL_VCOHI :
+                                                                                AM_HAL_SYSPLL_VCOSEL_VCOLO;
 
         pConfig->eFractionMode = bIntMode ? AM_HAL_SYSPLL_FMODE_INTEGER :
                                             AM_HAL_SYSPLL_FMODE_FRACTION;
@@ -370,6 +441,239 @@ am_hal_syspll_config_generate(am_hal_syspll_config_t* pConfig, float fRefClkMHz,
         return AM_HAL_STATUS_FAIL;
     }
 } // am_hal_syspll_config_generate()
+
+//*****************************************************************************
+//
+//! @brief Generate syspll config by targeting minimum frequency that can be
+//!        achieved above ui32MinFVco_Hz specified
+//!
+//! @param pConfig              - pointer to the system PLL Config structure.
+//! @param ui32RefClk_Hz        - system PLL reference clock frequency in Hz
+//! @param ui32FoutPostDiv_Hz   - system PLL FOUTPOSTDIV clock frequency
+//!                               desired in Hz
+//! @param ui32MinFVco_Hz       - FVCO for the generated config must be greater
+//!                               than this frequency
+//!
+//! @return status      - status whether valid configuration is generated
+//
+//*****************************************************************************
+static uint32_t
+am_hal_syspll_config_generate_minFVCO(am_hal_syspll_config_t* pConfig, uint32_t ui32RefClk_Hz, uint32_t ui32FoutPostDiv_Hz, uint32_t ui32MinFVco_Hz)
+{
+    uint32_t ui32Status;
+    uint32_t ui32Div;
+    uint32_t ui32FVco_Hz;
+    uint8_t  ui8PostDiv1;
+    uint8_t  ui8PostDiv2;
+    bool     bIsFrac;
+
+    //
+    // If there is no gcd between source and dest clock, it should be fractional.
+    //
+    bIsFrac = (syspll_config_util_gcd((float)ui32FoutPostDiv_Hz / 1000000, (float)ui32RefClk_Hz / 1000000) < 1.0);
+    if ( bIsFrac )
+    {
+        uint32_t ui32PFDLimitFVco = ui32RefClk_Hz / (ui32RefClk_Hz / UI32_MHZ_TO_UI32_HZ(10));
+        ui32PFDLimitFVco *= 10;
+        if ( ui32PFDLimitFVco > ui32MinFVco_Hz )
+        {
+            ui32MinFVco_Hz = ui32PFDLimitFVco;
+        }
+    }
+
+    //
+    // Calculate Post Divider values
+    //
+    if (ui32FoutPostDiv_Hz >= ui32MinFVco_Hz)
+    {
+        ui32Div     = 1;
+        ui8PostDiv1 = 1;
+        ui8PostDiv2 = 1;
+    }
+    else
+    {
+        // Calculate divider from FVCO
+        ui32Div = ui32MinFVco_Hz / ui32FoutPostDiv_Hz;
+        if ((ui32MinFVco_Hz % ui32FoutPostDiv_Hz) != 0)
+        {
+            ui32Div += 1;
+        }
+
+        // Check whether divider achievable
+        if (ui32Div > AM_HAL_SYSPLL_POST_DIV_TOTAL_MAX)
+        {
+            return AM_HAL_STATUS_OUT_OF_RANGE;
+        }
+
+        // Find smallest possible divider from possible divider combination
+        ui8PostDiv1 = am_hal_syspll_postdiv_to_divider_table[ui32Div];
+        ui8PostDiv2 = (ui8PostDiv1 & 0x0F);
+        ui8PostDiv1 = (ui8PostDiv1 >> 4) & 0x0F;
+        ui32Div = ui8PostDiv1 * ui8PostDiv2;
+    }
+
+    //
+    // Calculate Final FVco
+    //
+    ui32FVco_Hz = ui32FoutPostDiv_Hz * ui32Div;
+
+    //
+    // Generate PLL Configuration
+    //
+    ui32Status = am_hal_syspll_config_generate(pConfig, UI32_HZ_TO_FLT_MHZ(ui32RefClk_Hz), UI32_HZ_TO_FLT_MHZ(ui32FVco_Hz));
+    if (ui32Status == AM_HAL_STATUS_SUCCESS)
+    {
+        // Check for PFD frequency range
+        uint32_t ui32PFDMinFreq = (pConfig->eFractionMode == AM_HAL_SYSPLL_FMODE_FRACTION)? UI32_MHZ_TO_UI32_HZ(10) : UI32_MHZ_TO_UI32_HZ(1);
+        uint32_t ui32PFDFreq = ui32RefClk_Hz / pConfig->ui8RefDiv;
+        if (ui32RefClk_Hz % pConfig->ui8RefDiv != 0)
+        {
+            ui32PFDFreq += 1;
+        }
+
+        if (ui32PFDFreq < ui32PFDMinFreq)
+        {
+            ui32Status = AM_HAL_STATUS_OUT_OF_RANGE;
+        }
+        else
+        {
+            pConfig->ui8PostDiv1 = ui8PostDiv1;
+            pConfig->ui8PostDiv2 = ui8PostDiv2;
+        }
+    }
+
+    return ui32Status;
+}
+
+//*****************************************************************************
+//
+//  Generate system PLL configuration to achieve desired FOUTPOSTDIV
+//
+//*****************************************************************************
+uint32_t
+am_hal_syspll_config_generate_with_postdiv(am_hal_syspll_config_t* pConfig, uint32_t ui32RefClk_Hz, uint32_t ui32FoutPostDiv_Hz)
+{
+    am_hal_syspll_config_t sPLLConfig_LVCO;
+    am_hal_syspll_config_t sPLLConfig_HVCO;
+    am_hal_syspll_config_t *psSelectedConfig = NULL;
+    uint32_t ui32Status;
+    bool sPLLConfig_LVCO_Valid = false;
+    bool sPLLConfig_HVCO_Valid = false;
+
+    //
+    // Generate config for both LOW_SPEED and HIGH_SPEED VCO
+    //
+    ui32Status = am_hal_syspll_config_generate_minFVCO(&sPLLConfig_LVCO, ui32RefClk_Hz, ui32FoutPostDiv_Hz, UI32_MHZ_TO_UI32_HZ(AM_HAL_SYSPLL_VCO_LO_MODE_FREQ_MIN));
+    sPLLConfig_LVCO_Valid = (ui32Status == AM_HAL_STATUS_SUCCESS);
+    ui32Status = am_hal_syspll_config_generate_minFVCO(&sPLLConfig_HVCO, ui32RefClk_Hz, ui32FoutPostDiv_Hz, UI32_MHZ_TO_UI32_HZ(AM_HAL_SYSPLL_VCO_HI_MODE_FREQ_MIN));
+    sPLLConfig_HVCO_Valid = (ui32Status == AM_HAL_STATUS_SUCCESS);
+
+    //
+    // Check result and decide which config to use
+    //
+    if ( sPLLConfig_LVCO_Valid && sPLLConfig_HVCO_Valid )
+    {
+        uint32_t LVCO_PTS;
+        uint32_t HVCO_PTS;
+        uint8_t idx;
+        idx  = (sPLLConfig_LVCO.eFractionMode == AM_HAL_SYSPLL_FMODE_FRACTION) ? 1 : 0;
+        idx += (sPLLConfig_LVCO.eVCOSel == AM_HAL_SYSPLL_VCOSEL_VCOHI) ? 2 : 0;
+        LVCO_PTS  = (ui32RefClk_Hz / 1000000) * AM_HAL_SYSPLL_CFG_PTS_B[idx] / sPLLConfig_LVCO.ui8RefDiv;
+        LVCO_PTS += (ui32FoutPostDiv_Hz * sPLLConfig_LVCO.ui8PostDiv1 * sPLLConfig_LVCO.ui8PostDiv2 / 1000000) * AM_HAL_SYSPLL_CFG_PTS_A[idx];
+
+        idx  = (sPLLConfig_HVCO.eFractionMode == AM_HAL_SYSPLL_FMODE_FRACTION) ? 1 : 0;
+        idx += (sPLLConfig_HVCO.eVCOSel == AM_HAL_SYSPLL_VCOSEL_VCOHI) ? 2 : 0;
+        HVCO_PTS  = (ui32RefClk_Hz / 1000000) * AM_HAL_SYSPLL_CFG_PTS_B[idx] / sPLLConfig_HVCO.ui8RefDiv;
+        HVCO_PTS += (ui32FoutPostDiv_Hz * sPLLConfig_HVCO.ui8PostDiv1 * sPLLConfig_HVCO.ui8PostDiv2 / 1000000) * AM_HAL_SYSPLL_CFG_PTS_A[idx];
+
+        if ( HVCO_PTS > LVCO_PTS )
+        {
+            psSelectedConfig = &sPLLConfig_LVCO;
+        }
+        else
+        {
+            psSelectedConfig = &sPLLConfig_HVCO;
+        }
+    }
+    else if ( sPLLConfig_HVCO_Valid )
+    {
+        psSelectedConfig = &sPLLConfig_HVCO;
+    }
+    else if ( sPLLConfig_LVCO_Valid )
+    {
+        psSelectedConfig = &sPLLConfig_LVCO;
+    }
+
+    //
+    // Copy Config and return result
+    //
+    if ( psSelectedConfig == NULL )
+    {
+        return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
+    else
+    {
+        pConfig->eVCOSel        =  psSelectedConfig->eVCOSel;
+        pConfig->eFractionMode  =  psSelectedConfig->eFractionMode;
+        pConfig->ui8RefDiv      =  psSelectedConfig->ui8RefDiv;
+        pConfig->ui8PostDiv1    =  psSelectedConfig->ui8PostDiv1;
+        pConfig->ui8PostDiv2    =  psSelectedConfig->ui8PostDiv2;
+        pConfig->ui16FBDivInt   =  psSelectedConfig->ui16FBDivInt;
+        pConfig->ui32FBDivFrac  =  psSelectedConfig->ui32FBDivFrac;
+    }
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+uint32_t
+am_hal_syspll_config_generate_postdiv(am_hal_syspll_config_t *pConfig, uint32_t ui32VCO_Hz, uint32_t ui32PostDiv_Hz, uint32_t ui32PPM)
+{
+    uint32_t ui32Div;
+    uint8_t  ui8PostDiv1;
+    uint8_t  ui8PostDiv2;
+
+    //
+    // Calculate divider from FVCO
+    //
+    ui32Div = ui32VCO_Hz / ui32PostDiv_Hz;
+    if ((ui32VCO_Hz % ui32PostDiv_Hz) != 0)
+    {
+        ui32Div += 1;
+    }
+
+    //
+    // Check whether divider achievable
+    //
+    if (ui32Div > AM_HAL_SYSPLL_POST_DIV_TOTAL_MAX)
+    {
+        return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
+
+    // Find smallest possible divider from possible divider combination
+    ui8PostDiv1 = am_hal_syspll_postdiv_to_divider_table[ui32Div];
+    ui8PostDiv2 = (ui8PostDiv1 & 0x0F);
+    ui8PostDiv1 = (ui8PostDiv1 >> 4) & 0x0F;
+
+    if (ui32PostDiv_Hz >= ui32VCO_Hz / (ui8PostDiv1 * ui8PostDiv2))
+    {
+        if (ui32PostDiv_Hz - ui32VCO_Hz / (ui8PostDiv1 * ui8PostDiv2) > ui32PostDiv_Hz * ui32PPM / 1000000)
+        {
+            return AM_HAL_STATUS_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        if (ui32VCO_Hz / (ui8PostDiv1 * ui8PostDiv2) - ui32PostDiv_Hz > ui32PostDiv_Hz * ui32PPM / 1000000)
+        {
+            return AM_HAL_STATUS_OUT_OF_RANGE;
+        }
+    }
+
+    pConfig->ui8PostDiv1 = ui8PostDiv1;
+    pConfig->ui8PostDiv2 = ui8PostDiv2;
+
+    return AM_HAL_STATUS_SUCCESS;
+}
 
 //*****************************************************************************
 //
@@ -413,6 +717,17 @@ am_hal_syspll_initialize(uint32_t ui32Module, void **ppHandle)
     g_SysPLLState[ui32Module].ui32Module = ui32Module;
 
     //
+    // Clear clkgen enable for PLL clock sources
+    //
+    CLKGEN->CLKCTRL_b.PLLVCOEN = CLKGEN_CLKCTRL_PLLVCOEN_NORMALOP;
+    CLKGEN->CLKCTRL_b.PLLDIVEN = CLKGEN_CLKCTRL_PLLDIVEN_NORMALOP;
+
+    //
+    // Enable sysPLL power
+    //
+    am_hal_pwrctrl_syspll_enable();
+
+    //
     // Return the handle.
     //
     *ppHandle = (void *)&g_SysPLLState[ui32Module];
@@ -431,9 +746,6 @@ am_hal_syspll_initialize(uint32_t ui32Module, void **ppHandle)
 uint32_t
 am_hal_syspll_deinitialize(void *pHandle)
 {
-    uint32_t            status = AM_HAL_STATUS_SUCCESS;
-    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
     // Check the handle.
@@ -444,16 +756,24 @@ am_hal_syspll_deinitialize(void *pHandle)
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
+    uint32_t               status = AM_HAL_STATUS_SUCCESS;
+    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
+    bool                    bPowerEnabled = false;
+
+    // Disable PLL if it is still enabled
     if (pSysPLLState->prefix.s.bEnable)
     {
         status = am_hal_syspll_disable(pHandle);
     }
 
     //
-    // Turn off power gates for system PLL.
+    // Turn off power gates for system PLL if it is not yet powered off
     //
-    SYSPLLn(pSysPLLState->ui32Module)->PLLCTL0_b.SYSPLLVDDFPDN = MCUCTRL_PLLCTL0_SYSPLLVDDFPDN_DISABLE;
-    SYSPLLn(pSysPLLState->ui32Module)->PLLCTL0_b.SYSPLLVDDHPDN = MCUCTRL_PLLCTL0_SYSPLLVDDHPDN_DISABLE;
+    am_hal_pwrctrl_syspll_enabled(&bPowerEnabled);
+    if (bPowerEnabled)
+    {
+        am_hal_pwrctrl_syspll_disable();
+    }
 
     //
     // Clear inititalized flag
@@ -469,54 +789,12 @@ am_hal_syspll_deinitialize(void *pHandle)
 
 //*****************************************************************************
 //
-// Power control function
-//
-//*****************************************************************************
-uint32_t
-am_hal_syspll_power_control(void *pHandle, am_hal_sysctrl_power_state_e ePowerState)
-{
-    #ifndef AM_HAL_DISABLE_API_VALIDATION
-    //
-    // Check the handle.
-    //
-    if (!AM_HAL_SYSPLL_CHK_HANDLE(pHandle))
-    {
-        return AM_HAL_STATUS_INVALID_HANDLE;
-    }
-    #endif // AM_HAL_DISABLE_API_VALIDATION
-
-    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
-    uint32_t ui32RetStatus = AM_HAL_STATUS_SUCCESS;
-
-    switch (ePowerState)
-    {
-        case AM_HAL_SYSCTRL_WAKE:
-            ui32RetStatus = am_hal_pwrctrl_syspll_enable();
-            break;
-
-        case AM_HAL_SYSCTRL_NORMALSLEEP:
-        case AM_HAL_SYSCTRL_DEEPSLEEP:
-            ui32RetStatus = am_hal_pwrctrl_syspll_disable();
-            break;
-
-        default:
-            ui32RetStatus = AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    return ui32RetStatus;
-} // am_hal_syspll_power_control
-
-//*****************************************************************************
-//
 // System PLL enable function
 //
 //*****************************************************************************
 uint32_t
 am_hal_syspll_enable(void *pHandle)
 {
-    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
-    uint32_t                ui32Module   = pSysPLLState->ui32Module;
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
     // Check the handle.
@@ -525,6 +803,10 @@ am_hal_syspll_enable(void *pHandle)
     {
         return AM_HAL_STATUS_INVALID_HANDLE;
     }
+#endif // AM_HAL_DISABLE_API_VALIDATION
+
+    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
+    uint32_t                ui32Module   = pSysPLLState->ui32Module;
 
     //
     // System PLL is already enabled, return success.
@@ -533,26 +815,19 @@ am_hal_syspll_enable(void *pHandle)
     {
         return AM_HAL_STATUS_SUCCESS;
     }
-#endif // AM_HAL_DISABLE_API_VALIDATION
 
     //
     // Check and make sure SIMOBUCK is active.It is expected that SIMOBUCK
     // init is triggered before syspll is enabled, hence SIMOBUCK should always
     // be active other than in deep sleep state.
     //
-    // #### INTERNAL BEGIN ####
-    // This handling is to workaround CAB-1095 to make sure that SIMOBUCK is
-    // forced active when System PLL is enabled. Since SIMOBUCK is already
-    // forced active unless in deep sleep mode in the SDK, we reuse the same
-    // handling, and do checking on whether it is properly forced.
-    // #### INTERNAL END ####
-    if ((MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE != 1) ||
-        (MCUCTRL->VRCTRL_b.SIMOBUCKRSTB != 1) ||
-        (MCUCTRL->VRCTRL_b.SIMOBUCKPDNB != 1) ||
-        (MCUCTRL->VRCTRL_b.SIMOBUCKOVER != 1))
-    {
-        return AM_HAL_STATUS_INVALID_OPERATION;
-    }
+    // if ((MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE != 1) ||
+    //     (MCUCTRL->VRCTRL_b.SIMOBUCKRSTB != 1) ||
+    //     (MCUCTRL->VRCTRL_b.SIMOBUCKPDNB != 1) ||
+    //     (MCUCTRL->VRCTRL_b.SIMOBUCKOVER != 1))
+    // {
+    //     return AM_HAL_STATUS_INVALID_OPERATION;
+    // }
 
     //
     // Enable the SystemPLL.
@@ -579,9 +854,6 @@ am_hal_syspll_enable(void *pHandle)
 uint32_t
 am_hal_syspll_disable(void *pHandle)
 {
-    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
-    uint32_t                ui32Module   = pSysPLLState->ui32Module;
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
     // Check the handle.
@@ -591,6 +863,9 @@ am_hal_syspll_disable(void *pHandle)
         return AM_HAL_STATUS_INVALID_HANDLE;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
+
+    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
+    uint32_t                ui32Module   = pSysPLLState->ui32Module;
 
     //
     // Disable the system PLL.
@@ -617,9 +892,6 @@ am_hal_syspll_disable(void *pHandle)
 uint32_t
 am_hal_syspll_configure(void *pHandle, am_hal_syspll_config_t *psConfig)
 {
-    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
-    uint32_t                ui32Module   = pSysPLLState->ui32Module;
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
     // Check the handle.
@@ -629,6 +901,9 @@ am_hal_syspll_configure(void *pHandle, am_hal_syspll_config_t *psConfig)
         return AM_HAL_STATUS_INVALID_HANDLE;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
+
+    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
+    uint32_t                ui32Module   = pSysPLLState->ui32Module;
 
     //
     // Configuration can only be changed when system PLL not enabled
@@ -681,18 +956,31 @@ am_hal_syspll_configure(void *pHandle, am_hal_syspll_config_t *psConfig)
     // Write configuration into register
     //
     SYSPLLn(ui32Module)->PLLCTL0_b.VCOSELECT = psConfig->eVCOSel;
-    SYSPLLn(ui32Module)->PLLCTL0_b.FREFSEL = psConfig->eFref;
-    SYSPLLn(ui32Module)->PLLCTL0_b.DSMPD = psConfig->eFractionMode;
-    SYSPLLn(ui32Module)->PLLDIV0_b.FRAC = psConfig->ui32FBDivFrac;
-    SYSPLLn(ui32Module)->PLLDIV1_b.FBDIV = psConfig->ui16FBDivInt;
-    SYSPLLn(ui32Module)->PLLDIV1_b.REFDIV = psConfig->ui8RefDiv;
-    SYSPLLn(ui32Module)->PLLDIV1_b.POSTDIV1 = psConfig->ui8PostDiv1;
-    SYSPLLn(ui32Module)->PLLDIV1_b.POSTDIV2 = psConfig->ui8PostDiv2;
+    SYSPLLn(ui32Module)->PLLCTL0_b.FREFSEL   = psConfig->eFref;
+    SYSPLLn(ui32Module)->PLLCTL0_b.DSMPD     = psConfig->eFractionMode;
+    SYSPLLn(ui32Module)->PLLDIV0_b.FRAC      = psConfig->ui32FBDivFrac;
+    SYSPLLn(ui32Module)->PLLDIV1_b.FBDIV     = psConfig->ui16FBDivInt;
+    SYSPLLn(ui32Module)->PLLDIV1_b.REFDIV    = psConfig->ui8RefDiv;
+    SYSPLLn(ui32Module)->PLLDIV1_b.POSTDIV1  = psConfig->ui8PostDiv1;
+    SYSPLLn(ui32Module)->PLLDIV1_b.POSTDIV2  = psConfig->ui8PostDiv2;
+
+    //
+    // Make sure noise cancelling ADC is powered ON
+    //
+    SYSPLLn(ui32Module)->PLLCTL0_b.DACPD = MCUCTRL_PLLCTL0_DACPD_ACTIVE;
 
     //
     // Power Down FOUT_VCO out of system PLL since we will not be needing it
     //
-    SYSPLLn(ui32Module)->PLLCTL0_b.FOUTVCOPD = MCUCTRL_PLLCTL0_FOUTVCOPD_POWERDOWN;
+    SYSPLLn(ui32Module)->PLLCTL0_b.FOUTVCOPD     = (psConfig->bVCOOutEnable)? MCUCTRL_PLLCTL0_FOUTVCOPD_ACTIVE: MCUCTRL_PLLCTL0_FOUTVCOPD_POWERDOWN;
+    SYSPLLn(ui32Module)->PLLCTL0_b.FOUTPOSTDIVPD = (psConfig->bPostDivOutEnable) ? MCUCTRL_PLLCTL0_FOUTPOSTDIVPD_ACTIVE : MCUCTRL_PLLCTL0_FOUTPOSTDIVPD_POWERDOWN;
+    SYSPLLn(ui32Module)->PLLCTL0_b.FOUT4PHASEPD  = (psConfig->bPostDivOutEnable) ? MCUCTRL_PLLCTL0_FOUT4PHASEPD_ACTIVE : MCUCTRL_PLLCTL0_FOUT4PHASEPD_POWERDOWN;
+
+    //
+    // Override clk_gen pll clock enable according to config requested
+    //
+    CLKGEN->CLKCTRL_b.PLLVCOEN = (psConfig->bVCOOutEnable) ? CLKGEN_CLKCTRL_PLLVCOEN_ENABLE : CLKGEN_CLKCTRL_PLLVCOEN_NORMALOP;
+    CLKGEN->CLKCTRL_b.PLLDIVEN = (psConfig->bPostDivOutEnable) ? CLKGEN_CLKCTRL_PLLDIVEN_ENABLE : CLKGEN_CLKCTRL_PLLDIVEN_NORMALOP;
 
     //
     // Return status.
@@ -709,9 +997,6 @@ am_hal_syspll_configure(void *pHandle, am_hal_syspll_config_t *psConfig)
 uint32_t
 am_hal_syspll_lock_read(void *pHandle, bool *pll_ready)
 {
-    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
-    uint32_t                ui32Module   = pSysPLLState->ui32Module;
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
     // Check the handle.
@@ -721,6 +1006,9 @@ am_hal_syspll_lock_read(void *pHandle, bool *pll_ready)
         return AM_HAL_STATUS_INVALID_HANDLE;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
+
+    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
+    uint32_t                ui32Module   = pSysPLLState->ui32Module;
 
     //
     // Read system PLL lock status into bool pointed by pll_ready
@@ -736,15 +1024,12 @@ am_hal_syspll_lock_read(void *pHandle, bool *pll_ready)
 
 //*****************************************************************************
 //
-// System PLL refClk bypass function
+// System PLL Lock Wait according to VCO input clock and operation mode
 //
 //*****************************************************************************
 uint32_t
-am_hal_syspll_bypass_set(void *pHandle, bool bBypass)
+am_hal_syspll_lock_wait(void *pHandle)
 {
-    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
-    uint32_t                ui32Module = pSysPLLState->ui32Module;
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
     // Check the handle.
@@ -754,6 +1039,58 @@ am_hal_syspll_bypass_set(void *pHandle, bool bBypass)
         return AM_HAL_STATUS_INVALID_HANDLE;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
+
+    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
+    uint32_t ui32Module = pSysPLLState->ui32Module;
+    am_hal_syspll_vcosel_e eVCOSel = (am_hal_syspll_vcosel_e)SYSPLLn(ui32Module)->PLLCTL0_b.VCOSELECT;
+    uint8_t ui8RefDiv   = SYSPLLn(ui32Module)->PLLDIV1_b.REFDIV;
+
+    //
+    // Check System PLL enabled
+    //
+    if (SYSPLLn(ui32Module)->PLLCTL0_b.SYSPLLPDB != MCUCTRL_PLLCTL0_SYSPLLPDB_ENABLE)
+    {
+        return AM_HAL_STATUS_INVALID_OPERATION;
+    }
+
+    //
+    // Calculate Maximum time to wait for PLL Lock
+    //
+    uint32_t ui32LockTimeoutUs = ( eVCOSel == AM_HAL_SYSPLL_VCOSEL_VCOHI) ? AM_HAL_SYSPLL_MAX_LOCK_CYCLE_VCOSEL1 :
+                                                                            AM_HAL_SYSPLL_MAX_LOCK_CYCLE_VCOSEL0;
+    ui32LockTimeoutUs = ui32LockTimeoutUs * ui8RefDiv;
+    ui32LockTimeoutUs = (ui32LockTimeoutUs + (AM_HAL_SYSPLL_CLOCK_SRC_MIN_MHZ - 1)) / AM_HAL_SYSPLL_CLOCK_SRC_MIN_MHZ;
+
+    //
+    // PLL lock wait with timeout
+    //
+    return am_hal_delay_us_status_check(ui32LockTimeoutUs,
+                                        (uint32_t)&SYSPLLn(ui32Module)->PLLSTAT,
+                                        MCUCTRL_PLLSTAT_LOCK_Msk,
+                                        MCUCTRL_PLLSTAT_LOCK_Msk,
+                                        true);
+} // am_hal_syspll_lock_wait()
+
+//*****************************************************************************
+//
+// System PLL refClk bypass function
+//
+//*****************************************************************************
+uint32_t
+am_hal_syspll_bypass_set(void *pHandle, bool bBypass)
+{
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+    //
+    // Check the handle.
+    //
+    if (!AM_HAL_SYSPLL_CHK_HANDLE(pHandle))
+    {
+        return AM_HAL_STATUS_INVALID_HANDLE;
+    }
+#endif // AM_HAL_DISABLE_API_VALIDATION
+
+    am_hal_syspll_state_t  *pSysPLLState = (am_hal_syspll_state_t *)pHandle;
+    uint32_t                ui32Module = pSysPLLState->ui32Module;
 
     //
     // Set Bypass Setting into system PLL register
@@ -766,112 +1103,6 @@ am_hal_syspll_bypass_set(void *pHandle, bool bBypass)
     return AM_HAL_STATUS_SUCCESS;
 
 } // am_hal_syspll_bypass_set()
-
-//*****************************************************************************
-//
-// System PLL Mux select
-// Note: Do not call this function directly. Use respective module's HAL to
-//       select the clock. Calling this directly might cause clock malfunction.
-//
-//*****************************************************************************
-uint32_t
-am_hal_syspll_mux_select(am_hal_syspll_mux_select_e eMuxSel)
-{
-    //
-    // Set Mux Select Setting into each of the Mux Select
-    //
-    switch(eMuxSel)
-    {
-        case AM_HAL_SYSPLL_LLMUX_PDM_SRC_PLL:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.PDMPLLCLKSEL = MCUCTRL_PLLMUXCTL_PDMPLLCLKSEL_PLL;
-            break;
-        case AM_HAL_SYSPLL_LLMUX_PDM_SRC_HFRC:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.PDMPLLCLKSEL = MCUCTRL_PLLMUXCTL_PDMPLLCLKSEL_HFRC;
-            break;
-        case AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.PDMPLLCLKSEL = MCUCTRL_PLLMUXCTL_PDMPLLCLKSEL_CLKGEN;
-            break;
-        case AM_HAL_SYSPLL_LLMUX_USB_SRC_PLL:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.USBPLLCLKSEL = MCUCTRL_PLLMUXCTL_USBPLLCLKSEL_PLL;
-            break;
-        case AM_HAL_SYSPLL_LLMUX_USB_SRC_CLKGEN:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.USBPLLCLKSEL = MCUCTRL_PLLMUXCTL_USBPLLCLKSEL_CLKGEN;
-            break;
-        case AM_HAL_SYSPLL_LLMUX_I2S0_SRC_PLL_FOUT4:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.I2S0PLLCLKSEL = MCUCTRL_PLLMUXCTL_I2S0PLLCLKSEL_PLLFOUT4;
-            break;
-        case AM_HAL_SYSPLL_LLMUX_I2S0_SRC_PLL_FOUT3:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.I2S0PLLCLKSEL = MCUCTRL_PLLMUXCTL_I2S0PLLCLKSEL_PLLFOUT3;
-            break;
-        case AM_HAL_SYSPLL_LLMUX_I2S0_SRC_CLKGEN:
-            SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.I2S0PLLCLKSEL = MCUCTRL_PLLMUXCTL_I2S0PLLCLKSEL_CLKGEN;
-            break;
-    }
-
-    //
-    // Return status.
-    //
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_syspll_mux_select()
-
-//*****************************************************************************
-//
-// System PLL Mux Get
-//
-//*****************************************************************************
-uint32_t
-am_hal_syspll_mux_get(am_hal_syspll_mux_output_e eMuxOut, am_hal_syspll_mux_select_e *pEMuxSel)
-{
-    switch(eMuxOut)
-    {
-        case AM_HAL_SYSPLL_LLMUX_OUT_PDM:
-            switch ((MCUCTRL_PLLMUXCTL_PDMPLLCLKSEL_Enum)SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.PDMPLLCLKSEL)
-            {
-                case MCUCTRL_PLLMUXCTL_PDMPLLCLKSEL_PLL:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_PDM_SRC_PLL;
-                    break;
-                case MCUCTRL_PLLMUXCTL_PDMPLLCLKSEL_HFRC:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_PDM_SRC_HFRC;
-                    break;
-                case MCUCTRL_PLLMUXCTL_PDMPLLCLKSEL_CLKGEN:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN;
-                    break;
-            }
-            break;
-        case AM_HAL_SYSPLL_LLMUX_OUT_USB:
-            switch ((MCUCTRL_PLLMUXCTL_USBPLLCLKSEL_Enum)SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.USBPLLCLKSEL)
-            {
-                case MCUCTRL_PLLMUXCTL_USBPLLCLKSEL_PLL:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_USB_SRC_PLL;
-                    break;
-                case MCUCTRL_PLLMUXCTL_USBPLLCLKSEL_CLKGEN:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_USB_SRC_CLKGEN;
-                    break;
-            }
-            break;
-        case AM_HAL_SYSPLL_LLMUX_OUT_I2S0:
-            switch ((MCUCTRL_PLLMUXCTL_I2S0PLLCLKSEL_Enum)SYSPLLn(AM_HAL_SYSPLL_MODULE_NUM)->PLLMUXCTL_b.I2S0PLLCLKSEL)
-            {
-                case MCUCTRL_PLLMUXCTL_I2S0PLLCLKSEL_PLLFOUT4:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_I2S0_SRC_PLL_FOUT4;
-                    break;
-                case MCUCTRL_PLLMUXCTL_I2S0PLLCLKSEL_PLLFOUT3:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_I2S0_SRC_PLL_FOUT3;
-                    break;
-                case MCUCTRL_PLLMUXCTL_I2S0PLLCLKSEL_CLKGEN:
-                    *pEMuxSel = AM_HAL_SYSPLL_LLMUX_I2S0_SRC_CLKGEN;
-                    break;
-            }
-            break;
-    }
-
-    //
-    // Return status.
-    //
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_syspll_mux_get()
 
 //*****************************************************************************
 //

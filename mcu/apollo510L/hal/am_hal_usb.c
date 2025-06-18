@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -23,25 +50,28 @@
 #include <string.h>
 
 #include "am_mcu_apollo.h"
+#include "mcu/am_hal_crm_private.h"
+//
+//! For Apollo5, the USB controller is sending STATUS stage ACK automatically
+//! when DATA stage of CONTROL_TRANSFER is completed.
+//!
+//! This flag states whether USB Stack (and its porting) that controls the USB
+//! HAL will explicitly trigger a zero-length transaction during STATUS stage
+//! as indication of STATUS stage ACK.
+//!
+//! If the USB stack does not issue zero-length transaction during STATUS stage,
+//! enable the #define AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK below.
+//!
+//! Note: This selection is only here for compatibility between HAL and Stack.
+//!       The USB controller will send STATUS ACK to USB Host regardless of the
+//!       selection.
+//
+// #define AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
 
 #ifdef __ZEPHYR__
 #define AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
 #endif
 
-// #### INTERNAL BEGIN ####
-// USB PHY reference clock expected is 12MHz, there are 12 clock cycles in 1us.
-// Hence, 1us is more than enough for CRM clock to go inactive.
-// #### INTERNAL END ####
-#define AM_HAL_USB_PHYREFCLK_CRM_CLK_OFF_MAX_WAIT_US  (1)
-// #### INTERNAL BEGIN ####
-// USB APB clock is 96MHz, there are 96MHz clock cycles in 1us. Hence, 1us is
-// more than enough for APB clock active to be uo.
-// #### INTERNAL END ####
-#define AM_HAL_USB_APB_CRM_CLK_OFF_MAX_WAIT_US (1)
-#define AM_HAL_USB_APB_CRM_CLK_ACTIVE_MAX_WAIT_US (1)
-
-#define ENABLE_IN_DOUBLE_PACKET
-#define ENABLE_OUT_DOUBLE_PACKET
 //*****************************************************************
 //
 //! @name USB State
@@ -50,15 +80,13 @@
 //*****************************************************************
 #define AM_HAL_MAGIC_USB 0xEA9E06
 
-#define USBn(n) ((USB_Type*)(USB_BASE + (n * (USB_BASE - USB_BASE))))
-
 #define AM_HAL_USB_CHK_HANDLE(h)                                         \
 ((h) &&                                                                  \
 ((am_hal_handle_prefix_t *)(h))->s.bInit &&                              \
 (((am_hal_handle_prefix_t *)(h))->s.magic == AM_HAL_MAGIC_USB))
 
-#define AM_HAL_USB_ENTER_CRITICAL NVIC_DisableIRQ(USB0_IRQn)
-#define AM_HAL_USB_EXIT_CRITICAL  NVIC_EnableIRQ(USB0_IRQn)
+#define AM_HAL_USB_ENTER_CRITICAL uint32_t __uiIRQEnabled = NVIC_GetEnableIRQ(USB0_IRQn); NVIC_DisableIRQ(USB0_IRQn);
+#define AM_HAL_USB_EXIT_CRITICAL  if (__uiIRQEnabled) { NVIC_EnableIRQ(USB0_IRQn); }
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -98,10 +126,25 @@
 //! @}
 //*****************************************************************************
 
+#ifdef AM_HAL_USB_TEST_MODE_ENABLED
+//
+//! USB test mode defines
+//
+#define USB_REQ_SET_FEATURE         (3)
+#define USB_REQ_FEATURE_TEST_MODE   (2)
+#define USB_REQ_TEST_MODE_J         (1)
+#define USB_REQ_TEST_MODE_K         (2)
+#define USB_REQ_TEST_MODE_SE0NAK    (3)
+#define USB_REQ_TEST_MODE_TESTPKT   (4)
+#endif
+
 //
 //! USB workaround and feature macros
 //
-#undef AM_HAL_USB_FEATURE_EP_READ_TIMEOUT
+
+// Enable EP_OUT Timeout detection for DMA Mode 1. This is used to handle cases
+// where host is sending data in multiple of MAX_PAYLOAD_SIZE without ZLP.
+#define ENABLE_ADMA_OUT_XFER_END_DETECTION
 #define AM_HAL_USB_TIMEOUT 2
 
 #define SWAP_WORD(a)  (a << 24) | ((a << 8) & 0xff0000) | ((a >> 8) & 0xff00) | (a >> 24)
@@ -127,6 +170,16 @@ am_hal_usb_ep0_state_e;
 
 //*****************************************************************************
 //
+//! Default USB PHY Tuning values
+//
+//*****************************************************************************
+#define AM_HAL_USB_PHY_DEFAULT_PREEMP_ENABLE_STATE      (AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_SOF_EOP)
+#define AM_HAL_USB_PHY_DEFAULT_R_ODT_TUNE_VALUE         (AM_HAL_USB_PHY_R_ODT_VAL_5)
+#define AM_HAL_USB_PHY_DEFAULT_HS_EYE_HEIGHT_TUNE_VALUE (AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P5000V)
+#define AM_HAL_USB_PHY_DEFAULT_HS_SQUELCH_TUNE_VALUE    (AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1500V)
+
+//*****************************************************************************
+//
 //! Endpoint Transfer Info
 //
 //*****************************************************************************
@@ -135,10 +188,6 @@ typedef struct
     uint8_t *buf;
     uint32_t len;
     uint32_t remaining;
-#ifdef AM_HAL_USB_FEATURE_EP_READ_TIMEOUT
-    bool xfer_started;
-    uint8_t timeout;
-#endif
     struct
     {
         uint8_t busy:1;
@@ -146,6 +195,13 @@ typedef struct
         uint8_t dir:1;
         uint8_t lastpkt:1;
     } flags;
+
+    #ifdef ENABLE_ADMA_OUT_XFER_END_DETECTION
+    // Timeout counter for ADMA OUT_EP xfer
+    uint32_t pLastBufAddr;
+    uint32_t pStartBufAddr;
+    uint32_t timeout_counter;
+    #endif
 }
 am_hal_usb_ep_xfer_t;
 
@@ -168,6 +224,62 @@ typedef struct
     } regEndPoints[AM_HAL_USB_EP_MAX_NUMBER];
 }
 am_hal_usb_register_state_t;
+
+//*****************************************************************************
+//
+//! USB SOF Interrupt requests
+//
+//*****************************************************************************
+typedef union
+{
+    uint8_t sofIntrReq;
+    struct
+    {
+        uint8_t stack   : 1;
+        uint8_t out_ep  : AM_HAL_USB_EP_MAX_NUMBER;
+    }sofIntrReq_b;
+}
+am_hal_usb_sof_request_t;
+
+//*****************************************************************************
+//
+//! USB Endpoint Double Buffer Enable
+//
+//*****************************************************************************
+typedef union
+{
+    uint8_t en;
+    struct
+    {
+        uint8_t ep1: 1;
+        uint8_t ep2: 1;
+        uint8_t ep3: 1;
+        uint8_t ep4: 1;
+        uint8_t ep5: 1;
+    }en_b;
+}
+am_hal_usb_dbugger_enable_t;
+
+typedef struct
+{
+    am_hal_usb_dbugger_enable_t in_ep;
+    am_hal_usb_dbugger_enable_t out_ep;
+}
+am_hal_usb_dbuffer_config_t;
+
+//*****************************************************************************
+//
+//! USB PHY Tuning Parameters data structure
+//
+//*****************************************************************************
+typedef struct
+{
+    am_hal_usb_phy_preempt_enable_state_e ePreempEnState;
+    am_hal_usb_phy_rodt_tuning_val_e eRodtTuning;
+    am_hal_usb_phy_hs_eye_height_tuning_e eHsEyeHeight;
+    am_hal_usb_phy_hs_squelch_tuning_e eHsSquelch;
+}
+am_hal_usb_phy_tuning_param_t;
 
 //*****************************************************************************
 //
@@ -208,18 +320,42 @@ typedef struct
     //! Endpoint transfer complete callback
     am_hal_usb_ep_xfer_complete_callback ep_xfer_complete_callback;
 
-#ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
+    #ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
     bool bPendingInEndData;
     bool bPendingOutEndData;
-#endif
+    #endif
+
+    //! SOF interrupt requested
+    am_hal_usb_sof_request_t sofReq;
+
+    //! Double Buffer Setting for endpoints
+    am_hal_usb_dbuffer_config_t sDBufferConfig;
+
+    //! Keep pending OUT EP interrupt for later retrieval
+    uint32_t ui32PendingIntrOut;
 
     //! USB PHY reference clock selection
-    am_hal_usb_phy_ref_clk_src_e eUsbPhyRefClkSel;
-    am_hal_usb_phy_ref_clk_div_e eUsbPhyRefClkDiv;
+    am_hal_usb_phyclksrc_e eUsbPhyRefClkSel;
+    am_hal_usb_phyclksrc_div_e eUsbPhyRefClkDiv;
+
+    //! USB PHY clock requested from clock manager
+    am_hal_clkmgr_clock_id_e ePhyClkRequested;
+
+    //! USB PHY Electrical Tuning Parameters
+    am_hal_usb_phy_tuning_param_t sPhyTuning;
 }
 am_hal_usb_state_t;
 
-static am_hal_usb_state_t g_am_hal_usb_states[AM_REG_USB_NUM_MODULES];
+static am_hal_usb_state_t g_am_hal_usb_states[AM_REG_USB_NUM_MODULES] = {0};
+static am_hal_usb_phy_tuning_param_t g_am_hal_usb_phy_tuning_param[AM_REG_USB_NUM_MODULES] =
+    {
+        {
+            .ePreempEnState = AM_HAL_USB_PHY_DEFAULT_PREEMP_ENABLE_STATE,
+            .eRodtTuning = AM_HAL_USB_PHY_DEFAULT_R_ODT_TUNE_VALUE,
+            .eHsEyeHeight = AM_HAL_USB_PHY_DEFAULT_HS_EYE_HEIGHT_TUNE_VALUE,
+            .eHsSquelch = AM_HAL_USB_PHY_DEFAULT_HS_SQUELCH_TUNE_VALUE,
+        }
+    };
 
 //*****************************************************************************
 //
@@ -240,8 +376,6 @@ am_hal_usb_dma0_queue_t;
 static am_hal_queue_t g_sUSBDMA0Queue;
 static am_hal_usb_dma0_queue_t g_psUSBDMA0QueueMem[MAX_DMA0_QUEUE_SIZE];
 static bool g_bUSBDMA0Busy = false;
-
-
 
 //*****************************************************************************
 //
@@ -283,7 +417,7 @@ static bool g_bUSBDMA0Busy = false;
 #define POWER_SuspendMode(pUSB)                *((volatile uint8_t *)&(pUSB->CFG0) + 1) &   (USB_CFG0_Suspen_Msk >> 8)
 #define POWER_EnableSuspendM_Set(pUSB)         *((volatile uint8_t *)&(pUSB->CFG0) + 1) |=  (USB_CFG0_Enabl_Msk >> 8)
 
-#define INTRIN_Get(pUSB)                       *((volatile uint16_t *)&(pUSB->CFG0) + 1) & AM_HAL_USB_EP_MASK
+#define INTRIN_Get(pUSB)                       (*((volatile uint16_t *)&(pUSB->CFG0) + 1) & AM_HAL_USB_EP_MASK)
 #define INTRIN_Clear(pUSB)                     INTRIN_Get(pUSB)
 //*****************************************************************************
 //! @}
@@ -301,7 +435,7 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define INTROUT_Get(pUSB)                      *((volatile uint8_t *)&(pUSB->CFG1)) & AM_HAL_USB_EP_MASK
+#define INTROUT_Get(pUSB)                      (*((volatile uint8_t *)&(pUSB->CFG1)) & AM_HAL_USB_EP_MASK)
 #define INTROUT_Clear(pUSB)                    INTROUT_Get(pUSB)
 //*****************************************************************************
 //! @}
@@ -315,7 +449,7 @@ static bool g_bUSBDMA0Busy = false;
 //*****************************************************************************
 #define INTRINE_Enable(pUSB, v)                *((volatile uint16_t *)&(pUSB->CFG1) + 1) |= ((v) & AM_HAL_USB_EP_MASK)
 #define INTRINE_Disable(pUSB, v)               *((volatile uint16_t *)&(pUSB->CFG1) + 1) &= (~(v) & AM_HAL_USB_EP_MASK)
-#define INTRINE_Get(pUSB)                      *((volatile uint16_t *)&(pUSB->CFG1) + 1) & AM_HAL_USB_EP_MASK
+#define INTRINE_Get(pUSB)                      (*((volatile uint16_t *)&(pUSB->CFG1) + 1) & AM_HAL_USB_EP_MASK)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -334,7 +468,7 @@ static bool g_bUSBDMA0Busy = false;
 //*****************************************************************************
 #define INTROUTE_Enable(pUSB, v)               *((volatile uint8_t *)&(pUSB->CFG2)) |= ((v) & AM_HAL_USB_EP_MASK)
 #define INTROUTE_Disable(pUSB, v)              *((volatile uint8_t *)&(pUSB->CFG2)) &= (~(v) & AM_HAL_USB_EP_MASK)
-#define INTROUTE_Get(pUSB)                     *((volatile uint8_t *)&(pUSB->CFG2)) & AM_HAL_USB_EP_MASK
+#define INTROUTE_Get(pUSB)                     (*((volatile uint8_t *)&(pUSB->CFG2)) & AM_HAL_USB_EP_MASK)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -345,7 +479,7 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define INTRUSB_Get(pUSB)                      *((volatile uint8_t *)&(pUSB->CFG2) + 2) & 0xF
+#define INTRUSB_Get(pUSB)                      (*((volatile uint8_t *)&(pUSB->CFG2) + 2) & 0xF)
 #define INTRUSB_Clear(pUSB)                    INTRUSB_Get(pUSB)
 //*****************************************************************************
 //! @}
@@ -369,7 +503,7 @@ static bool g_bUSBDMA0Busy = false;
 #define INTRUSBE_Enable(pUSB, v)               *((volatile uint8_t *)&(pUSB->CFG2) + 3) |= ((v) & 0xF)
 #define INTRUSBE_Disable(pUSB, v)              *((volatile uint8_t *)&(pUSB->CFG2) + 3) &= (~(v) & 0xF)
 
-#define INTRUSBE_Get(pUSB)                     *((volatile uint8_t *)&(pUSB->CFG2) + 3) & 0xF
+#define INTRUSBE_Get(pUSB)                     (*((volatile uint8_t *)&(pUSB->CFG2) + 3) & 0xF)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -406,6 +540,11 @@ static bool g_bUSBDMA0Busy = false;
 //
 // IDX0 registers
 //
+#define IDX0_NO_SET_BITMASK                 (USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
+#define IDX0_NO_CLEAR_BITMASK               (USB_IDX0_UnderRunSentStall_Msk)
+#define USB_IDX0_GET_MASK(msk)              (pUSB->IDX0 & msk)
+#define USB_IDX0_SET_MASK_WITH_PROTECT(msk) (pUSB->IDX0 = ((pUSB->IDX0 & ~IDX0_NO_SET_BITMASK) | IDX0_NO_CLEAR_BITMASK) |  (msk))
+#define USB_IDX0_CLR_MASK_WITH_PROTECT(msk) (pUSB->IDX0 = ((pUSB->IDX0 & ~IDX0_NO_SET_BITMASK) | IDX0_NO_CLEAR_BITMASK) & ~(msk))
 
 //*****************************************************************************
 //
@@ -413,22 +552,21 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define CSR0_ServicedSetupEnd_Set(pUSB)         pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_IncompTxServiceSetupEnd_Msk
-#define CSR0_ServicedOutPktRdy_Set(pUSB)        pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_ClrDataTogServicedOutPktRdy_Msk
-#define CSR0_ServicedOutPktRdy(pUSB)            pUSB->IDX0 & USB_IDX0_ClrDataTogServicedOutPktRdy_Msk
-#define CSR0_SendStall_Set(pUSB)                pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_SentStallSendStall_Msk
-#define CSR0_SetupEnd(pUSB)                    (pUSB->IDX0 &   USB_IDX0_SendStallSetupEnd_Msk)
-
-#define CSR0_DataEnd_Set(pUSB)                  pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_FlushFIFODataEnd_Msk
-#define CSR0_SentStall(pUSB)                   (pUSB->IDX0 &   USB_IDX0_UnderRunSentStall_Msk)
-#define CSR0_SentStall_Clear(pUSB)              pUSB->IDX0 &= ~(USB_IDX0_UnderRunSentStall_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define CSR0_InPktRdy(pUSB)                    (pUSB->IDX0 &   USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define CSR0_InPktRdy_Set(pUSB)                 pUSB->IDX0 = (pUSB->IDX0 & ~USB_IDX0_InPktRdyOutPktRdy_Msk) | USB_IDX0_FIFONotEmptyInPktRdy_Msk
-#define CSR0_OutPktRdy(pUSB)                   (pUSB->IDX0 &   USB_IDX0_InPktRdyOutPktRdy_Msk)
-#define CSR0_OutPktRdy_Set(pUSB)                pUSB->IDX0 = (pUSB->IDX0 & ~USB_IDX0_FIFONotEmptyInPktRdy_Msk) | USB_IDX0_InPktRdyOutPktRdy_Msk
-#define CSR0_ServicedOutPktRdyAndDataEnd_Set(pUSB)    pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | (USB_IDX0_ClrDataTogServicedOutPktRdy_Msk | USB_IDX0_FlushFIFODataEnd_Msk)
-#define CSR0_InPktRdyAndDataEnd_Set(pUSB)             pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | (USB_IDX0_FIFONotEmptyInPktRdy_Msk | USB_IDX0_FlushFIFODataEnd_Msk)
-#define CSR0_ServicedOutPktRdyAndSendStall_Set(pUSB)  pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | (USB_IDX0_ClrDataTogServicedOutPktRdy_Msk | USB_IDX0_SentStallSendStall_Msk)
+#define CSR0_ServicedSetupEnd_Set(pUSB)               USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_IncompTxServiceSetupEnd_Msk)
+#define CSR0_ServicedOutPktRdy_Set(pUSB)              USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_ClrDataTogServicedOutPktRdy_Msk)
+#define CSR0_ServicedOutPktRdy(pUSB)                  USB_IDX0_GET_MASK(USB_IDX0_ClrDataTogServicedOutPktRdy_Msk)
+#define CSR0_SendStall_Set(pUSB)                      USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_SentStallSendStall_Msk)
+#define CSR0_SetupEnd(pUSB)                           USB_IDX0_GET_MASK(USB_IDX0_SendStallSetupEnd_Msk)
+#define CSR0_DataEnd_Set(pUSB)                        USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_FlushFIFODataEnd_Msk)
+#define CSR0_SentStall(pUSB)                          USB_IDX0_GET_MASK(USB_IDX0_UnderRunSentStall_Msk)
+#define CSR0_SentStall_Clear(pUSB)                    USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_UnderRunSentStall_Msk)
+#define CSR0_InPktRdy(pUSB)                           USB_IDX0_GET_MASK(USB_IDX0_FIFONotEmptyInPktRdy_Msk)
+#define CSR0_InPktRdy_Set(pUSB)                       USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_FIFONotEmptyInPktRdy_Msk)
+#define CSR0_OutPktRdy(pUSB)                          USB_IDX0_GET_MASK(USB_IDX0_InPktRdyOutPktRdy_Msk)
+#define CSR0_OutPktRdy_Set(pUSB)                      USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_InPktRdyOutPktRdy_Msk)
+#define CSR0_ServicedOutPktRdyAndDataEnd_Set(pUSB)    USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_ClrDataTogServicedOutPktRdy_Msk | USB_IDX0_FlushFIFODataEnd_Msk)
+#define CSR0_InPktRdyAndDataEnd_Set(pUSB)             USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_FIFONotEmptyInPktRdy_Msk | USB_IDX0_FlushFIFODataEnd_Msk)
+#define CSR0_ServicedOutPktRdyAndSendStall_Set(pUSB)  USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_ClrDataTogServicedOutPktRdy_Msk | USB_IDX0_SentStallSendStall_Msk)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -439,12 +577,12 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define INMAXP_MaxPayload(pUSB)                (pUSB->IDX0 &   USB_IDX0_MAXPAYLOAD_Msk) >> USB_IDX0_MAXPAYLOAD_Pos
-#define INMAXP_MaxPayload_Set(pUSB, maxp)       pUSB->IDX0 &= ~(USB_IDX0_MAXPAYLOAD_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk); \
-                                                pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | (maxp) << USB_IDX0_MAXPAYLOAD_Pos
-#define INMAXP_PktSplitOption(pUSB)            (pUSB->IDX0 &   USB_IDX0_PKTSPLITOPTION_Msk) >> USB_IDX0_PKTSPLITOPTION_Pos
-#define INMAXP_PktSplitOption_Set(pUSB, split)  pUSB->IDX0 &= ~(USB_IDX0_PKTSPLITOPTION_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk); \
-                                                pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | (split) << USB_IDX0_PKTSPLITOPTION_Pos
+#define INMAXP_MaxPayload(pUSB)                 USB_IDX0_GET_MASK(USB_IDX0_MAXPAYLOAD_Msk) >> USB_IDX0_MAXPAYLOAD_Pos
+#define INMAXP_MaxPayload_Set(pUSB, maxp)       USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_MAXPAYLOAD_Msk); \
+                                                USB_IDX0_SET_MASK_WITH_PROTECT((maxp) << USB_IDX0_MAXPAYLOAD_Pos)
+#define INMAXP_PktSplitOption(pUSB)             USB_IDX0_GET_MASK(USB_IDX0_PKTSPLITOPTION_Msk) >> USB_IDX0_PKTSPLITOPTION_Pos
+#define INMAXP_PktSplitOption_Set(pUSB, split)  USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_PKTSPLITOPTION_Msk); \
+                                                USB_IDX0_SET_MASK_WITH_PROTECT((split) << USB_IDX0_PKTSPLITOPTION_Pos)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -455,20 +593,20 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define INCSRL_IncompTx(pUSB)                  (pUSB->IDX0 &   USB_IDX0_IncompTxServiceSetupEnd_Msk)
-#define INCSRL_IncompTx_Clear(pUSB)             pUSB->IDX0 &= ~(USB_IDX0_IncompTxServiceSetupEnd_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRL_ClrDataTog_Set(pUSB)             pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_ClrDataTogServicedOutPktRdy_Msk
-#define INCSRL_SentStall(pUSB)                 (pUSB->IDX0 &   USB_IDX0_SentStallSendStall_Msk)
-#define INCSRL_SentStall_Clear(pUSB)            pUSB->IDX0 &= ~(USB_IDX0_SentStallSendStall_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRL_SendStall_Set(pUSB)              pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_SendStallSetupEnd_Msk
-#define INCSRL_SendStall_Clear(pUSB)            pUSB->IDX0 &= ~(USB_IDX0_SendStallSetupEnd_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRL_FlushFIFO_Set(pUSB)              pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_FlushFIFODataEnd_Msk
-#define INCSRL_UnderRun(pUSB)                  (pUSB->IDX0 &   USB_IDX0_UnderRunSentStall_Msk)
-#define INCSRL_UnderRun_Clear(pUSB)             pUSB->IDX0 &= ~(USB_IDX0_UnderRunSentStall_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRL_FIFONotEmpty(pUSB)              (pUSB->IDX0 &   USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRL_FIFONotEmpty_Clear(pUSB)         pUSB->IDX0 &= ~(USB_IDX0_FIFONotEmptyInPktRdy_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRL_InPktRdy(pUSB)                  (pUSB->IDX0 &   USB_IDX0_InPktRdyOutPktRdy_Msk)
-#define INCSRL_InPktRdy_Set(pUSB)               pUSB->IDX0 = (pUSB->IDX0 & ~USB_IDX0_FIFONotEmptyInPktRdy_Msk) | USB_IDX0_InPktRdyOutPktRdy_Msk
+#define INCSRL_IncompTx(pUSB)                   USB_IDX0_GET_MASK(USB_IDX0_IncompTxServiceSetupEnd_Msk)
+#define INCSRL_IncompTx_Clear(pUSB)             USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_IncompTxServiceSetupEnd_Msk)
+#define INCSRL_ClrDataTog_Set(pUSB)             USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_ClrDataTogServicedOutPktRdy_Msk)
+#define INCSRL_SentStall(pUSB)                  USB_IDX0_GET_MASK(USB_IDX0_SentStallSendStall_Msk)
+#define INCSRL_SentStall_Clear(pUSB)            USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_SentStallSendStall_Msk)
+#define INCSRL_SendStall_Set(pUSB)              USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_SendStallSetupEnd_Msk)
+#define INCSRL_SendStall_Clear(pUSB)            USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_SendStallSetupEnd_Msk)
+#define INCSRL_FlushFIFO_Set(pUSB)              USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_FlushFIFODataEnd_Msk)
+#define INCSRL_UnderRun(pUSB)                   USB_IDX0_GET_MASK(USB_IDX0_UnderRunSentStall_Msk)
+#define INCSRL_UnderRun_Clear(pUSB)             USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_UnderRunSentStall_Msk)
+#define INCSRL_FIFONotEmpty(pUSB)               USB_IDX0_GET_MASK(USB_IDX0_FIFONotEmptyInPktRdy_Msk)
+#define INCSRL_FIFONotEmpty_Clear(pUSB)         USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_FIFONotEmptyInPktRdy_Msk)
+#define INCSRL_InPktRdy(pUSB)                   USB_IDX0_GET_MASK(USB_IDX0_InPktRdyOutPktRdy_Msk)
+#define INCSRL_InPktRdy_Set(pUSB)               USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_InPktRdyOutPktRdy_Msk)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -479,22 +617,22 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define INCSRU_AutoSet(pUSB)                   (pUSB->IDX0 &   USB_IDX0_AutoSet_Msk)
-#define INCSRU_AutoSet_Set(pUSB)                pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) |  USB_IDX0_AutoSet_Msk
-#define INCSRU_AutoSet_Clear(pUSB)              pUSB->IDX0 &= ~(USB_IDX0_AutoSet_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRU_ISO_Set(pUSB)                    pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_ISO_Msk
-#define INCSRU_ISO_Clear(pUSB)                  pUSB->IDX0 &= ~(USB_IDX0_ISO_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRU_Mode_Set(pUSB)                   pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_Mode_Msk
-#define INCSRU_Mode_Clear(pUSB)                 pUSB->IDX0 &= ~(USB_IDX0_Mode_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRU_DMAReqEnab_Set(pUSB)             pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_DMAReqEnab_Msk
-#define INCSRU_DMAReqEnab_Clear(pUSB)           pUSB->IDX0 &= ~(USB_IDX0_DMAReqEnab_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRU_FrcDataTog_Set(pUSB)             pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_FrcDataTog_Msk
-#define INCSRU_FrcDataTog_Clear(pUSB)           pUSB->IDX0 &= ~(USB_IDX0_FrcDataTog_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
+#define INCSRU_AutoSet(pUSB)                   USB_IDX0_GET_MASK(USB_IDX0_AutoSet_Msk)
+#define INCSRU_AutoSet_Set(pUSB)               USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_AutoSet_Msk)
+#define INCSRU_AutoSet_Clear(pUSB)             USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_AutoSet_Msk)
+#define INCSRU_ISO_Set(pUSB)                   USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_ISO_Msk)
+#define INCSRU_ISO_Clear(pUSB)                 USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_ISO_Msk)
+#define INCSRU_Mode_Set(pUSB)                  USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_Mode_Msk)
+#define INCSRU_Mode_Clear(pUSB)                USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_Mode_Msk)
+#define INCSRU_DMAReqEnab_Set(pUSB)            USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_DMAReqEnab_Msk)
+#define INCSRU_DMAReqEnab_Clear(pUSB)          USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_DMAReqEnab_Msk)
+#define INCSRU_FrcDataTog_Set(pUSB)            USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_FrcDataTog_Msk)
+#define INCSRU_FrcDataTog_Clear(pUSB)          USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_FrcDataTog_Msk)
 
-#define INCSRU_DMAReqMode_Set(pUSB)             pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_DMAReqMode_Msk
-#define INCSRU_DMAReqMode_Clear(pUSB)           pUSB->IDX0 &= ~(USB_IDX0_DMAReqMode_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
-#define INCSRU_DPktBufDis_Set(pUSB)             pUSB->IDX0 = (pUSB->IDX0 & ~(USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)) | USB_IDX0_DPktBufDis_Msk
-#define INCSRU_DPktBufDis_Clear(pUSB)           pUSB->IDX0 &= ~(USB_IDX0_DPktBufDis_Msk | USB_IDX0_InPktRdyOutPktRdy_Msk | USB_IDX0_FIFONotEmptyInPktRdy_Msk)
+#define INCSRU_DMAReqMode_Set(pUSB)            USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_DMAReqMode_Msk)
+#define INCSRU_DMAReqMode_Clear(pUSB)          USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_DMAReqMode_Msk)
+#define INCSRU_DPktBufDis_Set(pUSB)            USB_IDX0_SET_MASK_WITH_PROTECT(USB_IDX0_DPktBufDis_Msk)
+#define INCSRU_DPktBufDis_Clear(pUSB)          USB_IDX0_CLR_MASK_WITH_PROTECT(USB_IDX0_DPktBufDis_Msk)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -502,6 +640,10 @@ static bool g_bUSBDMA0Busy = false;
 //
 // IDX1 registers
 //
+#define USB_IDX1_NO_CLEAR_MASK                  (USB_IDX1_OutPktRdy_Msk)
+#define USB_IDX1_GET_MASK(msk)                  (pUSB->IDX1 & msk)
+#define USB_IDX1_SET_MASK_WITH_PROTECT(msk)     (pUSB->IDX1 = (pUSB->IDX1 | USB_IDX1_NO_CLEAR_MASK) |  (msk))
+#define USB_IDX1_CLR_MASK_WITH_PROTECT(msk)     (pUSB->IDX1 = (pUSB->IDX1 | USB_IDX1_NO_CLEAR_MASK) & ~(msk))
 
 //*****************************************************************************
 //
@@ -509,13 +651,13 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define OUTMAXP_MaxPayload(pUSB)               (pUSB->IDX1 & USB_IDX1_MAXPAYLOAD_Msk) >> USB_IDX1_MAXPAYLOAD_Pos
-#define OUTMAXP_MaxPayload_Set(pUSB, maxp)      pUSB->IDX1 &= ~USB_IDX1_MAXPAYLOAD_Msk; \
-                                                pUSB->IDX1 |= (maxp) << USB_IDX1_MAXPAYLOAD_Pos
+#define OUTMAXP_MaxPayload(pUSB)                USB_IDX1_GET_MASK(USB_IDX1_MAXPAYLOAD_Msk) >> USB_IDX1_MAXPAYLOAD_Pos
+#define OUTMAXP_MaxPayload_Set(pUSB, maxp)      USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_MAXPAYLOAD_Msk); \
+                                                USB_IDX1_SET_MASK_WITH_PROTECT((maxp) << USB_IDX1_MAXPAYLOAD_Pos)
 
-#define OUTMAXP_PktSplitOption(pUSB)           (pUSB->IDX1 & USB_IDX1_PKTSPLITOPTION_Msk) >> USB_IDX1_PKTSPLITOPTION_Pos
-#define OUTMAXP_PktSplitOption_Set(pUSB, split) pUSB->IDX1 &= ~USB_IDX1_PKTSPLITOPTION_Msk; \
-                                                pUSB->IDX1 |= (split) << USB_IDX1_PKTSPLITOPTION_Pos
+#define OUTMAXP_PktSplitOption(pUSB)            USB_IDX1_GET_MASK(USB_IDX1_PKTSPLITOPTION_Msk) >> USB_IDX1_PKTSPLITOPTION_Pos
+#define OUTMAXP_PktSplitOption_Set(pUSB, split) USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_PKTSPLITOPTION_Msk); \
+                                                USB_IDX1_SET_MASK_WITH_PROTECT((split) << USB_IDX1_PKTSPLITOPTION_Pos)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -526,18 +668,18 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define OUTCSRL_ClrDataTog_Set(pUSB)            pUSB->IDX1 |=  USB_IDX1_ClrDataTog_Msk
-#define OUTCSRL_SentStall(pUSB)                (pUSB->IDX1 &   USB_IDX1_SentStall_Msk)
-#define OUTCSRL_SentStall_Clear(pUSB)           pUSB->IDX1 &= ~USB_IDX1_SentStall_Msk
-#define OUTCSRL_SendStall_Set(pUSB)             pUSB->IDX1 |=  USB_IDX1_SendStall_Msk
-#define OUTCSRL_SendStall_Clear(pUSB)           pUSB->IDX1 &= ~USB_IDX1_SendStall_Msk
-#define OUTCSRL_FlushFIFO_Set(pUSB)             pUSB->IDX1 |=  USB_IDX1_FlushFIFO_Msk
-#define OUTCSRL_DataError(pUSB)                (pUSB->IDX1 &   USB_IDX1_DataError_Msk)
-#define OUTCSRL_OverRun(pUSB)                  (pUSB->IDX1 &   USB_IDX1_OverRun_Msk)
-#define OUTCSRL_OverRun_Clear(pUSB)             pUSB->IDX1 &= ~USB_IDX1_OverRun_Msk
-#define OUTCSRL_FIFOFull(pUSB)                 (pUSB->IDX1 &   USB_IDX1_FIFOFull_Msk)
-#define OUTCSRL_OutPktRdy(pUSB)                (pUSB->IDX1 &   USB_IDX1_OutPktRdy_Msk)
-#define OUTCSRL_OutPktRdy_Clear(pUSB)           pUSB->IDX1 &= ~USB_IDX1_OutPktRdy_Msk
+#define OUTCSRL_ClrDataTog_Set(pUSB)           USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_ClrDataTog_Msk)
+#define OUTCSRL_SentStall(pUSB)                USB_IDX1_GET_MASK(USB_IDX1_SentStall_Msk)
+#define OUTCSRL_SentStall_Clear(pUSB)          USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_SentStall_Msk)
+#define OUTCSRL_SendStall_Set(pUSB)            USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_SendStall_Msk)
+#define OUTCSRL_SendStall_Clear(pUSB)          USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_SendStall_Msk)
+#define OUTCSRL_FlushFIFO_Set(pUSB)            USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_FlushFIFO_Msk)
+#define OUTCSRL_DataError(pUSB)                USB_IDX1_GET_MASK(USB_IDX1_DataError_Msk)
+#define OUTCSRL_OverRun(pUSB)                  USB_IDX1_GET_MASK(USB_IDX1_OverRun_Msk)
+#define OUTCSRL_OverRun_Clear(pUSB)            USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_OverRun_Msk)
+#define OUTCSRL_FIFOFull(pUSB)                 USB_IDX1_GET_MASK(USB_IDX1_FIFOFull_Msk)
+#define OUTCSRL_OutPktRdy(pUSB)                USB_IDX1_GET_MASK(USB_IDX1_OutPktRdy_Msk)
+#define OUTCSRL_OutPktRdy_Clear(pUSB)          USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_OutPktRdy_Msk)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -548,22 +690,23 @@ static bool g_bUSBDMA0Busy = false;
 //! @{
 //
 //*****************************************************************************
-#define OUTCSRU_AutoClear_Set(pUSB)             pUSB->IDX1 |=  USB_IDX1_AutoClear_Msk
-#define OUTCSRU_AutoClear_Clear(pUSB)           pUSB->IDX1 &= ~USB_IDX1_AutoClear_Msk
-#define OUTCSRU_ISO_Set(pUSB)                   pUSB->IDX1 |=  USB_IDX1_ISO_Msk
-#define OUTCSRU_ISO_Clear(pUSB)                 pUSB->IDX1 &= ~USB_IDX1_ISO_Msk
-#define OUTCSRU_DMAReqEnab_Set(pUSB)            pUSB->IDX1 |=  USB_IDX1_DMAReqEnab_Msk
-#define OUTCSRU_DMAReqEnab_Clear(pUSB)          pUSB->IDX1 &= ~USB_IDX1_DMAReqEnab_Msk
-#define OUTCSRU_DisNye_Set(pUSB)                pUSB->IDX1 |=  USB_IDX1_DisNye_Msk
-#define OUTCSRU_DisNye_Clear(pUSB)              pUSB->IDX1 &= ~USB_IDX1_DisNye_Msk
-#define OUTCSRU_PIDErr(pUSB)                   (pUSB->IDX1 &   USB_IDX1_DisNye_Msk)
-#define OUTCSRU_DMAReqMode_Set(pUSB)            pUSB->IDX1 |=  USB_IDX1_DMAReqMode_Msk
-#define OUTCSRU_DMAReqMode_Clear(pUSB)          pUSB->IDX1 &= ~USB_IDX1_DMAReqMode_Msk
-#define OUTCSRU_DPktBufDis(pUSB)               (pUSB->IDX1 &   USB_IDX1_DPktBufDis_Msk)
-#define OUTCSRU_DPktBufDis_Set(pUSB)            pUSB->IDX1 |=  USB_IDX1_DPktBufDis_Msk
-#define OUTCSRU_DPktBufDis_Clear(pUSB)          pUSB->IDX1 &= ~USB_IDX1_DPktBufDis_Msk
-#define OUTCSRU_IncompRx(pUSB)                 (pUSB->IDX1 &   USB_IDX1_IncompRx_Msk)
-#define OUTCSRU_IncompRx_Clear(pUSB)            pUSB->IDX1 &= ~USB_IDX1_IncompRx_Msk
+#define OUTCSRU_AutoClear(pUSB)                USB_IDX1_GET_MASK(USB_IDX1_AutoClear_Msk)
+#define OUTCSRU_AutoClear_Set(pUSB)            USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_AutoClear_Msk)
+#define OUTCSRU_AutoClear_Clear(pUSB)          USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_AutoClear_Msk)
+#define OUTCSRU_ISO_Set(pUSB)                  USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_ISO_Msk)
+#define OUTCSRU_ISO_Clear(pUSB)                USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_ISO_Msk)
+#define OUTCSRU_DMAReqEnab_Set(pUSB)           USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_DMAReqEnab_Msk)
+#define OUTCSRU_DMAReqEnab_Clear(pUSB)         USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_DMAReqEnab_Msk)
+#define OUTCSRU_DisNye_Set(pUSB)               USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_DisNye_Msk)
+#define OUTCSRU_DisNye_Clear(pUSB)             USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_DisNye_Msk)
+#define OUTCSRU_PIDErr(pUSB)                   USB_IDX1_GET_MASK(USB_IDX1_DisNye_Msk)
+#define OUTCSRU_DMAReqMode_Set(pUSB)           USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_DMAReqMode_Msk)
+#define OUTCSRU_DMAReqMode_Clear(pUSB)         USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_DMAReqMode_Msk)
+#define OUTCSRU_DPktBufDis(pUSB)               USB_IDX1_GET_MASK(USB_IDX1_DPktBufDis_Msk)
+#define OUTCSRU_DPktBufDis_Set(pUSB)           USB_IDX1_SET_MASK_WITH_PROTECT(USB_IDX1_DPktBufDis_Msk)
+#define OUTCSRU_DPktBufDis_Clear(pUSB)         USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_DPktBufDis_Msk)
+#define OUTCSRU_IncompRx(pUSB)                 USB_IDX1_GET_MASK(USB_IDX1_IncompRx_Msk)
+#define OUTCSRU_IncompRx_Clear(pUSB)           USB_IDX1_CLR_MASK_WITH_PROTECT(USB_IDX1_IncompRx_Msk)
 //*****************************************************************************
 //! @}
 //*****************************************************************************
@@ -594,8 +737,6 @@ static bool g_bUSBDMA0Busy = false;
 #define EARLY_DMA_IN_DISABLE(pUSB)             *((volatile uint8_t *)&(pUSB->INFO) + 3) &=  ~((uint8_t)(USB_INFO_EDMAIN_Msk >> USB_INFO_EDMAOUT_Pos))
 #define EARLY_DMA_OUT_ENABLE(pUSB)             *((volatile uint8_t *)&(pUSB->INFO) + 3) |=  ((uint8_t)(USB_INFO_EDMAOUT_Msk >> USB_INFO_EDMAOUT_Pos))
 #define EARLY_DMA_OUT_DISABLE(pUSB)            *((volatile uint8_t *)&(pUSB->INFO) + 3) &=  ~((uint8_t)(USB_INFO_EDMAOUT_Msk >> USB_INFO_EDMAOUT_Pos))
-
-
 
 //*****************************************************************************
 //
@@ -678,6 +819,17 @@ typedef enum
 }
 am_hal_usb_ep_xfer_type_e;
 
+//*****************************************************************************
+//
+// Static functions
+//
+//*****************************************************************************
+static void am_hal_usb_xfer_complete(am_hal_usb_state_t *pState, am_hal_usb_ep_xfer_t *pXfer, uint8_t ui8EpAddr, uint32_t ui32XferLen, am_hal_usb_xfer_code_e eXferCode, void *param);
+static void am_hal_usb_out_ep_dma0_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum);
+static void am_hal_usb_out_ep_dma1_adma_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum);
+static inline uint32_t am_hal_usb_intr_out_status_clear(am_hal_usb_state_t *pState, uint8_t ui8EpNum);
+static void am_hal_usb_out_ep_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum);
+
 //
 // Endpoint address and attribute operation functions
 //
@@ -727,26 +879,32 @@ am_hal_usb_ep_xfer_type(uint8_t attr)
 
 //*****************************************************************************
 //
+// check and update SOF interrupt setting
+//
+//*****************************************************************************
+static inline void
+am_hal_usb_update_sof_intr_enable(am_hal_usb_state_t *pState, USB_Type *pUSB)
+{
+    if ( pState->sofReq.sofIntrReq == 0 )
+    {
+        INTRUSBE_SOF_Disable(pUSB);
+    }
+    else
+    {
+        INTRUSBE_SOF_Enable(pUSB);
+    }
+}
+//*****************************************************************************
+//
 // Disable USB APB clock
 //
 //*****************************************************************************
 static inline uint32_t
 am_hal_usb_crm_apbclk_disable()
 {
-    if (CRM->APBUSBCRM_b.APBUSBCLKEN)
-    {
-        uint32_t ui32Status;
-        CRM->APBUSBCRM_b.APBUSBCLKEN = 0;
-        ui32Status = am_hal_delay_us_status_check(AM_HAL_USB_APB_CRM_CLK_OFF_MAX_WAIT_US,
-                                (uint32_t)&CRM->APBUSBCRM,
-                                CRM_APBUSBCRM_APBUSBCLKACTIVE_Msk,
-                                0,
-                                true);
-
-        return ui32Status;
-    }
-
-    return AM_HAL_STATUS_SUCCESS;
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
+    ui32Status = am_hal_crm_control_USB_CLOCK_SET(false);
+    return ui32Status;
 }
 
 //*****************************************************************************
@@ -758,15 +916,7 @@ static inline uint32_t
 am_hal_usb_crm_apbclk_enable()
 {
     uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
-    CRM->APBUSBCRM_b.APBUSBRSTN = 1;
-    CRM->APBUSBCRM_b.APBUSBCLKEN = 1;
-
-    ui32Status = am_hal_delay_us_status_check(AM_HAL_USB_APB_CRM_CLK_ACTIVE_MAX_WAIT_US,
-                            (uint32_t)&CRM->APBUSBCRM,
-                            CRM_APBUSBCRM_APBUSBCLKACTIVE_Msk,
-                            CRM_APBUSBCRM_APBUSBCLKACTIVE_Msk,
-                            true);
-
+    ui32Status = am_hal_crm_control_USB_CLOCK_SET(true);
     return ui32Status;
 }
 
@@ -778,20 +928,9 @@ am_hal_usb_crm_apbclk_enable()
 static inline uint32_t
 am_hal_usb_crm_phyrefclk_disable()
 {
-    if (CRM->USBREFCLKCRM_b.USBREFCLKCLKEN)
-    {
-        uint32_t ui32Status;
-        CRM->USBREFCLKCRM_b.USBREFCLKCLKEN = 0;
-        ui32Status = am_hal_delay_us_status_check(AM_HAL_USB_PHYREFCLK_CRM_CLK_OFF_MAX_WAIT_US,
-                                (uint32_t)&CRM->USBREFCLKCRM,
-                                CRM_USBREFCLKCRM_USBREFCLKCLKACTIVE_Msk,
-                                0,
-                                true);
-
-        return ui32Status;
-    }
-
-    return AM_HAL_STATUS_SUCCESS;
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
+    ui32Status = am_hal_crm_control_USBREFCLK_CLOCK_SET(false);
+    return ui32Status;
 }
 
 //*****************************************************************************
@@ -800,39 +939,94 @@ am_hal_usb_crm_phyrefclk_disable()
 //
 //*****************************************************************************
 static inline uint32_t
-am_hal_usb_crm_phyrefclk_enable(am_hal_usb_phy_ref_clk_src_e eUSBRefClkSel, am_hal_usb_phy_ref_clk_div_e eUSBRefClkDiv)
+am_hal_usb_crm_phyrefclk_enable(am_hal_usb_phyclksrc_e eUSBRefClkSel, am_hal_usb_phyclksrc_div_e eUSBRefClkDiv)
 {
     uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
 
-    // If CRM clock is enabled
-    if (CRM->USBREFCLKCRM_b.USBREFCLKCLKEN)
+    ui32Status = am_hal_crm_clock_config_USBREFCLK(eUSBRefClkSel, eUSBRefClkDiv);
+    if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        // If the configuration requested is the same as what CRM is configured,
-        // return success.
-        if ((CRM->USBREFCLKCRM_b.USBREFCLKCLKSEL == eUSBRefClkSel) &&
-            (CRM->USBREFCLKCRM_b.USBREFCLKCLKDIV == eUSBRefClkDiv))
-        {
-            return AM_HAL_STATUS_SUCCESS;
-        }
-        // If the configuration differs, disable the CRM clock first
-        else
-        {
-            ui32Status = am_hal_usb_crm_phyrefclk_disable();
-            if (ui32Status != AM_HAL_STATUS_SUCCESS)
-            {
-                return ui32Status;
-            }
-        }
+        return ui32Status;
     }
-
-    // Configure CRM
-    CRM->USBREFCLKCRM_b.USBREFCLKCLKSEL = (uint32_t)eUSBRefClkSel;
-    CRM->USBREFCLKCRM_b.USBREFCLKCLKDIV = (uint32_t)eUSBRefClkDiv;
-    CRM->USBREFCLKCRM_b.USBREFCLKCLKEN  = 1;
+    ui32Status = am_hal_crm_control_USBREFCLK_CLOCK_SET(true);
+    if (ui32Status != AM_HAL_STATUS_SUCCESS)
+    {
+        return ui32Status;
+    }
 
     return AM_HAL_STATUS_SUCCESS;
 }
 
+//*****************************************************************************
+//
+// API to set USB PHY electrical tuning parameters
+//
+//*****************************************************************************
+uint32_t
+am_hal_usb_phy_electrical_tuning_set(uint32_t ui32Module, am_hal_usb_phy_elec_tuning_param_id_e eParam, am_hal_usb_phy_elec_tuning_param_val_t* psVal)
+{
+    //
+    // Check that the request module is in range.
+    //
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+    if ( ui32Module >= AM_REG_USB_NUM_MODULES )
+    {
+        return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
+#endif // AM_HAL_DISABLE_API_VALIDATION
+
+    if (psVal == NULL)
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+
+    switch (eParam)
+    {
+        case AM_HAL_USB_PHY_ELEC_TUNING_PARAM_PREEMP_STATE:
+            switch (psVal->ui32Val)
+            {
+                case AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_SOF_EOP:
+                case AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_CHIRP:
+                case AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_NON_CHIRP:
+                case AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_ALWAYS:
+                    g_am_hal_usb_phy_tuning_param[ui32Module].ePreempEnState = psVal->ePreempEnState;
+                    break;
+
+                default:
+                    return AM_HAL_STATUS_INVALID_ARG;
+            }
+            break;
+
+        case AM_HAL_USB_PHY_ELEC_TUNING_PARAM_R_ODT:
+            if (psVal->ui32Val < AM_HAL_USB_PHY_R_ODT_VAL_0 || psVal->ui32Val > AM_HAL_USB_PHY_R_ODT_VAL_15)
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+            g_am_hal_usb_phy_tuning_param[ui32Module].eRodtTuning = psVal->eRodtTuning;
+            break;
+
+        case AM_HAL_USB_PHY_ELEC_TUNING_PARAM_EYE_HEIGHT:
+            if (psVal->ui32Val > AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P4500V)
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+            g_am_hal_usb_phy_tuning_param[ui32Module].eHsEyeHeight = psVal->eHsEyeHeight;
+            break;
+
+        case AM_HAL_USB_PHY_ELEC_TUNING_PARAM_SQUELCH:
+            if (psVal->ui32Val > AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P2000V)
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+            g_am_hal_usb_phy_tuning_param[ui32Module].eHsSquelch = psVal->eHsSquelch;
+            break;
+
+        default:
+            return AM_HAL_STATUS_INVALID_ARG;
+    }
+
+    return AM_HAL_STATUS_SUCCESS;
+} // am_hal_usb_phy_electrical_tuning_set()
 
 //*****************************************************************************
 //
@@ -883,15 +1077,24 @@ am_hal_usb_initialize(uint32_t ui32Module, void **ppHandle)
     g_am_hal_usb_states[ui32Module].eInXferMode = AM_HAL_USB_IN_PIO_MODE;
 
     //
+    // Initialize USB PHY reference clock select
+    //
+    g_am_hal_usb_states[ui32Module].eUsbPhyRefClkSel = AM_HAL_USB_PHYCLKSRC_DEFAULT;
+    //
+    // Set USBPHYCLK requested to "MAX" to indicate no clock requested
+    //
+    g_am_hal_usb_states[ui32Module].ePhyClkRequested = AM_HAL_CLKMGR_CLK_ID_MAX;
+
+    //
     // Initialize USB DMA0 Command Queue
     //
     am_hal_queue_init(&g_sUSBDMA0Queue, g_psUSBDMA0QueueMem,
                       sizeof(am_hal_usb_dma0_queue_t), sizeof(g_psUSBDMA0QueueMem));
 
     //
-    // Initialize USB PHY reference clock select
+    // Copy USB PHY electrical tuning parameter values into the instance
     //
-    g_am_hal_usb_states[ui32Module].eUsbPhyRefClkSel = AM_HAL_USB_PHY_REF_CLK_SRC_DEFAULT;
+    memcpy(&g_am_hal_usb_states[ui32Module].sPhyTuning, &g_am_hal_usb_phy_tuning_param[ui32Module], sizeof(am_hal_usb_phy_tuning_param_t));
 
     //
     // Return the handle.
@@ -948,7 +1151,6 @@ am_hal_usb_power_control(void *pHandle,
                          bool bRetainState)
 {
 
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
     // Check to make sure this is a valid handle.
@@ -963,7 +1165,6 @@ am_hal_usb_power_control(void *pHandle,
     uint32_t ui32Status;
     am_hal_usb_state_t *pState = (am_hal_usb_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
-
 
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( ui32Module >= AM_REG_USB_NUM_MODULES )
@@ -1041,6 +1242,14 @@ am_hal_usb_power_control(void *pHandle,
 
                 AM_HAL_USB_EXIT_CRITICAL;
             }
+
+            //
+            // Set electrical tuning values to USB PHY once USB powered up
+            //
+            USBPHY->REG00_b.BF20 = pState->sPhyTuning.ePreempEnState;
+            USBPHY->REG08_b.BF64 = pState->sPhyTuning.eHsEyeHeight;
+            USBPHY->REG08_b.BF30 = pState->sPhyTuning.eHsSquelch;
+            USBPHY->REG0C_b.BF62 = pState->sPhyTuning.eRodtTuning;
             break;
 
         case AM_HAL_SYSCTRL_NORMALSLEEP:
@@ -1119,22 +1328,22 @@ am_hal_usb_phy_clock_enable(void *pHandle, bool bEnable, am_hal_usb_dev_speed_e 
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
     am_hal_usb_state_t *pState = (am_hal_usb_state_t *) pHandle;
-    am_hal_usb_phy_ref_clk_src_e eUsbRefClkSel;
-    am_hal_usb_phy_ref_clk_div_e eUsbRefClkDiv;
-
+    am_hal_usb_phyclksrc_e eUsbRefClkSel;
+    am_hal_usb_phyclksrc_div_e eUsbRefClkDiv;
+    am_hal_clkmgr_clock_id_e eUSBRequestClk = AM_HAL_CLKMGR_CLK_ID_MAX;
     if (bEnable)
     {
-        if (pState->eUsbPhyRefClkSel == AM_HAL_USB_PHY_REF_CLK_SRC_DEFAULT)
+        if (pState->eUsbPhyRefClkSel == AM_HAL_USB_PHYCLKSRC_DEFAULT)
         {
             if (eSpeed == AM_HAL_USB_SPEED_HIGH)
             {
-                eUsbRefClkSel = AM_HAL_USB_PHY_REF_CLK_SRC_RF_XTAL_48M;
-                eUsbRefClkDiv = AM_HAL_USB_PHY_REF_CLK_DIV_2;
+                eUsbRefClkSel = AM_HAL_USB_PHYCLKSRC_RF_XTAL_48M;
+                eUsbRefClkDiv = AM_HAL_USB_PHYCLKSRC_DIV_2;
             }
             else
             {
-                eUsbRefClkSel = AM_HAL_USB_PHY_REF_CLK_SRC_HFRC_48M;
-                eUsbRefClkDiv = AM_HAL_USB_PHY_REF_CLK_DIV_2;
+                eUsbRefClkSel = AM_HAL_USB_PHYCLKSRC_HFRC_48M;
+                eUsbRefClkDiv = AM_HAL_USB_PHYCLKSRC_DIV_2;
             }
         }
         else
@@ -1142,14 +1351,42 @@ am_hal_usb_phy_clock_enable(void *pHandle, bool bEnable, am_hal_usb_dev_speed_e 
             eUsbRefClkSel = pState->eUsbPhyRefClkSel;
             eUsbRefClkDiv = pState->eUsbPhyRefClkDiv;
         }
+        switch(eUsbRefClkSel)
+        {
+            case AM_HAL_USB_PHYCLKSRC_HFRC_48M:
+                eUSBRequestClk = AM_HAL_CLKMGR_CLK_ID_HFRC;
+            break;
+            case AM_HAL_USB_PHYCLKSRC_RF_XTAL_48M:
+                eUSBRequestClk = AM_HAL_CLKMGR_CLK_ID_XTAL_HS;
+            break;
+            case  AM_HAL_USB_PHYCLKSRC_PLLPOSTDIV:
+                eUSBRequestClk = AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+            break;
+            case  AM_HAL_USB_PHYCLKSRC_PLLFOUT2:
+                eUSBRequestClk = AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+            break;
+            case AM_HAL_USB_PHYCLKSRC_EXTREF_CLK:
+                eUSBRequestClk = AM_HAL_CLKMGR_CLK_ID_EXTREF_CLK;
+            break;
+            default:
+                return AM_HAL_STATUS_INVALID_ARG;
+        }
+
+        am_hal_clkmgr_clock_request(eUSBRequestClk, AM_HAL_CLKMGR_USER_ID_USB);
+        pState->ePhyClkRequested = eUSBRequestClk;
 
         // Enable CRM according to the configuration derived
         am_hal_usb_crm_phyrefclk_enable(eUsbRefClkSel, eUsbRefClkDiv);
     }
     else
     {
-        // Disable CRM Clock
+        // Disable USB PHY reference clock.
         am_hal_usb_crm_phyrefclk_disable();
+
+        if ( pState->ePhyClkRequested != AM_HAL_CLKMGR_CLK_ID_MAX )
+        {
+            am_hal_clkmgr_clock_release(pState->ePhyClkRequested, AM_HAL_CLKMGR_USER_ID_USB);
+        }
     }
 
     //
@@ -1336,7 +1573,7 @@ am_hal_usb_set_dev_speed(void *pHandle, am_hal_usb_dev_speed_e eSpeed)
 // set the USB PHY clock source and divider
 //
 //*****************************************************************************
-uint32_t am_hal_usb_set_phy_clk_source(void *pHandle, am_hal_usb_phy_ref_clk_src_e eClkSrc, am_hal_usb_phy_ref_clk_div_e eClkDiv)
+uint32_t am_hal_usb_set_phy_clk_source(void *pHandle, am_hal_usb_phyclksrc_e eClkSrc, am_hal_usb_phyclksrc_div_e eClkDiv)
 {
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if (!AM_HAL_USB_CHK_HANDLE(pHandle) )
@@ -1547,7 +1784,6 @@ am_hal_usb_adma_config(USB_Type *pUSB, uint32_t ui32DmaReqLine, uint32_t ui32Dma
     pUSB->ADMACMPINTEN |= 0x1 << ui32DmaReqLine;
     pUSB->ADMAERRINTEN |= 0x1 << ui32DmaReqLine;
 
-
     switch (ui32DmaReqLine)
     {
         case 0:
@@ -1679,11 +1915,12 @@ am_hal_usb_fifo_unloading(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *pucBuf, uin
 //
 //*****************************************************************************
 static inline uint32_t
-am_hal_usb_fifo_unloading_nonblocking(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *pucBuf, uint32_t ui32Count)
+am_hal_usb_fifo_unloading_dma1(USB_Type *pUSB, am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t *pucBuf, uint32_t ui32Count)
 {
     uint32_t ui32Status;
     uint32_t ui32ReqLineNum;
     uint32_t ui32DmaReqSize;
+    am_hal_usb_ep_xfer_t *pXfer = &pState->ep_xfers[ui8EpNum - 1][AM_HAL_USB_EP_DIR_OUT];
 
     if (ui32Count == 0)
     {
@@ -1700,38 +1937,39 @@ am_hal_usb_fifo_unloading_nonblocking(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t 
     //
     EP_INDEX_Set(pUSB, ui8EpNum);
 
+    //
+    // OUT Packet is ready to be processed
+    //
+    if (OUTCSRL_OutPktRdy(pUSB))
+    {
+        // Only handle manually if it is short packet. Else, let ADMA handle it.
+        uint32_t ui32OutCnt = OUTCOUNT(pUSB);
+        if (ui32OutCnt == 0)
+        {
+            am_hal_usb_intr_out_status_clear(pState, ui8EpNum);
+            OUTCSRL_OutPktRdy_Clear(pUSB);
+        }
+        else if (ui32OutCnt < OUTMAXP_MaxPayload(pUSB))
+        {
+            uint32_t ui32LenUnload = (ui32OutCnt <= pXfer->len) ? ui32OutCnt : pXfer->len;
+            am_hal_usb_fifo_unloading(pUSB, ui8EpNum, pucBuf, ui32LenUnload);
+            am_hal_usb_intr_out_status_clear(pState, ui8EpNum);
+            OUTCSRL_OutPktRdy_Clear(pUSB);
+            am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, ui32LenUnload, USB_XFER_DONE, NULL);
+            return AM_HAL_STATUS_SUCCESS;
+        }
+    }
 
-    // #### INTERNAL BEGIN ####
-    // Note: It is found that if we enable double pkt buffer in DMA1 with single packet
-    //       size, we will be seeing over-clearing of OutPktRdy, causing packet to
-    //       be wrongly discarded. Hence, we are disabling double pkt buffer when only
-    ///      single packet length is requested.
-    // #### INTERNAL END ####
-    #ifdef ENABLE_OUT_DOUBLE_PACKET
-    bool bWasDPktBuffer = (OUTCSRU_DPktBufDis(pUSB) == 0);
-    #endif
-    if ( ui32Count > OUTMAXP_MaxPayload(pUSB) )
-    {
-        OUTCSRU_AutoClear_Set(pUSB);
-        #ifdef ENABLE_OUT_DOUBLE_PACKET
-        OUTCSRU_DPktBufDis_Clear(pUSB);
-        #endif
-    }
-    else
-    {
-        OUTCSRU_AutoClear_Clear(pUSB);
-        #ifdef ENABLE_OUT_DOUBLE_PACKET
-        OUTCSRU_DPktBufDis_Set(pUSB);
-        #endif
-    }
+    OUTCSRU_AutoClear_Set(pUSB);
     OUTCSRU_DMAReqEnab_Set(pUSB);
     OUTCSRU_DMAReqMode_Set(pUSB);
 
     ui32ReqLineNum = ui8EpNum + 4;
     ui32DmaReqSize = OUTMAXP_MaxPayload(pUSB);
 
-    ui32Status = am_hal_usb_adma_config(pUSB, ui32ReqLineNum, ui32DmaReqSize, ui32Count, AM_HAL_USB_DMA_PRI_LOW, AM_HAL_USB_OUT_DIR, ui8EpNum, (uint32_t)pucBuf);
-    if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+    ui32Status = am_hal_usb_adma_config(pUSB, ui32ReqLineNum, ui32DmaReqSize, ui32DmaReqSize, AM_HAL_USB_DMA_PRI_LOW, AM_HAL_USB_OUT_DIR, ui8EpNum, (uint32_t)pucBuf);
+
+    if (ui32Status != AM_HAL_STATUS_SUCCESS)
     {
         return ui32Status;
     }
@@ -1739,14 +1977,12 @@ am_hal_usb_fifo_unloading_nonblocking(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t 
     //
     // Enable DMA.
     //
-    OUTCSRL_OutPktRdy_Clear(pUSB);
-    #ifdef ENABLE_OUT_DOUBLE_PACKET
-    if ( bWasDPktBuffer )
-    {
-        OUTCSRL_OutPktRdy_Clear(pUSB);
-    }
-    #endif
     DMACTRL_DMAEN_Enable(pUSB);
+
+    //
+    // enable out endpoint interrupt for this EP.
+    //
+    INTROUTE_Enable(pUSB, 0x1 << ui8EpNum);
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -1827,7 +2063,7 @@ am_hal_usb_fifo_loading(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *pucBuf, uint3
 //
 //*****************************************************************************
 static inline uint32_t
-am_hal_usb_fifo_loading_nonblocking(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *pucBuf, uint32_t ui32Count)
+am_hal_usb_fifo_loading_dma1(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *pucBuf, uint32_t ui32Count)
 {
     uint32_t ui32Status;
     uint32_t ui32ReqLineNum;
@@ -1869,7 +2105,6 @@ am_hal_usb_fifo_loading_nonblocking(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *p
     return AM_HAL_STATUS_SUCCESS;
 }
 
-
 //*****************************************************************************
 //
 // Load the FIFO with Data in DMA Mode 0
@@ -1909,7 +2144,6 @@ am_hal_usb_dma_loading_fifo(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *pucBuf, u
 
     return ui32Status;
 }
-
 
 #ifdef AM_HAL_USB_TEST_MODE_ENABLED
 
@@ -1970,6 +2204,7 @@ am_hal_usb_test_mode(const void *pHandle, const am_hal_usb_test_mode_e eTestMode
     // SetFeature(TEST_TMODE)
     if (pState->bInTestMode)
     {
+        bool bTestModeEntered = true;
         switch ( eTestMode )
         {
             case AM_HAL_USB_TEST_SE0_NAK:
@@ -1987,6 +2222,13 @@ am_hal_usb_test_mode(const void *pHandle, const am_hal_usb_test_mode_e eTestMode
                 CSR0_InPktRdy_Set(pUSB);
                 TESTMODE_TestPacket_Set(pUSB);
                 break;
+            default:
+                bTestModeEntered = false;
+                break;
+        }
+        if (bTestModeEntered)
+        {
+            while(1);
         }
     }
     return AM_HAL_STATUS_SUCCESS;
@@ -2012,7 +2254,8 @@ am_hal_usb_enable_sof_intr(void *pHandle)
 #endif
 
     USB_Type *pUSB = USBn(pState->ui32Module);
-    INTRUSBE_SOF_Enable(pUSB);
+    pState->sofReq.sofIntrReq_b.stack = true;
+    am_hal_usb_update_sof_intr_enable(pState, pUSB);
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -2035,7 +2278,8 @@ am_hal_usb_disable_sof_intr(void *pHandle)
 #endif
 
     USB_Type *pUSB = USBn(pState->ui32Module);
-    INTRUSBE_SOF_Disable(pUSB);
+    pState->sofReq.sofIntrReq_b.stack = false;
+    am_hal_usb_update_sof_intr_enable(pState, pUSB);
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -2066,6 +2310,7 @@ am_hal_usb_ep0_state_reset(am_hal_usb_state_t *pState)
     pState->eEP0State = AM_HAL_USB_EP0_STATE_IDLE;
     am_hal_usb_xfer_reset(&pState->ep0_xfer);
 }
+
 
 void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
 {
@@ -2120,6 +2365,20 @@ am_hal_usb_xfer_complete(am_hal_usb_state_t *pState, am_hal_usb_ep_xfer_t *pXfer
 
     if (pState && pXfer)
     {
+        #ifdef ENABLE_ADMA_OUT_XFER_END_DETECTION
+        //
+        // If ADMA timeout mechanism is activated. Deactivate it accordingly
+        //
+        if ((am_hal_usb_ep_dir(ui8EpAddr) == AM_HAL_USB_EP_DIR_OUT) && (pXfer->pStartBufAddr != 0))
+        {
+            pState->sofReq.sofIntrReq_b.out_ep &= ~(1 << (am_hal_usb_ep_number(ui8EpAddr)-1));
+            am_hal_usb_update_sof_intr_enable(pState, USBn(pState->ui32Module));
+        }
+        #endif
+
+        //
+        // Reset Xfer struct and issue xfer complete callback
+        //
         am_hal_usb_xfer_reset(pXfer);
         pState->ep_xfer_complete_callback(ui8EpAddr, ui32XferLen, eXferCode, param);
     }
@@ -2320,31 +2579,41 @@ am_hal_usb_ep_fifo_reset(uint32_t *ui32Allocated)
 uint32_t
 am_hal_usb_ep_init(void *pHandle, uint8_t ui8EpAddr, uint8_t ui8EpAttr, uint16_t ui16MaxPacket)
 {
+    am_hal_usb_state_t *pState;
+    USB_Type *pUSB;
+    uint8_t ui8EpNum, ui8EpDir, sz;
 
 #ifndef AM_HAL_DISABLE_API_VALIDATION
-    if (!AM_HAL_USB_CHK_HANDLE(pHandle))
+    if ( !AM_HAL_USB_CHK_HANDLE(pHandle) )
     {
         return AM_HAL_STATUS_INVALID_HANDLE;
     }
-    if (AM_HAL_USB_CHK_EP_NUM(ui8EpAddr))
+
+    if ( AM_HAL_USB_CHK_EP_NUM(ui8EpAddr) )
     {
         return AM_HAL_STATUS_INVALID_ARG;
     }
-    uint8_t sz;
-    uint8_t ui8EpNum, ui8EpDir;
-    am_hal_usb_state_t *pState = (am_hal_usb_state_t *)pHandle;
-    USB_Type *pUSB = USBn(pState->ui32Module);
+#endif // AM_HAL_DISABLE_API_VALIDATION
 
+    //
+    // At this point, pHandle has been validated.
+    //
+    pState = (am_hal_usb_state_t *)pHandle;
+    pUSB = USBn(pState->ui32Module);
+
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+    //
     // Normally USB stack endpoint descriptor should define
     // 64  bytes max packet for full speed
     // 512 bytes max packet for high speed
-    bool hspeed = POWER_HSMode(pUSB);
+    //
+    bool bhspeed = POWER_HSMode(pUSB);
 
-    if ((ui16MaxPacket > am_hal_usb_fifo_size(EP_FIFO_SZ_64)) && !hspeed)
+    if ( (ui16MaxPacket > am_hal_usb_fifo_size(EP_FIFO_SZ_64)) && !bhspeed )
     {
         return AM_HAL_STATUS_INVALID_ARG;
     }
-#endif
+#endif // AM_HAL_DISABLE_API_VALIDATION
 
     ui8EpNum = am_hal_usb_ep_number(ui8EpAddr);
     ui8EpDir = am_hal_usb_ep_dir(ui8EpAddr);
@@ -2386,16 +2655,20 @@ am_hal_usb_ep_init(void *pHandle, uint8_t ui8EpAddr, uint8_t ui8EpAttr, uint16_t
             // Not recommend to use this feature.
             INCSRU_Mode_Set(pUSB);
 #endif
-
             // EP IN FIFO setting
             sz = am_hal_usb_fifo_size_by_maxpacket(ui16MaxPacket);
-#ifdef ENABLE_IN_DOUBLE_PACKET
-            InFIFOsz_Set(pUSB, FIFO_DOUBLE_PKTBUF, sz);
-            InFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, true));
-#else       // Single-packet buffering
-            InFIFOsz_Set(pUSB, FIFO_SINGLE_PKTBUF, sz);
-            InFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, false));
-#endif
+            if ( (pState->sDBufferConfig.in_ep.en >> (ui8EpNum - 1)) & 0x01 )
+            {
+                INCSRU_DPktBufDis_Clear(pUSB);
+                InFIFOsz_Set(pUSB, FIFO_DOUBLE_PKTBUF, sz);
+                InFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, true));
+            }
+            else
+            {
+                INCSRU_DPktBufDis_Set(pUSB);
+                InFIFOsz_Set(pUSB, FIFO_SINGLE_PKTBUF, sz);
+                InFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, false));
+            }
             break;
         case AM_HAL_USB_EP_DIR_OUT:
             OUTMAXP_MaxPayload_Set(pUSB, ui16MaxPacket);
@@ -2425,14 +2698,18 @@ am_hal_usb_ep_init(void *pHandle, uint8_t ui8EpAddr, uint8_t ui8EpAttr, uint16_t
 
             // EP OUT FIFO setting
             sz = am_hal_usb_fifo_size_by_maxpacket(ui16MaxPacket);
-#ifdef ENABLE_OUT_DOUBLE_PACKET
-            OUTCSRU_DPktBufDis_Clear(pUSB);
-            OutFIFOsz_Set(pUSB, FIFO_DOUBLE_PKTBUF, sz);
-            OutFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, true));
-#else       // Single-packet buffering
-            OutFIFOsz_Set(pUSB, FIFO_SINGLE_PKTBUF, sz);
-            OutFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, false));
-#endif
+            if ((pState->sDBufferConfig.out_ep.en >> (ui8EpNum - 1)) & 0x01)
+            {
+                OUTCSRU_DPktBufDis_Clear(pUSB);
+                OutFIFOsz_Set(pUSB, FIFO_DOUBLE_PKTBUF, sz);
+                OutFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, true));
+            }
+            else
+            {
+                OUTCSRU_DPktBufDis_Set(pUSB);
+                OutFIFOsz_Set(pUSB, FIFO_SINGLE_PKTBUF, sz);
+                OutFIFOadd_Set(pUSB, am_hal_usb_ep_fifo_addr(&pState->ui32Allocated, ui16MaxPacket, false));
+            }
             break;
     }
     return AM_HAL_STATUS_SUCCESS;
@@ -2479,7 +2756,7 @@ am_hal_usb_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui8EpD
 
     switch ( pState->eEP0State )
     {
-#ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
+        #ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
         case AM_HAL_USB_EP0_STATE_IDLE:
             if ( (pState->bPendingInEndData || pState->bPendingOutEndData) && (ui32Len == 0) )
             {
@@ -2494,12 +2771,12 @@ am_hal_usb_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui8EpD
                 return AM_HAL_STATUS_FAIL;
             }
             break;
-#endif
+        #endif
 
         case AM_HAL_USB_EP0_STATE_SETUP:
             if (ui32Len == 0x0)
             {
-#ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
+                #ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
                 // There are 2 conditions that we are entering to this handling:
                 // 1. Previous command was with data stage. However, the subsequent SETUP is
                 //    received in ISR before the ACK stage handling is done. For this case,
@@ -2525,17 +2802,17 @@ am_hal_usb_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui8EpD
                     pState->eEP0State =
                         (ui8EpDir == AM_HAL_USB_EP_DIR_IN) ? AM_HAL_USB_EP0_STATE_STATUS_TX : AM_HAL_USB_EP0_STATE_STATUS_RX;
                 }
-#else
+                #else
                 // Upper layer USB stack just use zero length packet to confirm no data stage
                 // some requests like CLEAR_FEARURE, SET_ADDRESS, SET_CONFIGRATION, etc.
                 // end the control transfer from device side
                 CSR0_ServicedOutPktRdyAndDataEnd_Set(pUSB);
-                
+
                 // Move to the status stage and second EP0 interrupt
                 // Will indicate request is completed
                 pState->eEP0State =
                     (ui8EpDir == AM_HAL_USB_EP_DIR_IN) ? AM_HAL_USB_EP0_STATE_STATUS_TX : AM_HAL_USB_EP0_STATE_STATUS_RX;
-#endif
+                #endif
             }
             else
             {
@@ -2554,11 +2831,11 @@ am_hal_usb_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui8EpD
                 {
                     // Read requests handling
                     case AM_HAL_USB_EP_DIR_IN:
-#ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
+                        #ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
                         // Flag that we need to handle End Data later for OUT
                         // direction
                         pState->bPendingOutEndData = true;
-#endif
+                        #endif
 
                         // Load the first packet
                         if (ui32Len < maxpacket)
@@ -2583,11 +2860,12 @@ am_hal_usb_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui8EpD
                     case AM_HAL_USB_EP_DIR_OUT:
                         // Write requests handling
                         // Waiting the host sending the data to the device
-#ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
+
+                        #ifndef AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
                         // Flag that we need to handle End Data later for IN
                         // direction
                         pState->bPendingInEndData = true;
-#endif
+                        #endif
 
                         pState->ep0_xfer.remaining = ui32Len;
                         pState->eEP0State = AM_HAL_USB_EP0_STATE_DATA_RX;
@@ -2654,7 +2932,7 @@ am_hal_usb_non_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui
             {
                 // Handling IN endpoint transfer
                 maxpacket  = pState->epin_maxpackets[ui8EpNum - 1];
-                am_hal_usb_fifo_loading_nonblocking(pUSB, ui8EpNum, pui8Buf, ui32Len);
+                am_hal_usb_fifo_loading_dma1(pUSB, ui8EpNum, pui8Buf, ui32Len);
                 if (ui32Len % maxpacket == 0)
                 {
                     pXfer->flags.zlp = 1;
@@ -2726,32 +3004,48 @@ am_hal_usb_non_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui
 
             // Handling OUT endpoint transfer
             maxpacket  = pState->epout_maxpackets[ui8EpNum - 1];
-
-#ifdef AM_HAL_USB_FEATURE_EP_READ_TIMEOUT
-            pXfer->xfer_started = false;
-            pXfer->timeout = AM_HAL_USB_TIMEOUT;
-#endif
-
             pXfer->buf = pui8Buf;
             pXfer->len = ui32Len;
             pXfer->remaining = ui32Len;
 
             if (pState->eOutXferMode == AM_HAL_USB_OUT_DMA_MODE_1)
             {
-                am_hal_usb_fifo_unloading_nonblocking(pUSB, ui8EpNum, pXfer->buf, pXfer->len);
+                am_hal_usb_fifo_unloading_dma1(pUSB, pState, ui8EpNum, pXfer->buf, pXfer->len);
+            }
+            else if (pState->eOutXferMode == AM_HAL_USB_OUT_DMA_MODE_0)
+            {
+                if (OUTCSRL_OutPktRdy(pUSB))
+                {
+                    pXfer->flags.lastpkt = 0;
+                    am_hal_usb_intr_out_status_clear(pState, ui8EpNum);
+                    am_hal_usb_out_ep_dma0_handling(pState, pUSB, ui8EpNum);
+                }
+                else
+                {
+                    //
+                    // enable out endpoint interrupt for this EP.
+                    //
+                    INTROUTE_Enable(pUSB, 0x1 << ui8EpNum);
+                }
             }
             else
             {
                 //
-                // clear OutPktRdy bit before enabling the interrupt
+                // enable out endpoint interrupt for this EP.
                 //
-                OUTCSRL_OutPktRdy_Clear(pUSB);
-            }
+                INTROUTE_Enable(pUSB, 0x1 << ui8EpNum);
 
-            //
-            // enable out endpoint interrupt for this EP.
-            //
-            INTROUTE_Enable(pUSB, 0x1 << ui8EpNum);
+                //
+                // If OutPktRdy is raised, the interrupt might have occurred
+                // when OUT EP buffer is not assigned from stack yet. Trigger
+                // the handling right away.
+                //
+                if ( OUTCSRL_OutPktRdy(pUSB) )
+                {
+                    am_hal_usb_out_ep_handling(pState, pUSB, ui8EpNum);
+                    break;
+                }
+            }
             break;
     }
 
@@ -2800,6 +3094,28 @@ am_hal_usb_ep_xfer(void *pHandle, uint8_t ui8EpAddr, uint8_t *pui8Buf, uint32_t 
 // USB Interrupt handling functions
 //
 //*****************************************************************
+
+//*****************************************************************
+//
+// Discard OUT endpoint interrupt event
+//
+//*****************************************************************
+static inline uint32_t
+am_hal_usb_intr_out_status_clear(am_hal_usb_state_t *pState, uint8_t ui8EpNum)
+{
+    USB_Type *pUSB = USBn(pState->ui32Module);
+
+    if (ui8EpNum > 5)
+    {
+        return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
+
+    pState->ui32PendingIntrOut |= INTROUT_Get(pUSB);
+    pState->ui32PendingIntrOut &= ~(0x01 << ui8EpNum);
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
 //*****************************************************************************
 //
 // get all USB related interrupt status
@@ -2820,9 +3136,11 @@ am_hal_usb_intr_status_get(void *pHandle, uint32_t *ui32IntrUsbStatus, uint32_t 
     USB_Type *pUSB = USBn(pState->ui32Module);
     *ui32IntrUsbStatus = INTRUSB_Get(pUSB);
     *ui32IntrInStatus  = INTRIN_Get(pUSB);
-    *ui32IntrOutStatus = INTROUT_Get(pUSB);
+    *ui32IntrOutStatus = INTROUT_Get(pUSB) | pState->ui32PendingIntrOut;
     *ui32IntrDMAStatus = DMAINTSTAT_Get(pUSB);
     *ui32IntrAutoDMAStatus = ADMACMPINTSTAT_Get(pUSB);
+
+    pState->ui32PendingIntrOut = 0;
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -3260,6 +3578,49 @@ am_hal_usb_ep0_handle_setup_req(am_hal_usb_state_t *pState, USB_Type *pUSB)
         am_hal_usb_fifo_unloading(pUSB, AM_HAL_USB_EP0_NUMBER, setup_req, count0);
         pState->eEP0State = AM_HAL_USB_EP0_STATE_SETUP;
 
+        #ifdef AM_HAL_USB_TEST_MODE_ENABLED
+        if ((setup_req[1] == USB_REQ_SET_FEATURE) && (*((uint16_t*)&setup_req[2]) == USB_REQ_FEATURE_TEST_MODE))
+        {
+            // Select endpoint 0
+            EP_INDEX_Set(pUSB, 0);
+
+            // Give enough time for Test Command to be acked, and Status Stage to complete
+            CSR0_ServicedOutPktRdyAndDataEnd_Set(pUSB);
+            CSR0_InPktRdyAndDataEnd_Set(pUSB);
+
+            // Delay 2ms to make sure that the ACK and STATUS stage has enough
+            // time to take place
+            // Note: According to USB2.0 Spec Section 7.1.20, transition to
+            //       test mode must be complete no later than 3ms after
+            //       completion of the status stage of the request. Hence, this
+            //       delay cannot be too long.
+            am_hal_delay_us(2000);
+
+            // Enter test mode
+            am_hal_usb_enter_test_mode(pState);
+
+            // Execute test modes
+            switch(setup_req[5])
+            {
+                case USB_REQ_TEST_MODE_TESTPKT:
+                    am_hal_usb_test_mode(pState, AM_HAL_USB_TEST_PACKET);
+                    break;
+
+                case USB_REQ_TEST_MODE_J:
+                    am_hal_usb_test_mode(pState, AM_HAL_USB_TEST_J);
+                    break;
+
+                case USB_REQ_TEST_MODE_K:
+                    am_hal_usb_test_mode(pState, AM_HAL_USB_TEST_K);
+                    break;
+
+                case USB_REQ_TEST_MODE_SE0NAK:
+                    am_hal_usb_test_mode(pState, AM_HAL_USB_TEST_SE0_NAK);
+                    break;
+            }
+        }
+        #endif
+
         //
         // Let the upper layer USB device stack to handle this request
         //
@@ -3516,7 +3877,7 @@ am_hal_usb_in_ep_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui
 //
 //*****************************************************************************
 static void
-am_hal_usb_in_ep_nonblocking_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum)
+am_hal_usb_in_ep_dma1_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum)
 {
     am_hal_usb_ep_xfer_t *pXfer;
     uint32_t maxpacket;
@@ -3541,12 +3902,8 @@ am_hal_usb_in_ep_nonblocking_handling(am_hal_usb_state_t *pState, USB_Type *pUSB
     if (pUSB->ADMACMPINTSTAT & (0x1 << (ui8EpNum - 1)))
     {
         pUSB->ADMACMPINTCLR |= 1 << (ui8EpNum - 1);
-
         pUSB->ADMAEN &= ~(1 << (ui8EpNum - 1));
-
-        INCSRU_AutoSet_Clear(pUSB);
         INCSRU_DMAReqEnab_Clear(pUSB);
-        INCSRU_DMAReqMode_Clear(pUSB);
 
         // Set InPktRdy manually for small packet
         if (pXfer->len % maxpacket)
@@ -3556,7 +3913,7 @@ am_hal_usb_in_ep_nonblocking_handling(am_hal_usb_state_t *pState, USB_Type *pUSB
     }
 
     // If Endpoint interrupt occurs, complete the transaction
-    if ( (INCSRL_FIFONotEmpty(pUSB) == 0) && pXfer->flags.busy )
+    if ( !(pUSB->ADMAEN & (0x1 << (ui8EpNum - 1))) && (INCSRL_FIFONotEmpty(pUSB) == 0) && pXfer->flags.busy )
     {
         INTRINE_Disable(pUSB, 0x1 << ui8EpNum);
         pXfer->remaining = 0x0;
@@ -3594,6 +3951,12 @@ am_hal_usb_out_ep_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t u
         count = OUTCOUNT(pUSB);
         maxpacket = pState->epout_maxpackets[ui8EpNum - 1];
 
+        if (pXfer->len == 0)
+        {
+            INTROUTE_Disable(pUSB, 0x1 << ui8EpNum);
+            return;
+        }
+
         if (pXfer->remaining < count)
         {
             am_hal_usb_fifo_unloading(pUSB, ui8EpNum, pXfer->buf + pXfer->len - pXfer->remaining, pXfer->remaining);
@@ -3605,6 +3968,7 @@ am_hal_usb_out_ep_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t u
             am_hal_usb_fifo_unloading(pUSB, ui8EpNum, pXfer->buf + pXfer->len - pXfer->remaining, count);
             pXfer->remaining -= count;
         }
+        OUTCSRL_OutPktRdy_Clear(pUSB);
 
         if (pXfer->remaining == 0x0 || count < maxpacket)
         {
@@ -3612,22 +3976,6 @@ am_hal_usb_out_ep_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t u
             am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, pXfer->len - pXfer->remaining, USB_XFER_DONE, NULL);
             return;
         }
-#ifdef AM_HAL_USB_FEATURE_EP_READ_TIMEOUT
-        else
-        {
-            if (pXfer->xfer_started == false)
-            {
-                pXfer->xfer_started = true;
-                pXfer->timeout--;
-            }
-            else
-            {
-                // Reset the timeout
-                pXfer->timeout = AM_HAL_USB_TIMEOUT;
-            }
-        }
-#endif
-        OUTCSRL_OutPktRdy_Clear(pUSB);
     }
 }
 
@@ -3655,11 +4003,21 @@ am_hal_usb_out_ep_dma0_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint
         return;
     }
 
+    // Filter out interrupts when no transaction is ongoing for the endpoint.
+    if ( pXfer->buf == 0 )
+    {
+        return;
+    }
+
     // If this is the last packet we expect to received or we have received an ZLP, callback XFER_DONE event
     count = OUTCOUNT(pUSB);
-    if ( (pXfer->flags.lastpkt) || ((count == 0) && (pXfer->len == pXfer->remaining)) )
+    if ((pXfer->flags.lastpkt) || ((count == 0) && (pXfer->len == pXfer->remaining)))
     {
         INTROUTE_Disable(pUSB, 0x1 << ui8EpNum);
+        if (pXfer->flags.lastpkt || (OUTCSRL_OutPktRdy(pUSB) && (count == 0)))
+        {
+            OUTCSRL_OutPktRdy_Clear(pUSB);
+        }
         am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, pXfer->len - pXfer->remaining, USB_XFER_DONE, NULL);
     }
     // Else, Continue receiving
@@ -3667,12 +4025,15 @@ am_hal_usb_out_ep_dma0_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint
     {
         if (OUTCSRL_OutPktRdy(pUSB))
         {
-            uint32_t ui32XferLen;
             count = OUTCOUNT(pUSB);
             maxpacket = pState->epout_maxpackets[ui8EpNum - 1];
 
             // Send Data using DMA Mode 0
-            if (pXfer->remaining < count)
+            if (pXfer->remaining == 0)
+            {
+                // Note: No buffer to receive data. Do nothing.
+            }
+            else if (pXfer->remaining < count)
             {
                 am_hal_usb_dma_unloading_fifo(pUSB, ui8EpNum, pXfer->buf + pXfer->len - pXfer->remaining, pXfer->remaining);
                 pXfer->remaining = 0;
@@ -3689,21 +4050,6 @@ am_hal_usb_out_ep_dma0_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint
             {
                 pXfer->flags.lastpkt = true;
             }
-#ifdef AM_HAL_USB_FEATURE_EP_READ_TIMEOUT
-            else
-            {
-                if (pXfer->xfer_started == false)
-                {
-                    pXfer->xfer_started = true;
-                    pXfer->timeout--;
-                }
-                else
-                {
-                    // Reset the timeout
-                    pXfer->timeout = AM_HAL_USB_TIMEOUT;
-                }
-            }
-#endif
         }
     }
 }
@@ -3714,7 +4060,7 @@ am_hal_usb_out_ep_dma0_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint
 //
 //*****************************************************************************
 static void
-am_hal_usb_out_ep_nonblocking_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum)
+am_hal_usb_out_ep_dma1_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum)
 {
     uint16_t count;
     uint16_t maxpacket;
@@ -3744,30 +4090,33 @@ am_hal_usb_out_ep_nonblocking_handling(am_hal_usb_state_t *pState, USB_Type *pUS
         {
             if ( pXfer->len )
             {
+                //
+                // If ADMA complete interrupt and endpoint interrupt occurs,
+                // handle ADMA complete interrupt instead. In this case,
+                // endpoint interrupt is actually caused by data that are
+                // pushed into FIFO after ADMA is completed.
+                //
+                if ( pUSB->ADMACMPINTSTAT & (1 << (ui8EpNum + 4)) )
+                {
+                    am_hal_usb_out_ep_dma1_adma_handling(pState, pUSB, ui8EpNum);
+                    return;
+                }
+
                 pUSB->ADMACMPINTCLR |= 1 << (ui8EpNum + 4);
-
                 pUSB->ADMAEN &= ~(1 << (ui8EpNum + 4));
-
-                OUTCSRU_AutoClear_Clear(pUSB);
-                OUTCSRU_DMAReqEnab_Clear(pUSB);
-                OUTCSRU_DMAReqMode_Clear(pUSB);
-
                 ui32AdmaTarAddr = AM_REGVAL((uint32_t)&(pUSB->ADMATARGADDR0) + 4 * (ui8EpNum + 4));
                 ui32XferLen = ui32AdmaTarAddr - (uint32_t)pXfer->buf + count;
                 am_hal_usb_fifo_unloading(pUSB, ui8EpNum, (uint8_t *)ui32AdmaTarAddr, count);
                 INTROUTE_Disable(pUSB, 0x1 << ui8EpNum);
                 am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, ui32XferLen, USB_XFER_DONE, NULL);
+                OUTCSRL_OutPktRdy_Clear(pUSB);
                 return;
             }
-            else
+            else if (count == 0)
             {
+                OUTCSRL_OutPktRdy_Clear(pUSB);
                 return;
             }
-        }
-        else
-        {
-            am_hal_usb_fifo_unloading_nonblocking(pUSB, ui8EpNum, pXfer->buf, pXfer->len);
-            return;
         }
 
     }
@@ -3779,7 +4128,7 @@ am_hal_usb_out_ep_nonblocking_handling(am_hal_usb_state_t *pState, USB_Type *pUS
 //
 //*****************************************************************************
 static void
-am_hal_usb_out_ep_nonblocking_adma_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum)
+am_hal_usb_out_ep_dma1_adma_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui8EpNum)
 {
     uint32_t ui32XferLen;
     uint32_t ui32AdmaTarAddr;
@@ -3802,13 +4151,43 @@ am_hal_usb_out_ep_nonblocking_adma_handling(am_hal_usb_state_t *pState, USB_Type
     {
         pUSB->ADMACMPINTCLR |= 1 << (ui8EpNum + 4);
         pUSB->ADMAEN &= ~(1 << (ui8EpNum + 4));
-        OUTCSRU_AutoClear_Clear(pUSB);
-        OUTCSRU_DMAReqEnab_Clear(pUSB);
-        OUTCSRU_DMAReqMode_Clear(pUSB);
+        if ( OUTCSRU_AutoClear(pUSB) == 0 )
+        {
+            OUTCSRL_OutPktRdy_Clear(pUSB);
+        }
         ui32AdmaTarAddr = AM_REGVAL((uint32_t)&(pUSB->ADMATARGADDR0) + 4 * (ui8EpNum + 4));
         ui32XferLen = ui32AdmaTarAddr - (uint32_t)pXfer->buf;
-        INTROUTE_Disable(pUSB, 0x1 << ui8EpNum);
-        am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, ui32XferLen, USB_XFER_DONE, NULL);
+
+        if ( pXfer->len > ui32XferLen )
+        {
+            uint32_t ui32ReqLineNum = ui8EpNum + 4;
+            uint32_t ui32DmaReqSize = OUTMAXP_MaxPayload(pUSB);
+            uint32_t ui32Status = am_hal_usb_adma_config(pUSB, ui32ReqLineNum, ui32DmaReqSize, pXfer->len - ui32XferLen, AM_HAL_USB_DMA_PRI_LOW, AM_HAL_USB_OUT_DIR, ui8EpNum, ui32AdmaTarAddr);
+
+            if (ui32Status != AM_HAL_STATUS_SUCCESS)
+            {
+                am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, ui32XferLen, USB_XFER_ERROR, NULL);
+                return;
+            }
+
+            #ifdef ENABLE_ADMA_OUT_XFER_END_DETECTION
+            //
+            // Start timeout mechanism for ADMA
+            //
+            pXfer->pLastBufAddr                 = ui32AdmaTarAddr;
+            pXfer->pStartBufAddr                = (uint32_t)pXfer->buf;
+            pXfer->timeout_counter              = AM_HAL_USB_TIMEOUT;
+            pState->sofReq.sofIntrReq_b.out_ep |= (1 << (ui8EpNum - 1));
+            am_hal_usb_update_sof_intr_enable(pState, pUSB);
+            #endif
+
+        }
+        else
+        {
+            INTROUTE_Disable(pUSB, 0x1 << ui8EpNum);
+            am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, ui32XferLen, USB_XFER_DONE, NULL);
+
+        }
         return;
     }
 }
@@ -3847,6 +4226,7 @@ am_hal_usb_interrupt_service(void *pHandle,
         USBPHY->REG10 |= 0x2;
 
         // Back to active state
+        INTRUSBE_Suspend_Enable(pUSB);
         pState->eDevState = AM_HAL_USB_DEV_STATE_RESUMING;
         if (pState->dev_evt_callback)
         {
@@ -3892,15 +4272,13 @@ am_hal_usb_interrupt_service(void *pHandle,
 
         // Disable the SOF interrupt
         // enable it only when upper layer stack need it
-#ifdef AM_HAL_USB_FEATURE_EP_READ_TIMEOUT
-        INTRUSBE_SOF_Enable(pUSB);
-#else
         INTRUSBE_SOF_Disable(pUSB);
-#endif
+        pState->sofReq.sofIntrReq = 0;
 
         //
-        // Always enable the SuspendM
+        // Enable interrupt for USB suspend. Discard suspend interrupt event.
         //
+        ui32IntrUsbStatus &= ~USB_INTRUSB_Suspend_Msk;
         INTRUSBE_Suspend_Enable(pUSB);
 
         if (pState->dev_evt_callback)
@@ -3909,80 +4287,113 @@ am_hal_usb_interrupt_service(void *pHandle,
         }
     }
 
-    // Handling the SOF interrupt
-    if (ui32IntrUsbStatus & USB_INTRUSB_SOF_Msk)
+    // Handling the SOF interrupt if it is enabled
+    if ((pState->sofReq.sofIntrReq != 0) && (ui32IntrUsbStatus & USB_INTRUSB_SOF_Msk))
     {
-        // Notify the SOF event
-#ifdef AM_HAL_USB_FEATURE_EP_READ_TIMEOUT
-        for (int i = 0; i < AM_HAL_USB_EP_MAX_NUMBER; i++)
+        #ifdef ENABLE_ADMA_OUT_XFER_END_DETECTION
+        // If SOF interrupt is enabled by OUT_EP xfer
+        uint8_t ui8OutEpIntrReq = pState->sofReq.sofIntrReq_b.out_ep;
+        uint8_t ui8EpNum = 1;
+        while (ui8OutEpIntrReq)
         {
-            am_hal_usb_ep_xfer_t *pXfer = &pState->ep_xfers[i][0];
-            // Notify the upper layer, endpoint transfer is aborted
-            if (pXfer->timeout == 0x0 && pXfer->flags.busy)
+            if (ui8OutEpIntrReq & 0x01)
             {
-                INTROUTE_Disable(pUSB, 0x1 << i);
-                am_hal_usb_xfer_complete(pState, pXfer, am_hal_usb_ep_addr(i + 1, 0), pXfer->len - pXfer->remaining, USB_XFER_ABORT, NULL);
-            }
-            else
-            {
-                if (pXfer->xfer_started)
+                am_hal_usb_ep_xfer_t* pXfer = &pState->ep_xfers[ui8EpNum-1][AM_HAL_USB_EP_DIR_OUT];
+
+                // Get current ADMA target addr
+                uint32_t ui32AdmaTarAddr = AM_REGVAL((uint32_t)&(pUSB->ADMATARGADDR0) + ((ui8EpNum + 4) << 2));
+
+                if (pXfer->pStartBufAddr != ui32AdmaTarAddr)
                 {
-                    pXfer->timeout--;
+                    if (pXfer->pLastBufAddr == ui32AdmaTarAddr)
+                    {
+                        pXfer->timeout_counter --;
+
+                        // If Transfer timeout
+                        if ( pXfer->timeout_counter == 0 )
+                        {
+                            EP_INDEX_Set(pUSB, ui8EpNum);
+                            pUSB->ADMAEN &= ~(1 << (ui8EpNum + 4));
+                            pUSB->ADMACMPINTCLR |= 1 << (ui8EpNum + 4);
+
+                            ui32AdmaTarAddr = AM_REGVAL((uint32_t)&(pUSB->ADMATARGADDR0) + ((ui8EpNum + 4) << 2));
+                            uint32_t ui32XferLen = ui32AdmaTarAddr - (uint32_t)pXfer->buf;
+                            INTROUTE_Disable(pUSB, 0x1 << ui8EpNum);
+                            am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, ui32XferLen, USB_XFER_DONE, NULL);
+                        }
+                    }
+                    else
+                    {
+                        pXfer->pLastBufAddr   = ui32AdmaTarAddr;
+                        pXfer->timeout_counter = AM_HAL_USB_TIMEOUT;
+                    }
                 }
             }
+            ui8OutEpIntrReq >>= 1;
+            ui8EpNum++;
         }
-#endif
-        if (pState->dev_evt_callback)
+        #endif
+
+        if ( pState->sofReq.sofIntrReq_b.stack )
         {
-            pState->dev_evt_callback(AM_HAL_USB_DEV_EVT_SOF);
+            // Notify the SOF event
+            if (pState->dev_evt_callback)
+            {
+                pState->dev_evt_callback(AM_HAL_USB_DEV_EVT_SOF);
+            }
         }
     }
 
-    // Handling the EP0 interrupt
-    if (ui32IntrInStatus & USB_INTRIN_EP0_Msk)
+    if (ui32IntrInStatus)
     {
-        am_hal_usb_ep0_handling(pState, pUSB);
-        ui32IntrInStatus &= ~USB_INTRIN_EP0_Msk;
-    }
-
-
-    // Handling IN Endpoint one by one
-    for (i = AM_HAL_USB_EP1_NUMBER; i <= AM_HAL_USB_EP_MAX_NUMBER; i++)
-    {
-
-        if (ui32IntrInStatus & (0x1 << i))
+        // Handling the EP0 interrupt
+        if (ui32IntrInStatus & USB_INTRIN_EP0_Msk)
         {
-            if ( pState->eInXferMode == AM_HAL_USB_IN_DMA_MODE_1 )
-            {
-                am_hal_usb_in_ep_nonblocking_handling(pState, pUSB, i);
-            }
-            else
-            {
-                am_hal_usb_in_ep_handling(pState, pUSB, i);
-            }
+            am_hal_usb_ep0_handling(pState, pUSB);
+            ui32IntrInStatus &= ~USB_INTRIN_EP0_Msk;
+        }
 
+        // Handling IN Endpoint one by one
+        for (i = AM_HAL_USB_EP1_NUMBER; i <= AM_HAL_USB_EP_MAX_NUMBER; i++)
+        {
+
+            if (ui32IntrInStatus & (0x1 << i))
+            {
+                if ( pState->eInXferMode == AM_HAL_USB_IN_DMA_MODE_1 )
+                {
+                    am_hal_usb_in_ep_dma1_handling(pState, pUSB, i);
+                }
+                else
+                {
+                    am_hal_usb_in_ep_handling(pState, pUSB, i);
+                }
+
+            }
         }
     }
 
     // Handling OUT Endpoint one by one
-    for (i = AM_HAL_USB_EP1_NUMBER; i <= AM_HAL_USB_EP_MAX_NUMBER; i++)
+    if ( ui32IntrOutStatus )
     {
-        if (ui32IntrOutStatus & (0x1 << i))
+        for (i = AM_HAL_USB_EP1_NUMBER; i <= AM_HAL_USB_EP_MAX_NUMBER; i++)
         {
-            if ( pState->eOutXferMode == AM_HAL_USB_OUT_DMA_MODE_1 )
+            if (ui32IntrOutStatus & (0x1 << i))
             {
+                if ( pState->eOutXferMode == AM_HAL_USB_OUT_DMA_MODE_1 )
+                {
 
-                am_hal_usb_out_ep_nonblocking_handling(pState, pUSB, i);
-            }
-            else if ( pState->eOutXferMode == AM_HAL_USB_OUT_DMA_MODE_0 )
-            {
-                am_hal_usb_out_ep_dma0_handling(pState, pUSB, i);
-            }
-            else
-            {
-                am_hal_usb_out_ep_handling(pState, pUSB, i);
-            }
+                    am_hal_usb_out_ep_dma1_handling(pState, pUSB, i);
+                }
+                else if ( pState->eOutXferMode == AM_HAL_USB_OUT_DMA_MODE_0 )
+                {
+                    am_hal_usb_out_ep_dma0_handling(pState, pUSB, i);
+                }
+                else
+                {
+                    am_hal_usb_out_ep_handling(pState, pUSB, i);
+                }
 
+            }
         }
     }
 
@@ -4009,13 +4420,14 @@ am_hal_usb_interrupt_service(void *pHandle,
         {
             am_hal_usb_ep_xfer_t* pXfer = &pState->ep_xfers[USB->DMACTRL_b.DMAEP - 1][AM_HAL_USB_EP_DIR_OUT];
             EP_INDEX_Set(pUSB, pUSB->DMACTRL_b.DMAEP);
-            if ( pXfer->flags.lastpkt )
+            if (pXfer->flags.lastpkt)
             {
                 am_hal_usb_out_ep_dma0_handling(pState, pUSB, USB->DMACTRL_b.DMAEP);
             }
             else
             {
                 OUTCSRL_OutPktRdy_Clear(pUSB);
+                INTROUTE_Enable(pUSB, 0x1 << USB->DMACTRL_b.DMAEP);
             }
         }
 
@@ -4037,7 +4449,7 @@ am_hal_usb_interrupt_service(void *pHandle,
             {
                 if (ui32IntrAutoDMAStatus & (0x1 << i))
                 {
-                    am_hal_usb_in_ep_nonblocking_handling(pState, pUSB, i + 1);
+                    am_hal_usb_in_ep_dma1_handling(pState, pUSB, i + 1);
                 }
             }
         }
@@ -4048,13 +4460,11 @@ am_hal_usb_interrupt_service(void *pHandle,
             {
                 if (ui32IntrAutoDMAStatus & (0x1 << i))
                 {
-                    am_hal_usb_out_ep_nonblocking_adma_handling(pState, pUSB, i - 4);
+                    am_hal_usb_out_ep_dma1_adma_handling(pState, pUSB, i - 4);
                 }
             }
         }
     }
-
-
 
     // Handling the suspend interrupt finally
     if (ui32IntrUsbStatus & USB_INTRUSB_Suspend_Msk)
@@ -4064,6 +4474,7 @@ am_hal_usb_interrupt_service(void *pHandle,
         //
         USBPHY->REG10 &= 0xFD;
 
+        INTRUSBE_Suspend_Disable(pUSB);
         pState->eDevState = AM_HAL_USB_DEV_STATE_SUSPENDING;
         if (pState->dev_evt_callback)
         {
@@ -4116,6 +4527,50 @@ am_hal_usb_set_xfer_mode(void *pHandle, am_hal_usb_xfer_mode_e eXferMode)
         default:
             ui32RetVal = AM_HAL_STATUS_INVALID_ARG;
             break;
+    }
+
+    return ui32RetVal;
+}
+
+//*****************************************************************************
+//
+// Enable/Disable Double Buffer for the Endpoint-Direction combination
+//
+//*****************************************************************************
+uint32_t
+am_hal_usb_enable_ep_double_buffer(void *pHandle, uint8_t epnum, am_hal_usb_xfer_dir_e dir, bool enable)
+{
+    #ifndef AM_HAL_DISABLE_API_VALIDATION
+    if (!AM_HAL_USB_CHK_HANDLE(pHandle))
+    {
+        return AM_HAL_STATUS_INVALID_HANDLE;
+    }
+    #endif
+
+    //
+    // Check Endpoint Number
+    //
+    if ((epnum == 0) || (epnum > AM_HAL_USB_EP_MAX_NUMBER))
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+
+    am_hal_usb_state_t *pState = (am_hal_usb_state_t *)pHandle;
+    uint32_t ui32RetVal = AM_HAL_STATUS_SUCCESS;
+
+    //
+    // Actual setting of the configuration
+    //
+    am_hal_usb_dbugger_enable_t *config = (dir == AM_HAL_USB_OUT_DIR)? &pState->sDBufferConfig.out_ep:
+                                                                       &pState->sDBufferConfig.in_ep;
+
+    if (enable)
+    {
+        config->en |= (0x01 << (epnum - 1));
+    }
+    else
+    {
+        config->en &= ~(0x01 << (epnum - 1));
     }
 
     return ui32RetVal;

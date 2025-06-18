@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_CARD_H
@@ -469,7 +496,7 @@ extern "C"
 // Internal macros
 //
 #define SDIO_TIMING_SCAN_MIN_ACCEPTANCE_LENGTH  2 // Acceptable length should be determined based on system level test.
-#define AM_HAL_CARD_DEBUG(fmt, ...) am_util_debug_printf("[CARD] line %04d - "fmt, __LINE__, ##__VA_ARGS__)
+#define AM_HAL_CARD_DEBUG(fmt, ...) am_util_debug_printf("[CARD] line %04d - ", fmt, __LINE__, ##__VA_ARGS__)
 
 #define SECTOR_MODE       0x4
 #define CARD_RDY_BIT      ((uint32_t)0x1 << 31)
@@ -500,7 +527,7 @@ static inline uint32_t am_hal_unstuff_bits(uint32_t *resp, uint32_t start, uint3
 
 static inline uint32_t am_hal_unstuff_bytes(uint32_t *ext_csd, uint32_t start, uint32_t size)
 {
-    int i;
+    uint32_t i;
     const uint32_t __size = size;
     uint32_t __res = 0x0;
     const uint8_t *__p = (const uint8_t *)ext_csd;
@@ -511,220 +538,6 @@ static inline uint32_t am_hal_unstuff_bytes(uint32_t *ext_csd, uint32_t start, u
     return __res;
 }
 
-// #### INTERNAL BEGIN ####
-
-#if 0
-// TODO:
-typedef struct
-{
-    uint8_t  MID;                   // Manufacturer ID
-    uint8_t  CBX;                   // Device/BGA
-    uint8_t  OID;                   // OEM/Application ID
-    uint32_t PNM1;                  // Product Name (48 bits length)
-    uint16_t PNM2;                  // Product Name
-    uint8_t  PRV;                   // Product Revision
-    uint32_t PSN;                   // Product Serial
-    uint8_t  MDT;                   // Manufacture Date
-    uint8_t  CRC;                   // CRC7
-} am_hal_card_cid_t;
-
-typedef struct
-{
-    uint8_t  CSD_STRUCTURE;           // CSD structure
-    uint8_t  SPEC_VERS;               // System specification version
-    uint8_t  RESERV1;                 // Reserved
-    uint8_t  TAAC;                    // Data read access time 1
-    uint8_t  NSAC;                    // Data read access time 2 in CLK cycles
-    uint8_t  TRANS_SPEED;             // Max. bus clock frequency
-    uint16_t CCC;                     // Card command classes
-    uint8_t  READ_BL_LEN;             // Max. read data block length
-    uint8_t  READ_BL_PARTIAL;         // Partial blocks for read allowed
-    uint8_t  WRITE_BLK_MISALIGN;      // Write block misalignment
-    uint8_t  READ_BLK_MISALIGN;       // Read block misalignment
-    uint8_t  DSR_IMP;                 // DSR implemented
-    uint8_t  RESERV2;                 // Reserved
-    uint16_t C_SIZE;                  // Device Size
-    uint8_t  VDD_R_CURR_MIN;          // Max. read current @ VDD min
-    uint8_t  VDD_R_CURR_MAX;          // Max. read current @ VDD max
-    uint8_t  VDD_W_CURR_MIN;          // Max. write current @ VDD min
-    uint8_t  VDD_W_CURR_MAX;          // Max. write current @ VDD max
-    uint8_t  C_SIZE_MULT;             // Device size multiplier
-    uint8_t  ERASE_GRP_SIZE;          // Erase group size
-    uint8_t  ERASE_GRP_MULT;          // Erase group size multiplier
-    uint8_t  WP_GRP_SIZE;             // Write protect group size
-    uint8_t  WP_GRP_ENABLE;           // Write protect group enable
-    uint8_t  DEFAULT_ECC;             // Manufacturer default ECC
-    uint8_t  R2W_FACTOR;              // Write speed factor
-    uint8_t  WRITE_BL_LEN;            // Max. write data block length
-    uint8_t  WRITE_BL_PARTIAL;        // Partial blocks for write allowed
-    uint8_t  RESERV3;                 // Reserved
-    uint8_t  CONTENT_PROT_APP;        // Content protection application
-    uint8_t  FILE_FORMAT_GRP;         // File format group
-    uint8_t  COPY;                    // Copy flag (OTP)
-    uint8_t  PERM_WRITE_PROTECT;      // Permanent write protection
-    uint8_t  TMP_WRITE_PROTECT;       // Temporary write protection
-    uint8_t  FILE_FORMAT;             // File format
-    uint8_t  ECC;                     // ECC code
-    uint8_t  CRC;                     // CSD CRC
-    uint8_t  RESERV4;                 // Always 1
-} am_hal_card_csd_t;
-
-typedef struct
-{
-    uint8_t RESERV1[6];
-    uint8_t EXT_SECURITY_ERR;
-    uint8_t S_CMD_SET;
-    uint8_t HPI_FEATURES;
-    uint8_t BKOPS_SUPPORT;
-    uint8_t MAX_PACKED_READS;
-    uint8_t MAX_PACKED_WRITES;
-    uint8_t DATA_TAG_SUPPORT;
-    uint8_t TAG_UNIT_SIZE;
-    uint8_t TAG_RES_SIZE;
-    uint8_t CONTEXT_CAPABILITIES;
-    uint8_t LARGE_UNIT_SIZE_M1;
-    uint8_t EXT_SUPPORT;
-    uint8_t SUPPORTED_MODES;
-    uint8_t FFU_FEATURES;
-    uint8_t OPERATION_CODES_TIMEOUT;
-    uint8_t FFU_ARG[4];
-    uint8_t BARRIER_SUPPORT[1];
-    uint8_t RESERV2[177];
-    uint8_t CMDQ_SUPPORT[1];
-    uint8_t CMDQ_DEPTH[1];
-    uint8_t RESERV3;
-    uint8_t NUMBER_OF_FW_SECTORS_CORRECTLY_PROGRAMMED[4];
-    uint8_t VENDOR_PROPRIETARY_HEALTH_REPORT[32];
-    uint8_t DEVICE_LIFE_TIME_EST_TYP_B;
-    uint8_t DEVICE_LIFE_TIME_EST_TYP_A;
-    uint8_t PRE_EOL_INFO;
-    uint8_t OPTIMAL_READ_SIZE;
-    uint8_t OPTIMAL_WRITE_SIZE;
-    uint8_t OPTIMAL_TRIM_UNIT_SIZE;
-    uint8_t DEVICE_VERSION[2];
-    uint8_t FIRMWARE_VERSION[8];
-    uint8_t PWR_CL_DDR_200_360;
-    uint32_t CACHE_SIZE;
-    uint8_t GENERIC_CMD6_TIME;
-    uint8_t POWER_OFF_LONG_TIME;
-    uint8_t BKOPS_STATUS;
-    uint8_t CORRECTLY_PRG_SECTORS_NUM[4];
-    uint8_t INI_TIMEOUT_AP;
-    uint8_t CACHE_FLUSH_POLICY;
-    uint8_t PWR_CL_DDR_52_360;
-    uint8_t PWR_CL_DDR_52_195;
-    uint8_t PWR_CL_200_195;
-    uint8_t PWR_CL_200_130;
-    uint8_t MIN_PERF_DDR_W_8_52;
-    uint8_t MIN_PERF_DDR_R_8_52;
-    uint8_t RESERV4;
-    uint8_t TRIM_MULT;
-    uint8_t SEC_FEATURE_SUPPORT;
-    uint8_t SEC_ERASE_MULT;
-    uint8_t SEC_TRIM_MULT;
-    uint8_t BOOT_INFO;
-    uint8_t RESERV5;
-    uint8_t BOOT_SIZE_MULTI;
-    uint8_t ACC_SIZE;
-    uint8_t HC_ERASE_GRP_SIZE;
-    uint8_t ERASE_TIMEOUT_MULT;
-    uint8_t REL_WR_SEC_C;
-    uint8_t HC_WP_GRP_SIZE;
-    uint8_t S_C_VCC;
-    uint8_t S_C_VCCQ;
-    uint8_t PRODUCTION_STATE_AWARENESS_TIMEOUT;
-    uint8_t S_A_TIMEOUT;
-    uint8_t SLEEP_NOTIFICATION_TIME;
-    uint32_t SEC_COUNT;
-    uint8_t SECURE_WP_INFO;
-    uint8_t MIN_PERF_W_8_52;
-    uint8_t MIN_PERF_R_8_52;
-    uint8_t MIN_PERF_W_8_26_4_52;
-    uint8_t MIN_PERF_R_8_26_4_52;
-    uint8_t MIN_PERF_W_4_26;
-    uint8_t MIN_PERF_R_4_26;
-    uint8_t RESERV6;
-    uint8_t PWR_CL_26_360;
-    uint8_t PWR_CL_52_360;
-    uint8_t PWR_CL_26_195;
-    uint8_t PWR_CL_52_195;
-    uint8_t PARTITION_SWITCH_TIME;
-    uint8_t OUT_OF_INTERRUPT_TIME;
-    uint8_t DRIVER_STRENGTH;
-    uint8_t DEVICE_TYPE;
-    uint8_t RESERV7;
-    uint8_t CSD_STRUCTURE;
-    uint8_t RESERV8;
-    uint8_t EXT_CSD_REV;
-    uint8_t CMD_SET;
-    uint8_t RESERV9;
-    uint8_t CMD_SET_REV;
-    uint8_t RESERV10;
-    uint8_t POWER_CLASS;
-    uint8_t RESERV11;
-    uint8_t HS_TIMING;
-    uint8_t STROBE_SUPPORT;
-    uint8_t BUS_WIDTH;
-    uint8_t RESERV12;
-    uint8_t ERASED_MEM_CONT;
-    uint8_t RESERV13;
-    uint8_t PARTITION_CONFIG;
-    uint8_t BOOT_CONFIG_PROT;
-    uint8_t BOOT_BUS_CONDITIONS;
-    uint8_t RESERV14;
-    uint8_t ERASE_GROUP_DEF;
-    uint8_t BOOT_WP_STATUS;
-    uint8_t BOOT_WP;
-    uint8_t RESERV15;
-    uint8_t USER_WP;
-    uint8_t RESERV16;
-    uint8_t FW_CONFIG;
-    uint8_t RPMB_SIZE_MULT;
-    uint8_t WR_REL_SET;
-    uint8_t WR_REL_PARAM;
-    uint8_t SANITIZE_START;
-    uint8_t BKOPS_START;
-    uint8_t BKOPS_EN;
-    uint8_t RST_n_FUNCTION;
-    uint8_t HPI_MGMT;
-    // ...
-} am_hal_card_ext_csd_t;
-
-typedef struct
-{
-    uint32_t z1:6;
-    uint32_t Access:2;
-    uint32_t Index:8;
-    uint32_t Value:8;
-    uint32_t z2:5;
-    uint32_t CmdSet:3;
-} am_hal_card_mmc_cmd6_mode_t;
-
-typedef struct
-{
-    uint32_t Mode:1;
-    uint32_t Reserv0:7;
-    uint32_t ReservFunGrp6:4;
-    uint32_t ReservFunGrp5:4;
-    uint32_t ReservFunGrp4:4;
-    uint32_t ReservFunGrp3:4;
-    uint32_t ReservFunGrp2:4;
-    uint32_t ReservFunGrp1:4;
-} am_hal_card_sd_cmd6_mode_t;
-
-typedef struct
-{
-    uint32_t addr_out_of_range : 1;
-    uint32_t addr_misaligned   : 1;
-    uint32_t block_line_error  : 1;
-    uint32_t erase_seq_error   : 1;
-    uint32_t erase_param       : 1;
-    uint32_t wp_violation      : 1;
-    // ....
-} am_hal_card_status_t;
-#endif
-
-// #### INTERNAL END ####
 
 typedef enum
 {

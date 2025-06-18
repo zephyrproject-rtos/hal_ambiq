@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -714,7 +741,7 @@ static uint32_t am_hal_sdhc_xfer_data(am_hal_sdhc_state_t *pSDHCState,
             pSDHC->INTSTAT = SDIO0_INTSTAT_TRANSFERCOMPLETE_Msk;
             pSDHCState->ui32BlkCnt = 0;
             bXferDone = true;
-            AM_HAL_SDHC_DEBUG("Xfer Completed\n");
+            AM_HAL_SDHC_DEBUG("Xfer Completed\n", 0);
         }
         else if ( ui32IntStatus & SDIO0_INTSTAT_DMAINTERRUPT_Msk )
         {
@@ -722,7 +749,7 @@ static uint32_t am_hal_sdhc_xfer_data(am_hal_sdhc_state_t *pSDHCState,
             // Transfer SDMA data
             //
             pSDHC->INTSTAT = SDIO0_INTSTAT_DMAINTERRUPT_Msk;
-            AM_HAL_SDHC_DEBUG("Xfer SDMA DMA INTR\n");
+            AM_HAL_SDHC_DEBUG("Xfer SDMA DMA INTR\n", 0);
             am_hal_sdhc_sdma_xfer_data(pSDHCState);
         }
         else if ( ui32IntStatus & ui32BufReadyMask )
@@ -731,7 +758,7 @@ static uint32_t am_hal_sdhc_xfer_data(am_hal_sdhc_state_t *pSDHCState,
             // Transfer PIO data if PIO buffer is ready
             //
             pSDHC->INTSTAT = ui32BufReadyMask;
-            AM_HAL_SDHC_DEBUG("Xfer PIO\n");
+            AM_HAL_SDHC_DEBUG("Xfer PIO\n", 0);
             am_hal_sdhc_pio_xfer_data(pSDHCState);
         }
         else if (ui32IntStatus & (SDIO0_INTSTAT_ADMAERROR_Msk    |
@@ -761,7 +788,7 @@ static uint32_t am_hal_sdhc_xfer_data(am_hal_sdhc_state_t *pSDHCState,
     //
     pSDHC->CLOCKCTRL_b.SDCLKEN = 0x0;
     am_hal_delay_us(pSDHCState->ui32ClkOffDelay);
-    AM_HAL_SDHC_DEBUG("Disable the SDCLK\n");
+    AM_HAL_SDHC_DEBUG("Disable the SDCLK\n", 0);
 #endif
 
     if ( !bXferDone && ui32Timeout == 0 )
@@ -873,6 +900,7 @@ uint32_t am_hal_sdhc_deinitialize(void *pHandle)
 uint32_t am_hal_sdhc_power_control(void *pHandle, am_hal_sysctrl_power_state_e ePowerState, bool bRetainState)
 {
     am_hal_sdhc_state_t *pSDHCState = (am_hal_sdhc_state_t *)pHandle;
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
 
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     //
@@ -898,6 +926,15 @@ uint32_t am_hal_sdhc_power_control(void *pHandle, am_hal_sysctrl_power_state_e e
             }
 
             //
+            // Clock request.
+            //
+            ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC, (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_SDIO0 + pSDHCState->ui32Module));
+            if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+            {
+                return ui32Status;
+            }
+
+            //
             // Enable power control.
             //
             am_hal_pwrctrl_periph_enable((am_hal_pwrctrl_periph_e)(AM_HAL_PWRCTRL_PERIPH_SDIO0 + pSDHCState->ui32Module));
@@ -916,10 +953,6 @@ uint32_t am_hal_sdhc_power_control(void *pHandle, am_hal_sysctrl_power_state_e e
                 default:
                     break;
             }
-           // #### INTERNAL BEGIN ####
-           // Wait some time util clock stable
-           // am_hal_delay_us(100);
-           // #### INTERNAL END ####
 
             if ( bRetainState )
             {
@@ -937,7 +970,7 @@ uint32_t am_hal_sdhc_power_control(void *pHandle, am_hal_sysctrl_power_state_e e
                 {
                     if ( ui32Timeout == 0 )
                     {
-                        AM_HAL_SDHC_DEBUG("Internal clock can not be stablized\n");
+                        AM_HAL_SDHC_DEBUG("Internal clock can not be stablized\n", 0);
                         return AM_HAL_STATUS_FAIL;
                     }
                     ui32Timeout--;
@@ -989,6 +1022,15 @@ uint32_t am_hal_sdhc_power_control(void *pHandle, am_hal_sysctrl_power_state_e e
             // Disable power control.
             //
             am_hal_pwrctrl_periph_disable((am_hal_pwrctrl_periph_e)(AM_HAL_PWRCTRL_PERIPH_SDIO0 + pSDHCState->ui32Module));
+
+            //
+            // Clock release.
+            //
+            ui32Status = am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC, (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_SDIO0 + pSDHCState->ui32Module));
+            if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+            {
+                return ui32Status;
+            }
             break;
 
         default:
@@ -1052,12 +1094,6 @@ uint32_t am_hal_sdhc_setup_host(void *pHandle, am_hal_card_host_t *pHost)
     pHost->eBusWidth = AM_HAL_HOST_BUS_WIDTH_1;
     pHost->eUHSMode = AM_HAL_HOST_UHS_NONE;
 
-    // #### INTERNAL BEGIN ####
-
-    // if ( pSDHC->CAPABILITIES0_b.VOLT18V )
-    //    pHost->ui32OCRAvail = MMC_VDD_18_19;
-
-    // #### INTERNAL END ####
 
     pHost->ui32MaxADMA2BlkNums = AM_HAL_ADMA_TABLE_NO_ENTRIES*AM_HAL_ADMA_MAX_BLKS_PER_ENTRY;
 
@@ -1067,12 +1103,6 @@ uint32_t am_hal_sdhc_setup_host(void *pHandle, am_hal_card_host_t *pHost)
     pSDHCState->ui32HostSDMABufSize = 4096*(0x1 << pSDHC->BLOCK_b.HOSTSDMABUFSZ);
     pSDHCState->bAsyncCmdIsDone = true;
 
-    // #### INTERNAL BEGIN ####
-    //
-    // Workaround for 4 clock cycles delay after disable SDCLKEN
-    // link issue:https://ambiqmicro.atlassian.net/browse/CAYNSWS-3024
-    //
-    // #### INTERNAL END ####
     //
     // Set delay time to 4 sdio clock cycles when card initialization
     // SDIO initial clock is 375KHz, so the delay time caculation as follow:
@@ -1269,16 +1299,10 @@ uint32_t am_hal_sdhc_set_bus_clock(void *pHandle, uint32_t ui32Clock)
     pSDHC = SDHCn(pSDHCState->ui32Module);
     pHost = pSDHCState->pHost;
 
-    // #### INTERNAL BEGIN ####
-    //
-    // Workaround for 4 clock cycles delay after disable SDCLKEN
-    // link issue:https://ambiqmicro.atlassian.net/browse/CAYNSWS-3024
-    //
-    // #### INTERNAL END ####
     //
     // Set delay time to 4 sdio clock cycles: Minimum time is 1us
     //
-    pSDHCState->ui32ClkOffDelay = (uint32_t) (4000000/ui32Clock + 1);
+    pSDHCState->ui32ClkOffDelay = (uint32_t) (4000000 / ui32Clock + 1);
 
     //
     // Find the nearest the clock divider
@@ -1325,7 +1349,7 @@ uint32_t am_hal_sdhc_set_bus_clock(void *pHandle, uint32_t ui32Clock)
     {
         if ( ui32Timeout == 0 )
         {
-            AM_HAL_SDHC_DEBUG("Internal clock can not be stablized\n");
+            AM_HAL_SDHC_DEBUG("Internal clock can not be stablized\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
         ui32Timeout--;
@@ -1434,7 +1458,7 @@ uint32_t am_hal_sdhc_card_busy(void *pHandle, uint32_t ui32TimeoutMS)
     //
     pSDHC->CLOCKCTRL_b.SDCLKEN = 0x0;
     am_hal_delay_us(pSDHCState->ui32ClkOffDelay);
-    AM_HAL_SDHC_DEBUG("Disable the SDCLK\n");
+    AM_HAL_SDHC_DEBUG("Disable the SDCLK\n", 0);
 #endif
 
     return ui32Status;
@@ -1513,7 +1537,7 @@ uint32_t am_hal_sdhc_enable(void *pHandle)
     //
     if ( (ui32Status = am_hal_sdhc_software_reset(pSDHC, AM_HAL_SDHC_SW_RESET_ALL)) != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_SDHC_DEBUG("Software Reset ALL failed\n");
+        AM_HAL_SDHC_DEBUG("Software Reset ALL failed\n", 0);
         return ui32Status;
     }
 
@@ -1635,7 +1659,7 @@ uint32_t am_hal_sdhc_execute_cmd(void *pHandle, am_hal_card_cmd_t *pCmd, am_hal_
 
     if ( !pSDHCState->bAsyncCmdIsDone )
     {
-        AM_HAL_SDHC_DEBUG("Return because the previous async command is still ongoing\n");
+        AM_HAL_SDHC_DEBUG("Return because the previous async command is still ongoing\n", 0);
         return AM_HAL_STATUS_IN_USE;
     }
 
@@ -1646,14 +1670,14 @@ uint32_t am_hal_sdhc_execute_cmd(void *pHandle, am_hal_card_cmd_t *pCmd, am_hal_
     {
         am_hal_sdhc_software_reset(pSDHC, AM_HAL_SDHC_SW_RESET_CMD_LINE);
         pSDHCState->bCmdErr = false;
-        AM_HAL_SDHC_DEBUG("Software reset the Cmd Error\n");
+        AM_HAL_SDHC_DEBUG("Software reset the Cmd Error\n", 0);
     }
 
     if (pSDHCState->bDataErr)
     {
         am_hal_sdhc_software_reset(pSDHC, AM_HAL_SDHC_SW_RESET_DATA_LINE);
         pSDHCState->bDataErr = false;
-        AM_HAL_SDHC_DEBUG("Software reset the Data Error\n");
+        AM_HAL_SDHC_DEBUG("Software reset the Data Error\n", 0);
     }
 
     //
@@ -1673,7 +1697,7 @@ uint32_t am_hal_sdhc_execute_cmd(void *pHandle, am_hal_card_cmd_t *pCmd, am_hal_
     //
     pSDHC->CLOCKCTRL_b.SDCLKEN = 0x1;
 
-    AM_HAL_SDHC_DEBUG("Enable the SDCLK\n");
+    AM_HAL_SDHC_DEBUG("Enable the SDCLK\n", 0);
 #endif
 
     if ( (ui32Status = am_hal_sdhc_send_cmd(pSDHCState, pSDHC, pCmd, pCmdData)) != AM_HAL_STATUS_SUCCESS )
@@ -1703,7 +1727,7 @@ uint32_t am_hal_sdhc_execute_cmd(void *pHandle, am_hal_card_cmd_t *pCmd, am_hal_
         {
             pSDHC->CLOCKCTRL_b.SDCLKEN = 0x0;
             am_hal_delay_us(pSDHCState->ui32ClkOffDelay);
-            AM_HAL_SDHC_DEBUG("Disable the SDCLK\n");
+            AM_HAL_SDHC_DEBUG("Disable the SDCLK\n", 0);
         }
 #endif
         return AM_HAL_STATUS_SUCCESS;
@@ -2001,7 +2025,7 @@ uint32_t am_hal_sdhc_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
         //
         pSDHC->CLOCKCTRL_b.SDCLKEN = 0x0;
         am_hal_delay_us(pSDHCState->ui32ClkOffDelay);
-        AM_HAL_SDHC_DEBUG("Disable the SDCLK\n");
+        AM_HAL_SDHC_DEBUG("Disable the SDCLK\n", 0);
 #endif
 
     }
@@ -2030,7 +2054,7 @@ uint32_t am_hal_sdhc_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
         //
         pSDHC->CLOCKCTRL_b.SDCLKEN = 0x0;
         am_hal_delay_us(pSDHCState->ui32ClkOffDelay);
-        AM_HAL_SDHC_DEBUG("Disable the SDCLK\n");
+        AM_HAL_SDHC_DEBUG("Disable the SDCLK\n", 0);
 #endif
 
     }
@@ -2065,11 +2089,6 @@ uint32_t am_hal_sdhc_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
             pHost->Evt.eType = AM_HAL_EVT_CARD_NOT_PRESENT;
         }
 
-        // #### INTERNAL BEGIN ####
-        //
-        // The CARDREMOVAL and CARDINSERTION all set as 1 when card inserted sometime.
-        //
-        // #### INTERNAL END ####
        if ( (ui32IntStatus & SDIO0_INTSTAT_CARDINSERTION_Msk) && (ui32PresentState & SDIO0_PRESENT_CARDINSERTED_Msk) )
         {
             pHost->Evt.eType = AM_HAL_EVT_CARD_PRESENT;

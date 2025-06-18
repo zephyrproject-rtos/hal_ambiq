@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_GPIO_H
@@ -27,9 +54,6 @@ extern "C"
 
 //
 //! Maximum number of GPIOs on this device.
-// #### INTERNAL BEGIN ####
-// Note - some of these may be "virtual" GPIOs.
-// #### INTERNAL END ####
 //
 #define AM_HAL_GPIO_MAX_PADS        AM_HAL_PIN_TOTAL_GPIOS
 #define AM_HAL_GPIO_NUMWORDS        ((AM_HAL_GPIO_MAX_PADS + 31) / 32)
@@ -558,6 +582,24 @@ typedef void (*am_hal_gpio_handler_t)(void *pArg);
         .GP.cfg_b.eDeeperSleepCfg  = AM_HAL_GPIO_PIN_PULLUP_NONE,             \
         .GP.cfg_b.uRsvd_2          = 0,                                       \
     }
+
+#define AM_HAL_GPIO_PINCFG_PULLEDDN_DISABLED                                  \
+    {                                                                         \
+        .GP.cfg_b.uFuncSel         = 3,                                       \
+        .GP.cfg_b.eGPInput         = AM_HAL_GPIO_PIN_INPUT_NONE,              \
+        .GP.cfg_b.eGPRdZero        = AM_HAL_GPIO_PIN_RDZERO_READPIN,          \
+        .GP.cfg_b.eIntDir          = AM_HAL_GPIO_PIN_INTDIR_LO2HI,            \
+        .GP.cfg_b.eGPOutCfg        = AM_HAL_GPIO_PIN_OUTCFG_DISABLE,          \
+        .GP.cfg_b.eDriveStrength   = AM_HAL_GPIO_CFG_SLEWRATENONE | AM_HAL_GPIO_PIN_DRIVESTRENGTH_0P1X, \
+        .GP.cfg_b.ePullup          = AM_HAL_GPIO_PIN_PULLDOWN_50K,            \
+        .GP.cfg_b.uNCE             = 0,                                       \
+        .GP.cfg_b.eCEpol           = 0,                                       \
+        .GP.cfg_b.uRsvd_0          = 0,                                       \
+        .GP.cfg_b.ePowerSw         = 0,                                       \
+        .GP.cfg_b.eForceInputEn    = 0,                                       \
+        .GP.cfg_b.eForceOutputEn   = 0,                                       \
+        .GP.cfg_b.uRsvd_1          = 0,                                       \
+    }
 //! @}
 
 //*****************************************************************************
@@ -567,13 +609,14 @@ typedef void (*am_hal_gpio_handler_t)(void *pArg);
 //
 //*****************************************************************************
 extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_default;
-extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_disabled;
-extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_pulledup_disabled;
 extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_output;
-extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_output_with_read;
 extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_input;
 extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_tristate;
 extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_opendrain;
+extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_disabled;
+extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_pulledup_disabled;
+extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_pulleddn_disabled;
+extern const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_output_with_read;
 //! @}
 
 //*****************************************************************************
@@ -870,37 +913,6 @@ typedef struct
 
 //*****************************************************************************
 //
-// #### INTERNAL BEGIN ####
-//! @brief Toggle interrupt direction.
-//!
-//! Macro for toggling the GPIO interrupt direction as a workaround for the
-//! Apollo4 GPIO dual-edge interrupt issue.
-//! This macro is intended to be used in an ISR to facilitate catching both
-//! edges of a signal.
-//!
-//! @param n - The GPIO number to be written.
-//!
-//! Notes:
-//! - This macro assumes that the eIntDir configuration parameter has
-//!   previously been configured to one of either:
-//!   AM_HAL_GPIO_PIN_INTDIR_LO2HI or
-//!   AM_HAL_GPIO_PIN_INTDIR_HI2LO.
-//! - For expediency, on exit this macro leaves PADKEY set. It is suggested
-//!   that PADKEY be cleared by the caller (i.e. GPIO->PADKEY = 0).
-//!
-// Reference FAL-818, FAL-488, HSP20-213, HSP20-196.
-//
-//! The following notes were removed after setting of PADKEY was brought in.
-//! - Before invoking this macro, the following statement must be executed
-//!   at least 1 time before its first usage.
-//! - It is further suggested that when the macro is no longer needed that
-//!   PADKEY be set to zero.
-//! - Any intervening call to am_hal_gpio_pinconfig() will clear PADKEY.
-//! - Example usage:
-//!     GPIO->PADKEY = GPIO_PADKEY_PADKEY_Key;
-//!     am_hal_gpio_intdir_toggle(pinnum);
-//!     GPIO->PADKEY = 0;
-// #### INTERNAL END ####
 //*****************************************************************************
 #define am_hal_gpio_intdir_toggle(n)                                            \
     if ( 1 )                                                                    \

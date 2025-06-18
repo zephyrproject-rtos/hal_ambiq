@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -164,6 +191,17 @@ typedef void (*am_hal_dsi_external_vdd18_callback)(bool bEnable);
 
 //*****************************************************************************
 //
+//! @brief DSI exit ULPS pattern delay callback function pointer type
+//!
+//! The Application can provide a callback functions for exit ULPS pattern
+//! otherwise executing the default 1010us delay.
+//!
+//
+//*****************************************************************************
+typedef void (*am_hal_dsi_delay_function_callback)(uint32_t ui32PeriodInMilliSec);
+
+//*****************************************************************************
+//
 // External functions.
 //
 //*****************************************************************************
@@ -179,6 +217,19 @@ typedef void (*am_hal_dsi_external_vdd18_callback)(bool bEnable);
 //
 //*****************************************************************************
 extern uint32_t am_hal_dsi_register_external_vdd18_callback(const am_hal_dsi_external_vdd18_callback cb);
+
+//*****************************************************************************
+//
+//! @brief Register exit ULPS callback function
+//!
+//! @param cb is pointer of delay function.
+//!
+//! This function should be called before function am_hal_dsi_ulps_exit().
+//!
+//! @return AM_HAL_STATUS_SUCCESS
+//
+//*****************************************************************************
+extern uint32_t am_hal_dsi_register_ulps_exit_delay_callback(const am_hal_dsi_delay_function_callback cb);
 
 //*****************************************************************************
 //
@@ -316,6 +367,21 @@ extern uint32_t am_hal_dsi_set_return_size(uint8_t ui8DataLen, bool bHS);
 //
 //*****************************************************************************
 extern uint32_t am_hal_dsi_wait_stop_state(uint8_t ui8Lane);
+
+//*****************************************************************************
+//
+//! @brief DSI power control function
+//!
+//! @param ePowerState  - the desired power state to move the peripheral to.
+//! @param retainState  - flag (if true) to save/restore perhipheral state upon
+//!                       power state change.
+//!
+//! This function updates the peripheral to a given power state.
+//!
+//! @return status      - generic or interface specific status.
+//
+//*****************************************************************************
+extern uint32_t am_hal_dsi_power_control(am_hal_sysctrl_power_state_e ePowerState, bool bRetainState);
 
 #ifdef __cplusplus
 }

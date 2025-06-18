@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2024 Ambiq Micro Inc.
+ * Copyright (c) 2025 Ambiq Micro Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /*
- * Generated on 12/26/2024
+ * Generated on 19/6/2025
  */
 
 #ifndef __APOLLO510L_PINMUX_H__

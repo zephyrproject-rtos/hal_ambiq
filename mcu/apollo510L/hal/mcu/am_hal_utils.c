@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -70,14 +97,14 @@ typedef enum
 //!
 //!  @param ui32Iterations The number of iterations.
 //!
-//!  This function is located in DTCM, which means instruction fetch bypasses
-//!  D-Cache. Each iteration spends 3 CPU cycles.
+//!  This function is located in TCM, which means instruction fetch bypasses
+//!  I-Cache. Each iteration spends 3 CPU cycles.
 //
 //*****************************************************************************
 #if defined(__IAR_SYSTEMS_ICC__)
 __ramfunc void
 #else
-void __attribute__((naked, section(".ramfunc")))
+void __attribute__((naked, section(".dtcm_text")))
 #endif
 br_util_delay_cycles(uint32_t ui32Cycles)
 {
@@ -97,148 +124,6 @@ br_util_delay_cycles(uint32_t ui32Cycles)
 void
 am_hal_delay_us(uint32_t ui32us)
 {
-// #### INTERNAL BEGIN ####
-#ifdef APOLLO5_FPGA
-    register uint32_t ui32Iterations = 1;
-
-    //
-    // Compensate for about 2us of overhead.
-    //
-    if (ui32us >= 2)
-    {
-        ui32Iterations = BOOTROM_CYCLES_US(ui32us - 2);
-    }
-
-// Some notes about FPGA target speeds.
-// - The SOF designated as 24MHz.
-// - HFRC can be measured on designated pins by doing 2 things:
-//   1. Configuring CLKGEN->CLKOUT with CLKGEN_CLKOUT_CKSEL_HFRC and
-//      CLKGEN_CLKOUT_CKEN_EN.
-//   2. Configuring the GPIO with FNCSEL=CLKOUT.
-    if ( g_ui32FPGAfreqMHz == 0 )
-    {
-        g_ui32FPGAfreqMHz = APOLLO5_FPGA;
-    }
-
-    //
-    // Check for LP (96MHz) vs. HP (250MHz) mode and create the adjustment accordingly.
-    //
-    if (PWRCTRL->MCUPERFREQ_b.MCUPERFSTATUS == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1)
-    {
-        //The current apollo5b fpga hp mode is only 20Mhz
-        if ( ui32us >= 6 )
-        {
-            ui32Iterations = BOOTROM_CYCLES_US(ui32us - 6);
-            ui32Iterations = (uint32_t)(ui32Iterations * 1.0f * AM_HAL_CLKGEN_FREQ_HP250_HZ / AM_HAL_CLKGEN_FREQ_MAX_HZ);
-        }
-        else if ( ui32us > 0 )
-        {
-            ui32Iterations = 1;
-        }
-        else
-        {
-            return;
-        }
-    }
-    else
-    {
-        //
-        // Compensate for specific frequency FPGA builds.
-        //
-        if ( g_ui32FPGAfreqMHz == 48 )
-        {
-            if ( ui32us >= 3 )
-            {
-                ui32Iterations = BOOTROM_CYCLES_US(ui32us - 2);
-            }
-            else if ( ui32us > 0 )
-            {
-                ui32Iterations = 1;
-            }
-            else
-            {
-                return;
-            }
-        }
-        else if ( g_ui32FPGAfreqMHz == 24 )
-        {
-            if ( ui32us >= 3 )
-            {
-                ui32Iterations = BOOTROM_CYCLES_US(ui32us - 2);
-            }
-            else if ( ui32us > 0 )
-            {
-                ui32Iterations = 1;
-            }
-            else
-            {
-                return;
-            }
-        }
-        else if ( g_ui32FPGAfreqMHz == 12 )
-        {
-            if ( ui32us >= 9 )
-            {
-                //
-                // Compensate for about 2us of overhead.
-                //
-                ui32Iterations = BOOTROM_CYCLES_US(ui32us - 9);
-            }
-            else if ( ui32us > 0 )
-            {
-                ui32Iterations = 1;
-            }
-            else
-            {
-                return;
-            }
-        }
-        else if ( g_ui32FPGAfreqMHz == 8 )
-        {
-            if ( ui32us >= 9 )
-            {
-                //
-                // Compensate for about 2us of overhead.
-                //
-                ui32Iterations = BOOTROM_CYCLES_US(ui32us - 9);
-            }
-            else if ( ui32us > 0 )
-            {
-                ui32Iterations = 1;
-            }
-            else
-            {
-                return;
-            }
-        }
-        else if ( g_ui32FPGAfreqMHz == 6 )
-        {
-            if ( ui32us >= 8 )
-            {
-                //
-                // Compensate for about 2us of overhead.
-                //
-                ui32Iterations = BOOTROM_CYCLES_US(ui32us - 8);
-            }
-            else if ( ui32us > 0 )
-            {
-                ui32Iterations = 1;
-            }
-            else
-            {
-                return;
-            }
-        }
-    }
-
-    if ( ui32Iterations == 0 )
-    {
-        return;
-    }
-
-    br_util_delay_cycles(ui32Iterations);
-#else
-// #### INTERNAL END ####
 
     register uint32_t ui32Iterations = BOOTROM_CYCLES_US(ui32us);
     register uint32_t ui32CycleCntAdj;
@@ -246,7 +131,7 @@ am_hal_delay_us(uint32_t ui32us)
     //
     // Check for LP (96MHz) vs. HP (192MHz/250MHz) mode and create the adjustment accordingly.
     //
-    if (PWRCTRL->MCUPERFREQ_b.MCUPERFSTATUS == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1)
+    if (PWRCTRL->MCUPERFREQ_b.MCUPERFSTATUS == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2)
     {
         //
         // Use float instead of uint32_t, otherwise saturation may occur.
@@ -257,6 +142,18 @@ am_hal_delay_us(uint32_t ui32us)
         // There's an additional shift to account for.
         //
         ui32CycleCntAdj = ((13 * AM_HAL_CLKGEN_FREQ_HP250_MHZ / AM_HAL_CLKGEN_FREQ_MAX_MHZ) + 40) / 3;
+    }
+    else if (PWRCTRL->MCUPERFREQ_b.MCUPERFSTATUS == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1)
+    {
+        //
+        // Use float instead of uint32_t, otherwise saturation may occur.
+        //
+        ui32Iterations = (uint32_t)(ui32Iterations * 1.0f * AM_HAL_CLKGEN_FREQ_HP192_MHZ / AM_HAL_CLKGEN_FREQ_MAX_MHZ);
+
+        //
+        // There's an additional shift to account for.
+        //
+        ui32CycleCntAdj = ((13 * AM_HAL_CLKGEN_FREQ_HP192_MHZ / AM_HAL_CLKGEN_FREQ_MAX_MHZ) + 40) / 3;
     }
     else
     {
@@ -274,9 +171,6 @@ am_hal_delay_us(uint32_t ui32us)
         br_util_delay_cycles(ui32Iterations);
     }
 
-// #### INTERNAL BEGIN ####
-#endif // APOLLO5_FPGA
-// #### INTERNAL END ####
 } // am_hal_delay_us()
 
 //*****************************************************************************
@@ -370,8 +264,8 @@ am_hal_delay_us_status_check(uint32_t ui32usMaxDelay, uint32_t ui32Address,
 //!
 //!  @param pAddr The address to read.
 //!
-//!  This function is located in DTCM, which means instruction fetch bypasses
-//!  D-Cache.
+//!  This function is located in TCM, which means instruction fetch bypasses
+//!  I-Cache.
 //
 //*****************************************************************************
 #if defined(__IAR_SYSTEMS_ICC__)
@@ -401,8 +295,8 @@ internal_hal_read_word(uint32_t *pAddr)
 //!  @param pDstAddr The starting address to write to.
 //!  @param numWords The number of words to read.
 //!
-//!  This function is located in DTCM, which means instruction fetch bypasses
-//!  D-Cache.
+//!  This function is located in TCM, which means instruction fetch bypasses
+//!  I-Cache.
 //
 //*****************************************************************************
 #if defined(__IAR_SYSTEMS_ICC__)
@@ -430,8 +324,8 @@ internal_hal_read_words(uint32_t *pSrcAddr, uint32_t *pDstAddr, uint32_t numWord
 //!  @param pDstAddr The starting address to write to.
 //!  @param numWords The number of words to read.
 //!
-//!  This function is located in DTCM, which means instruction fetch bypasses
-//!  D-Cache.
+//!  This function is located in TCM, which means instruction fetch bypasses
+//!  I-Cache.
 //
 //*****************************************************************************
 void am_hal_read_words(uint32_t *pSrcAddr, uint32_t *pDstAddr, uint32_t numWords)

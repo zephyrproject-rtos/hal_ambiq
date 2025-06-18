@@ -12,15 +12,48 @@
 
 // ****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 // ****************************************************************************
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
+#include "../am_hal_clkmgr_private.h"
+
+// ****************************************************************************
+//  Global variables
+// ****************************************************************************
+static bool g_bClkGenFirstClkOutInvoke = false;
 
 // ****************************************************************************
 //
@@ -31,12 +64,10 @@
 uint32_t
 am_hal_clkgen_control(am_hal_clkgen_control_e eControl, void *pArgs)
 {
-    uint32_t ui32Regval;
-
     switch ( eControl )
     {
         case AM_HAL_CLKGEN_CONTROL_RTC_SEL_LFRC:
-            CLKGEN->OCTRL_b.RTCOSEL = CLKGEN_OCTRL_RTCOSEL_LFRC_512Hz;
+            CLKGEN->OCTRL_b.RTCOSEL = CLKGEN_OCTRL_RTCOSEL_LFRC_DIV2;
             break;
 
         case AM_HAL_CLKGEN_CONTROL_RTC_SEL_XTAL:
@@ -44,30 +75,10 @@ am_hal_clkgen_control(am_hal_clkgen_control_e eControl, void *pArgs)
             break;
 
         case AM_HAL_CLKGEN_CONTROL_HFADJ_ENABLE:
-            if ( pArgs == 0 )
-            {
-                ui32Regval =
-                    _VAL2FLD(CLKGEN_HFADJ_HFADJGAIN, CLKGEN_HFADJ_HFADJGAIN_Gain_of_1_in_32) |   /* Slowest attack possible */
-                    _VAL2FLD(CLKGEN_HFADJ_HFWARMUP, CLKGEN_HFADJ_HFWARMUP_1SEC)             |   /* Default value */
-                    _VAL2FLD(CLKGEN_HFADJ_HFXTADJ, 0x5B8)                                   |   /* Default value */
-                    _VAL2FLD(CLKGEN_HFADJ_HFADJCK, CLKGEN_HFADJ_HFADJCK_4SEC)               |   /* Default value */
-                    _VAL2FLD(CLKGEN_HFADJ_HFADJEN, CLKGEN_HFADJ_HFADJEN_EN);
-            }
-            else
-            {
-                ui32Regval = *(uint32_t*)pArgs;
-            }
-
-            //
-            // Make sure the ENABLE bit is set.
-            //
-            ui32Regval |= _VAL2FLD(CLKGEN_HFADJ_HFADJEN, CLKGEN_HFADJ_HFADJEN_EN);
-            CLKGEN->HFADJ = ui32Regval;
-            break;
+            return am_hal_clkmgr_private_clkgen_hfadj_apply(pArgs);
 
         case AM_HAL_CLKGEN_CONTROL_HFADJ_DISABLE:
-            CLKGEN->HFADJ_b.HFADJEN = CLKGEN_HFADJ_HFADJEN_DIS;
-            break;
+            return am_hal_clkmgr_private_clkgen_hfadj_disable();
 
         case AM_HAL_CLKGEN_CONTROL_I3CCLKEN_ENABLE:
             CLKGEN->CLKCTRL_b.I3CCLKEN = CLKGEN_CLKCTRL_I3CCLKEN_ENABLE;
@@ -141,33 +152,50 @@ am_hal_clkgen_status_get(am_hal_clkgen_status_t *psStatus)
         return AM_HAL_STATUS_INVALID_ARG;
     }
 
-// #### INTERNAL BEGIN ####
-    // FIXME TODO: The frequency is not static and should be determined at runtime.
-// #### INTERNAL END ####
     psStatus->ui32SysclkFreq = AM_HAL_CLKGEN_FREQ_MAX_HZ;
 
-// #### INTERNAL BEGIN ####
-#if 1   // FAL-778 RevB0 removes OCTRL.STOPRC, OCTRL.STOPXT, and STATUS (RTCOSC, OSCF)
-// #### INTERNAL END ####
     psStatus->eRTCOSC = AM_HAL_CLKGEN_STATUS_RTCOSC_LFRC;
     psStatus->bXtalFailure = false;
-// #### INTERNAL BEGIN ####
-#else
-    uint32_t ui32Status = CLKGEN->STATUS;
-
-    psStatus->eRTCOSC =
-        _FLD2VAL(CLKGEN_STATUS_OMODE, ui32Status)   ?
-            AM_HAL_CLKGEN_STATUS_RTCOSC_LFRC        :
-            AM_HAL_CLKGEN_STATUS_RTCOSC_XTAL;
-
-    psStatus->bXtalFailure =
-        _FLD2VAL(CLKGEN_STATUS_OSCF, ui32Status);
-#endif
-// #### INTERNAL END ####
 
     return AM_HAL_STATUS_SUCCESS;
 
 } // am_hal_clkgen_status_get()
+
+static am_hal_clkmgr_clock_id_e
+am_hal_clkgen_clksrc_get(uint32_t clk)
+{
+    switch(clk)
+    {
+        // XTAL
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_32768:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_16384:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_8192:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_4096:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_2048:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_1024:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_128:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_4:
+        case AM_HAL_CLKGEN_CLKOUT_XTAL_0_5:
+            return AM_HAL_CLKMGR_CLK_ID_XTAL_LS;
+        // LFRC
+        case AM_HAL_CLKGEN_CLKOUT_LFRC_NOMINAL:
+        case AM_HAL_CLKGEN_CLKOUT_LFRC_DIV2:
+            return AM_HAL_CLKMGR_CLK_ID_LFRC;
+        case AM_HAL_CLKGEN_CLKOUT_PLL_VCO250M:
+        case AM_HAL_CLKGEN_CLKOUT_PLL_VCO125M:
+            return AM_HAL_CLKMGR_CLK_ID_PLLVCO;
+        // PLL_POSTDIV
+        case AM_HAL_CLKGEN_CLKOUT_PLL_POSTDIV:
+            return AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+        // HS XTAL
+        case AM_HAL_CLKGEN_CLKOUT_RF_XTAL_48M:
+        case AM_HAL_CLKGEN_CLKOUT_RF_XTAL_24M:
+        case AM_HAL_CLKGEN_CLKOUT_RF_XTAL_12M:
+            return AM_HAL_CLKMGR_CLK_ID_XTAL_HS;
+        default:
+            return AM_HAL_CLKMGR_CLK_ID_MAX;
+    }
+}
 
 // ****************************************************************************
 //
@@ -178,370 +206,127 @@ am_hal_clkgen_status_get(am_hal_clkgen_status_t *psStatus)
 uint32_t
 am_hal_clkgen_clkout_enable(bool bEnable, am_hal_clkgen_clkout_e eClkSelect)
 {
-    if ( !bEnable )
-    {
-        CLKGEN->CLKOUT_b.CKEN = 0;
-    }
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
 
     //
     // Do a basic validation of the eClkSelect parameter.
     // Not every value in the range is valid, but at least this simple check
     // provides a reasonable chance that the parameter is valid.
     //
-    if ( eClkSelect <= (am_hal_clkgen_clkout_e)AM_HAL_CLKGEN_CLKOUT_MAX )
-    {
-        //
-        // Are we actually changing the frequency?
-        //
-        if ( CLKGEN->CLKOUT_b.CKSEL != eClkSelect )
-        {
-            //
-            // Disable before changing the clock
-            //
-            CLKGEN->CLKOUT_b.CKEN = CLKGEN_CLKOUT_CKEN_DIS;
-
-            //
-            // Set the new clock select
-            //
-            CLKGEN->CLKOUT_b.CKSEL = eClkSelect;
-        }
-
-        //
-        // Enable/disable as requested.
-        //
-        CLKGEN->CLKOUT_b.CKEN = bEnable ? CLKGEN_CLKOUT_CKEN_EN : CLKGEN_CLKOUT_CKEN_DIS;
-    }
-    else
+    if (bEnable && (eClkSelect > (am_hal_clkgen_clkout_e)AM_HAL_CLKGEN_CLKOUT_MAX))
     {
         return AM_HAL_STATUS_INVALID_ARG;
     }
 
     //
+    // Disable CLKOUT and release existing clock if:
+    // - CLKOUT disable is requested
+    // - different clock source is requested when CLKOUT is still enabled
+    // - this is the first invocation after bootup
+    //
+    uint32_t ui32CurClkSrc = CLKGEN->CLKOUT_b.CKSEL;
+    if (!bEnable ||
+        (CLKGEN->CLKOUT_b.CKEN && ((ui32CurClkSrc != eClkSelect) || g_bClkGenFirstClkOutInvoke)))
+    {
+        am_hal_clkmgr_clock_id_e eClkMgrCurClkSrc = am_hal_clkgen_clksrc_get(ui32CurClkSrc);
+        CLKGEN->CLKOUT_b.CKEN = CLKGEN_CLKOUT_CKEN_DIS;
+        if (eClkMgrCurClkSrc != AM_HAL_CLKMGR_CLK_ID_MAX)
+        {
+            ui32Status = am_hal_clkmgr_clock_release(eClkMgrCurClkSrc, AM_HAL_CLKMGR_USER_ID_CLKOUT);
+            if (ui32Status != AM_HAL_STATUS_SUCCESS)
+            {
+                g_bClkGenFirstClkOutInvoke = false;
+                return ui32Status;
+            }
+        }
+    }
+    g_bClkGenFirstClkOutInvoke = false;
+
+    //
+    // Request clock and enable CLKOUT for clock selected
+    //
+    if (bEnable)
+    {
+        // Request for clock needed, and enable the CLKOUT selected
+        am_hal_clkmgr_clock_id_e eClkMgrClkSrcSel = am_hal_clkgen_clksrc_get(eClkSelect);
+        if (eClkMgrClkSrcSel != AM_HAL_CLKMGR_CLK_ID_MAX)
+        {
+            am_hal_clkmgr_clock_request(eClkMgrClkSrcSel, AM_HAL_CLKMGR_USER_ID_CLKOUT);
+            if (ui32Status != AM_HAL_STATUS_SUCCESS)
+            {
+                return ui32Status;
+            }
+        }
+        CLKGEN->CLKOUT_b.CKSEL = eClkSelect;
+        CLKGEN->CLKOUT_b.CKEN = CLKGEN_CLKOUT_CKEN_EN;
+    }
+
+    //
     // Return success status.
     //
-    return AM_HAL_STATUS_SUCCESS;
+    return ui32Status;
 
 } // am_hal_clkgen_clkout_enable()
 
-// #### INTERNAL BEGIN ####
-#if 0   // FIXME, the XTAL24MCTRL register was removed from the Falcon design
-        // on 12/31/19. Any replacement is currently unknown.
 // ****************************************************************************
 //
-//  am_hal_clkgen_xtal24mctrl_enable()
-//  This function is used to enable XTAL 24MHz and select drive strength.
-//
-// ****************************************************************************
-/*uint32_t
-am_hal_clkgen_xtal24mctrl_enable(bool bEnable, am_hal_clkgen_xtal24mctrl_e eDSSelect)
-{
-    if ( !bEnable )
-    {
-        CLKGEN->XTAL24MCTRL_b.XTAL24MEN = 0;
-    }
-
-    //
-    // Do a basic validation of the eDSSelect parameter.
-    // Not every value in the range is valid, but at least this simple check
-    // provides a reasonable chance that the parameter is valid.
-    //
-    if ( eDSSelect <= (am_hal_clkgen_xtal24mctrl_e)AM_HAL_CLKGEN_XTAL24MCTRL_XTAL24MDS_7 )
-    {
-        //
-        // Are we actually changing the drive strength?
-        //
-        if ( CLKGEN->XTAL24MCTRL_b.XTAL24MDS != eDSSelect )
-        {
-            //
-            // Disable before changing the drive strength
-            //
-            CLKGEN->XTAL24MCTRL_b.XTAL24MEN = 0;
-
-            //
-            // Set the new drive strength
-            //
-            CLKGEN->XTAL24MCTRL_b.XTAL24MDS = eDSSelect;
-        }
-
-        //
-        // Enable/disable as requested.
-        //
-        CLKGEN->XTAL24MCTRL_b.XTAL24MEN = bEnable;
-    }
-    else
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    //
-    // Return success status.
-    //
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_clkgen_xtal24mctrl_enable()*/
-#endif //
-
-#if 0 // FIXME!
-// ****************************************************************************
-//
-//  am_hal_clkgen_dcclk_enable()
-//  This function is used to enable dcclk and select clock source.
+//  am_hal_clkgen_hfrcadj_target_calculate()
+//  Calculate HFADJ adjust target according to the parameters provided.
+//  Note: Avoid using this API directly, use Clock Manager to control HFADJ
+//        with automatic configuration for HFRC instead.
 //
 // ****************************************************************************
 uint32_t
-am_hal_clkgen_dcclk_enable(bool bEnable, CLKGEN_DISPCLKCTRL_DISPCLKSEL_Enum eDispclkSelect)
+am_hal_clkgen_hfrcadj_target_calculate(uint32_t ui32RefFreq, uint32_t ui32TargetFrequency, uint32_t *pui32AdjTarget)
 {
-    if ( !bEnable )
-    {
-        CLKGEN->DISPCLKCTRL_b.DCCLKEN = 0;
-    }
-
-    //
-    // Do a basic validation of the eDispclkSelect parameter.
-    // Not every value in the range is valid, but at least this simple check
-    // provides a reasonable chance that the parameter is valid.
-    //
-    if ( eDispclkSelect <= (CLKGEN_DISPCLKCTRL_DISPCLKSEL_Enum)CLKGEN_DISPCLKCTRL_DISPCLKSEL_DPHYPLL )
-    {
-        //
-        // Are we actually changing the clock source?
-        //
-        if ( CLKGEN->DISPCLKCTRL_b.DISPCLKSEL != eDispclkSelect )
-        {
-            //
-            // Disable before changing the clock source
-            //
-            CLKGEN->DISPCLKCTRL_b.DCCLKEN = 0;
-
-            //
-            // Set the new clock source
-            //
-            CLKGEN->DISPCLKCTRL_b.DISPCLKSEL = eDispclkSelect;
-        }
-
-        //
-        // Enable/disable as requested.
-        //
-        CLKGEN->DISPCLKCTRL_b.DCCLKEN = bEnable;
-    }
-    else
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    //
-    // Return success status.
-    //
+    *pui32AdjTarget = (ui32TargetFrequency / ui32RefFreq);
     return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_clkgen_dcclk_enable()
-#endif // 0
-
-#if 0 // FIXME!
+}
 // ****************************************************************************
 //
-//  am_hal_clkgen_pllclk_enable()
-//  This function is used to enable pll clock and select pll reference clock.
+//  am_hal_clkgen_private_hfrc_force_on()
+//  This private function is used to enable/disable of force-on for HFRC
+//  oscillator block.
+//  Note: This API is inteded for use by HAL only. Do not call this API from
+//  Application/BSP.
 //
 // ****************************************************************************
-uint32_t
-am_hal_clkgen_pllclk_enable(bool bEnable, CLKGEN_DISPCLKCTRL_PLLCLKSEL_Enum ePllclkSelect)
+uint32_t am_hal_clkgen_private_hfrc_force_on(bool bForceOn)
 {
-    if ( !bEnable )
-    {
-        CLKGEN->DISPCLKCTRL_b.PLLCLKEN = 0;
-    }
-
-    //
-    // Do a basic validation of the ePllclkSelect parameter.
-    // Not every value in the range is valid, but at least this simple check
-    // provides a reasonable chance that the parameter is valid.
-    //
-    if ( ePllclkSelect <= (CLKGEN_DISPCLKCTRL_PLLCLKSEL_Enum)CLKGEN_DISPCLKCTRL_PLLCLKSEL_HFXT )
-    {
-        //
-        // Are we actually changing the reference clock?
-        //
-        if ( CLKGEN->DISPCLKCTRL_b.PLLCLKSEL != ePllclkSelect )
-        {
-            //
-            // Disable before changing the reference clock
-            //
-            CLKGEN->DISPCLKCTRL_b.PLLCLKEN = 0;
-
-            //
-            // Set the new reference clock
-            //
-            CLKGEN->DISPCLKCTRL_b.PLLCLKSEL = ePllclkSelect;
-        }
-
-        //
-        // Enable/disable as requested.
-        //
-        CLKGEN->DISPCLKCTRL_b.PLLCLKEN = bEnable;
-    }
-    else
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    //
-    // Return success status.
-    //
+    CLKGEN->MISC_b.FRCHFRC = bForceOn ? CLKGEN_MISC_FRCHFRC_FRC: CLKGEN_MISC_FRCHFRC_NOFRC;
     return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_clkgen_pllclk_enable()
-#endif // 0
-
-#if 0
+}
 // ****************************************************************************
 //
-//  am_hal_clkgen_interrupt_enable()
-//  Enable selected CLKGEN Interrupts.
+//  am_hal_clkgen_private_hfadj_apply()
+//  This private function is used to configure and enable HFADJ.
+//  Note: This API is inteded for use by HAL only. Do not call this API from
+//  Application/BSP.
 //
 // ****************************************************************************
-uint32_t am_hal_clkgen_interrupt_enable(am_hal_clkgen_interrupt_e ui32IntMask)
+uint32_t am_hal_clkgen_private_hfadj_apply(uint32_t ui32RegVal)
 {
-    if ( (ui32IntMask &
-            (CLKGEN_INTRPTEN_OF_Msk         |
-             CLKGEN_INTRPTEN_ACC_Msk        |
-             CLKGEN_INTRPTEN_ACF_Msk)) == 0 )
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
     //
-    // Set the interrupt enables according to the mask.
+    // Make sure the ENABLE bit is set, and set config into register
     //
-    CLKGEN->INTRPTEN |= ui32IntMask;
-
-    //
-    // Return success status.
-    //
+    ui32RegVal |= _VAL2FLD(CLKGEN_HFADJ_HFADJEN, CLKGEN_HFADJ_HFADJEN_EN);
+    CLKGEN->HFADJ = ui32RegVal;
     return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_clkgen_interrupt_enable()
-
+}
 // ****************************************************************************
 //
-//  am_hal_clkgen_interrupt_disable(
-//  Disable selected CLKGEN Interrupts.
+//  am_hal_clkgen_private_hfadj_disable()
+//  This private function is used to disable HFADJ.
+//  Note: This API is inteded for use by HAL only. Do not call this API from
+//  Application/BSP.
 //
 // ****************************************************************************
-uint32_t
-am_hal_clkgen_interrupt_disable(am_hal_clkgen_interrupt_e ui32IntMask)
+uint32_t am_hal_clkgen_private_hfadj_disable()
 {
-    if ( (ui32IntMask &
-            (CLKGEN_INTRPTEN_OF_Msk         |
-             CLKGEN_INTRPTEN_ACC_Msk        |
-             CLKGEN_INTRPTEN_ACF_Msk)) == 0 )
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    //
-    // Disable the interrupts.
-    //
-    CLKGEN->INTRPTEN &= ~ui32IntMask;
-
-    //
-    // Return success status.
-    //
+    CLKGEN->HFADJ_b.HFADJEN = CLKGEN_HFADJ_HFADJEN_DIS;
     return AM_HAL_STATUS_SUCCESS;
+}
 
-} // am_hal_clkgen_interrupt_disable()
-
-//*****************************************************************************
-//
-//  am_hal_clkgen_interrupt_clear()
-//  IOM interrupt clear
-//
-//*****************************************************************************
-uint32_t
-am_hal_clkgen_interrupt_clear(am_hal_clkgen_interrupt_e ui32IntMask)
-{
-    if ( (ui32IntMask &
-            (CLKGEN_INTRPTEN_OF_Msk         |
-             CLKGEN_INTRPTEN_ACC_Msk        |
-             CLKGEN_INTRPTEN_ACF_Msk)) == 0 )
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    //
-    // Clear the requested interrupts.
-    //
-    CLKGEN->INTRPTCLR = ui32IntMask;
-
-    //
-    // Return success status.
-    //
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_clkgen_interrupt_clear()
-
-// ****************************************************************************
-//
-//  am_hal_clkgen_interrupt_status_get()
-//  Return CLKGEN interrupts.
-//
-// ****************************************************************************
-uint32_t
-am_hal_clkgen_interrupt_status_get(bool bEnabledOnly,
-                                   uint32_t *pui32IntStatus)
-{
-    uint32_t ui32IntStatus;
-
-    if ( !pui32IntStatus )
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    ui32IntStatus = CLKGEN->INTRPTSTAT;
-
-    if ( bEnabledOnly )
-    {
-        ui32IntStatus &= CLKGEN->INTRPTEN;
-    }
-
-    *pui32IntStatus = ui32IntStatus;
-
-    //
-    // Return success status.
-    //
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_clkgen_interrupt_status_get)
-
-// ****************************************************************************
-//
-// This function sets the CLKGEN interrupts.
-//
-// ****************************************************************************
-uint32_t
-am_hal_clkgen_interrupt_set(am_hal_clkgen_interrupt_e ui32IntMask)
-{
-    if ( (ui32IntMask &
-            (CLKGEN_INTRPTEN_OF_Msk         |
-             CLKGEN_INTRPTEN_ACC_Msk        |
-             CLKGEN_INTRPTEN_ACF_Msk)) == 0 )
-    {
-        return AM_HAL_STATUS_INVALID_ARG;
-    }
-
-    //
-    // Set the interrupt status.
-    //
-    CLKGEN->INTRPTSET = ui32IntMask;
-
-    //
-    // Return success status.
-    //
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_clkgen_interrupt_set()
-#endif
-// #### INTERNAL END ####
 
 //*****************************************************************************
 //

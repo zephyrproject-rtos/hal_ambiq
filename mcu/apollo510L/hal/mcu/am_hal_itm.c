@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -73,24 +100,8 @@ am_hal_itm_enable(void)
     //
     // Compute SWOscaler so that the TPIU can be configured.
     //
-// #### INTERNAL BEGIN ####
-#ifdef APOLLO5_FPGA
-    //
-    // Compute an appropriate SWO scaler based on the FPGA speed
-    // specified by the APOLLO5_FPGA (e.g. 48, 24, 12, ...)
-    //
-    if ( g_ui32FPGAfreqMHz == 0 )
-    {
-        g_ui32FPGAfreqMHz = APOLLO5_FPGA;
-    }
-    ui32SWOscaler = (g_ui32FPGAfreqMHz / 2) - 1;
-#else
-// #### INTERNAL END ####
     ui32SWOscaler = ( (AM_HAL_CLKGEN_FREQ_MAX_HZ / 2) /
                        g_ui32ItmBaud ) - 1;
-// #### INTERNAL BEGIN ####
-#endif // APOLLO5_FPGA
-// #### INTERNAL END ####
 
     am_hal_tpiu_config(MCUCTRL_DBGCTRL_DBGTPIUCLKSEL_HFRC_48MHz,
                        0,                                   // FFCR = Disable continuous formatting (EnFCont)
@@ -118,30 +129,6 @@ am_hal_itm_enable(void)
         _VAL2FLD(ITM_TCR_SYNCENA, 0)            |
         _VAL2FLD(ITM_TCR_TSENA, 0)              |
         _VAL2FLD(ITM_TCR_ITMENA, 1);
-// #### INTERNAL BEGIN ####
-#if MCU_VALIDATION
-    //
-    // To promote better stability over temperature, enable the HFRC Adjust.
-    //
-    // Important: After this point, the XTAL and HFADJ will remain enabled,
-    // even after am_hal_itm_disable() is called, for those applications that
-    // repeatedly enable and disable the ITM.
-    //
-    if ( CLKGEN->OCTRL_b.STOPXT == 1 )
-    {
-        //
-        // Enable the XTAL.
-        //
-        am_hal_clkgen_osc_start(AM_HAL_CLKGEN_OSC_XT);
-    }
-
-    if ( CLKGEN->HFADJ_b.HFADJEN == 0 )
-    {
-        am_hal_clkgen_hfrc_adjust_enable(AM_REG_CLKGEN_HFADJ_HFWARMUP_2SEC,
-                                         AM_REG_CLKGEN_HFADJ_HFADJCK_4SEC);
-    }
-#endif // MCU_VALIDATION
-// #### INTERNAL END ####
 
     return ui32Status;
 
@@ -171,9 +158,6 @@ am_hal_itm_disable(void)
 
     //
     // Wait for the changes to take effect with a 1ms timeout.
-    // #### INTERNAL BEGIN ####
-    // NOTE: 1ms is arbitrary, but should be more than enough time.
-    // #### INTERNAL END ####
     //
     ui32Status = am_hal_delay_us_status_change(1000,
                                                (uint32_t)&ITM->TCR,
@@ -221,20 +205,13 @@ am_hal_itm_tpiu_pipeline_flush(void)
 
     //
     // At this point, ITM activity has completed. There could still be activity
-    // in the ITM or TPIU pipeline, but this cannot be determined by Apollo510.
+    // in the ITM or TPIU pipeline, but this cannot be determined by Apollo510L.
     //
     // The only thing that can be done is to allow some extra time for the
     // pipeline to be cleared.
     //
     // Note that future Ambiq devices may provide a status bit for this purpose.
     //
-// #### INTERNAL BEGIN ####
-// FBRD-1411 contains more information about the proposed status bit.
-//
-// Note also that experimentation showed that around 230us was the minimum
-// amount of time needed to make sure the last characters cleared out of
-// the pipeline. So that emperical value is doubled here.
-// #### INTERNAL END ####
     am_hal_delay_us(500);
 
     return AM_HAL_STATUS_SUCCESS;

@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_IOS_H
@@ -157,7 +184,7 @@ extern "C"
 #define AM_HAL_IOS_IOINTEN_OFFSET    0x78
 #define AM_HAL_IOS_IOINT_OFFSET      0x79
 #define AM_HAL_IOS_IOINTCLR_OFFSET   0x7A
-#define AM_HAL_IOS_ININTSET_OFFSET   0x7B
+#define AM_HAL_IOS_IOINTSET_OFFSET   0x7B
 #define AM_HAL_IOS_FIFOCTRLO_OFFSET  0x7C
 #define AM_HAL_IOS_FIFOCTRUP_OFFSET  0x7D
 #define AM_HAL_IOS_FIFO_OFFSET       0x7F
@@ -632,6 +659,20 @@ extern uint32_t am_hal_ios_fifo_write(void *pHandle, uint8_t *pui8Data, uint32_t
 //
 //*****************************************************************************
 extern uint32_t am_hal_ios_fifo_space_used(void *pHandle, uint32_t *pui32UsedSpace);
+
+//*****************************************************************************
+//
+//! @brief Set the FIFOPTR register to the offset value of the given IOS instance
+//!
+//! @param pHandle - handle for the IOS.
+//! @param ui32Offset value to change the register to
+//!
+//! This function updates the value of the FIFOPTR register to the given offset
+//!
+//! @return success or error code
+//
+//*****************************************************************************
+extern uint32_t am_hal_ios_fifo_ptr_set(void *pHandle, uint32_t ui32Offset);
 
 //*****************************************************************************
 //

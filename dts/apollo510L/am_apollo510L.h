@@ -16,7 +16,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2024, Ambiq Micro, Inc.
+// Copyright (c) 2025, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -51,9 +51,6 @@
 
 #ifndef AM_APOLLO510L_H
 #define AM_APOLLO510L_H
-
-#define CPU_CLK_MHZ 96
-#define CPU_CLK_DIV (96 / CPU_CLK_MHZ)
 
 #define ADC_BASE_NAME                   40038000
 #define CLKGEN_BASE_NAME                40004000
@@ -198,9 +195,9 @@
 #define SSRAM_BASE_ADDR                 0x20080000UL
 #define SSRAM_MAX_SIZE                  0x1C0000UL
 
-#define MRAM_BASE_NAME                  400000
-#define MRAM_BASE_ADDR                  0x400000UL
-#define MRAM_MAX_SIZE                   0x200000UL
+#define MRAM_BASE_NAME                  410000
+#define MRAM_BASE_ADDR                  0x410000UL
+#define MRAM_MAX_SIZE                   0x1F0000UL
 
 #define MSPI0_APERTURE_BASE_NAME        60000000
 #define MSPI0_APERTURE_BASE_ADDR        0x60000000UL

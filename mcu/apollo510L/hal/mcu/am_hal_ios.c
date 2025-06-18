@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -95,7 +122,6 @@ static uint32_t internal_ios_get_err(uint32_t ui32Module, uint32_t ui32IntStatus
 static void am_hal_ios_buffer_init(am_hal_ios_buffer_t *psBuffer,
                                    void *pvArray, uint32_t ui32Bytes);
 static void fifo_write(void *pHandle, uint8_t *pui8Data, uint32_t ui32NumBytes);
-static uint32_t am_hal_ios_fifo_ptr_set(void *pHandle, uint32_t ui32Offset);
 //*****************************************************************************
 //
 // Function-like macros.
@@ -130,6 +156,7 @@ uint32_t am_hal_ios_power_ctrl(void *pHandle,
                                bool bRetainState)
 {
     am_hal_ios_state_t *pIOSState = (am_hal_ios_state_t*)pHandle;
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
 
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( !AM_HAL_IOS_CHK_HANDLE(pHandle) )
@@ -167,6 +194,16 @@ uint32_t am_hal_ios_power_ctrl(void *pHandle,
 
                 pIOSState->registerState.bValid = false;
             }
+
+            //
+            // IOS Clock request.
+            //
+            ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC,
+                                                        (am_hal_clkmgr_user_id_e)(AM_HAL_PWRCTRL_PERIPH_IOSFD0 + pIOSState->ui32Module));
+            if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+            {
+                return ui32Status;
+            }
             break;
 
         case AM_HAL_SYSCTRL_NORMALSLEEP:
@@ -187,6 +224,15 @@ uint32_t am_hal_ios_power_ctrl(void *pHandle,
             // Disable power control.
             //
             am_hal_pwrctrl_periph_disable((am_hal_pwrctrl_periph_e)(AM_HAL_PWRCTRL_PERIPH_IOSFD0 + pIOSState->ui32Module));
+            //
+            // IOS clock release
+            //
+            ui32Status = am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC,
+                                                        (am_hal_clkmgr_user_id_e)(AM_HAL_PWRCTRL_PERIPH_IOSFD0 + pIOSState->ui32Module));
+            if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+            {
+                return ui32Status;
+            }
             break;
 
         default:
@@ -1432,7 +1478,7 @@ uint32_t am_hal_ios_fifo_write(void *pHandle, uint8_t *pui8Data, uint32_t ui32Nu
 //! @return success or error code
 //
 //*****************************************************************************
-static uint32_t am_hal_ios_fifo_ptr_set(void *pHandle, uint32_t ui32Offset)
+uint32_t am_hal_ios_fifo_ptr_set(void *pHandle, uint32_t ui32Offset)
 {
     uint32_t ui32Module;
 
@@ -1445,10 +1491,6 @@ static uint32_t am_hal_ios_fifo_ptr_set(void *pHandle, uint32_t ui32Offset)
 
     ui32Module = ((am_hal_ios_state_t*)pHandle)->ui32Module;
 
-// #### INTERNAL BEGIN ####
-//A5SE-40 FIFOPTR set within the range 0x78 to 0x7F may cause FIFO mode to fail
-//because of a conflict with the host-side register space
-// #### INTERNAL END ####
     // ERR085 FIFOPTR is not allowed to set within 0x78 to 0x7F
     if (( ui32Offset >= AM_HAL_IOS_IOINTEN_OFFSET ) && ( ui32Offset <= AM_HAL_IOS_FIFO_OFFSET ))
     {

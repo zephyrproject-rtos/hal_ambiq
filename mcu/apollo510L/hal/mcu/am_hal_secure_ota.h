@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -25,21 +52,14 @@
 //! Magic Numbers
 //! @{
 //
-#define AM_IMAGE_MAGIC_SBL                0xA3
-// #### INTERNAL BEGIN ####
-#define AM_IMAGE_MAGIC_ICV_CHAIN          0xAC
-//#define AM_IMAGE_MAGIC_AM3P               0x3A
-#define AM_IMAGE_MAGIC_PATCH              0xAF
-#define AM_IMAGE_MAGIC_AMB_RT_KEYBANK     0xAE
-//#define AM_IMAGE_MAGIC_INFO1_UPDATE       0xA0
-// #### INTERNAL END ####
-#define AM_IMAGE_MAGIC_SECURE             0xC0
-#define AM_IMAGE_MAGIC_OEM_CHAIN          0xCC
-#define AM_IMAGE_MAGIC_NONSECURE          0xCB
-#define AM_IMAGE_MAGIC_INFO0              0xCF
-#define AM_IMAGE_MAGIC_CONTAINER          0xC1
-#define AM_IMAGE_MAGIC_KEYREVOKE          0xCE
-#define AM_IMAGE_MAGIC_DOWNLOAD           0xCD
+#define AM_IMAGE_MAGIC_SBL                  0xA3
+#define AM_IMAGE_MAGIC_SECURE               0xC0
+#define AM_IMAGE_MAGIC_OEM_CHAIN            0xCC
+#define AM_IMAGE_MAGIC_NONSECURE            0xCB
+#define AM_IMAGE_MAGIC_INFO0                0xCF
+#define AM_IMAGE_MAGIC_CONTAINER            0xC1
+#define AM_IMAGE_MAGIC_KEYREVOKE            0xCE
+#define AM_IMAGE_MAGIC_DOWNLOAD             0xCD
 //! @}
 
 typedef enum
@@ -150,15 +170,6 @@ typedef union
         uint32_t    brOta       : 1; // To initiate BootROM based updates
         uint32_t    rsvd        : 21;
     } wired;
-// #### INTERNAL BEGIN ####
-    struct
-    {
-        uint32_t    magicNum    : 8;
-        uint32_t    wordOffset  : 8;
-        uint32_t    sizeWords   : 8;
-        uint32_t    rsvd        : 8;
-    } rtKeyBank;
-// #### INTERNAL END ####
 } am_image_opt0_t;
 
 //
@@ -179,18 +190,6 @@ typedef union
         uint32_t    progDest    : 2; //info0 program destination ( mram, otp, active, both)
         uint32_t    rsvd        : 6;
     } info0;
-// #### INTERNAL BEGIN ####
-    struct
-    {
-        uint32_t    offset      : 16;
-        uint32_t    rsvd        : 16;
-    } patch;
-    struct
-    {
-        uint32_t   size : 16;
-        uint32_t   rsvd : 16;
-    } sbl;
-// #### INTERNAL END ####
     struct
     {
         uint32_t    rsvd        : 2;
@@ -205,16 +204,6 @@ typedef union
 {
     uint32_t   ui32;
     uint32_t   ui32Key;
-// #### INTERNAL BEGIN ####
-    struct
-    {
-        uint32_t    authKeyIdx   : 8;
-        uint32_t    encKeyIdx    : 8;
-        uint32_t    authAlgo     : 4;
-        uint32_t    encAlgo      : 4;
-        uint32_t    resvd        : 8;
-    } sbl;
-// #### INTERNAL END ####
 } am_image_opt2_t;
 
 //
@@ -236,8 +225,6 @@ typedef struct
    am_image_opt3_t  opt3;
 } am_image_opt_info_t;
 
-// #### INTERNAL BEGIN ####
-// #### INTERNAL END ####
 
 //
 //! Maximum number of OTAs
@@ -257,15 +244,7 @@ typedef struct
                                   ((x) == AM_IMAGE_MAGIC_DOWNLOAD)      ||  \
                                   ((x) == AM_IMAGE_MAGIC_KEYREVOKE)     ||  \
                                   ((x) == AM_IMAGE_MAGIC_OEM_CHAIN)     ||  \
-                                  ((x) == AM_IMAGE_MAGIC_CONTAINER))
-// #### INTERNAL BEGIN ####
-#define AM_IMAGE_MAGIC_AMBQ(x)   (((x) == AM_IMAGE_MAGIC_SBL)           ||  \
-                                  ((x) == AM_IMAGE_MAGIC_PATCH)         ||  \
-                                  ((x) == AM_IMAGE_MAGIC_AMB_RT_KEYBANK) ||  \
-                                  ((x) == AM_IMAGE_MAGIC_ICV_CHAIN))
-
-#define AM_IMAGE_MAGIC_KNOWN(x)  (AM_IMAGE_MAGIC_CUST((x)) || AM_IMAGE_MAGIC_AMBQ((x)))
-// #### INTERNAL END ####
+                                  ((x) == AM_IMAGE_MAGIC_CONTAINER)  )
 
 //
 //! OTA Upgrade related definitions
@@ -287,21 +266,6 @@ typedef struct
 // Store the b1 to store the return status - pass/fail
 // b0 is used to indicate pending/done
 #define AM_HAL_OTA_VALID_MASK                0x3
-// #### INTERNAL BEGIN ####
-/* Apollo5 memory map
-ITCM 0x00000000
-     0x00003FFF
-MRAM 0x00400000
-     0x007FFFFF
-RAM  0x20000000
-     0x2037FFFF
-MSPI 0x60000000
-     0x6FFFFFFF
-     0x80000000
-     0x8FFFFFFF
-So assuming we never use MSPI for OTA...bits 24, 25, 26, 27, 28, 30, 31 are available (will always be 0 in address)
-*/
-// #### INTERNAL END ####
 // bits 24, 25, 26, 27, 28, 30, 31 will always be 0 in address - Along with bits 0, 1 (as it needs to be word aligned)
 #define AM_HAL_OTA_ADDR_MASK           0x20FFFFFC
 // Use bit 24, 25, 26, 27 to store the return status, if failure
@@ -334,26 +298,27 @@ typedef enum
     // Note: Enums that use bit31 must be treated as signed decimal values in
     //       order to avoid compiler warnings. We'll cast those as int32_t.
     //
-    AM_HAL_OTA_STATUS_SUCCESS               =          0x00000000,
-    AM_HAL_OTA_STATUS_IN_PROGRESS           =          0x00000001,
-    AM_HAL_OTA_STATUS_FAILURE               =          0x00000002,
-    AM_HAL_OTA_STATUS_PENDING               =          0x00000003,
+    AM_HAL_OTA_STATUS_SUCCESS                   =          0x00000000,
+    AM_HAL_OTA_STATUS_IN_PROGRESS               =          0x00000001,
+    AM_HAL_OTA_STATUS_FAILURE                   =          0x00000002,
+    AM_HAL_OTA_STATUS_PENDING                   =          0x00000003,
     // Remaining values are used as numbers - only bits 24, 25, 26, 27 can be used (expanded to 30, 31 if needed) - Along with setting the FAILURE indication as value 2 in bits 0,1
-    AM_HAL_OTA_STATUS_INVALID_OWNER         = (int32_t)0x01000002,
-    AM_HAL_OTA_STATUS_AUTH_POLICY           =          0x02000002,
-    AM_HAL_OTA_STATUS_ENC_POLICY            = (int32_t)0x03000002,
-    AM_HAL_OTA_STATUS_CRC                   =          0x04000002,
-    AM_HAL_OTA_STATUS_AUTH                  = (int32_t)0x05000002,
-    AM_HAL_OTA_STATUS_ENC                   = (int32_t)0x06000002,
-    AM_HAL_OTA_STATUS_CC                    =          0x07000002,
-    AM_HAL_OTA_STATUS_MAGIC                 = (int32_t)0x08000002,
-    AM_HAL_OTA_STATUS_RECURSE               =          0x09000002,
-    AM_HAL_OTA_STATUS_ERR                   = (int32_t)0x0A000002,
-    AM_HAL_OTA_STATUS_INVALID_IMAGE         = (int32_t)0x0B000002,
-    AM_HAL_OTA_STATUS_FAIL                  =          0x0C000002,      // Only for Patch
-    AM_HAL_OTA_STATUS_VALIDATION            =          0x0D000002,
-    AM_HAL_OTA_STATUS_INVALID_OPERATION     =          0x0E000002,      // Only for Wired
-    AM_HAL_OTA_STATUS_INTERRUPTED           = (int32_t)0x0F000002,
+    AM_HAL_OTA_STATUS_INVALID_OWNER             = (int32_t)0x01000002,
+    AM_HAL_OTA_STATUS_AUTH_POLICY               =          0x02000002,
+    AM_HAL_OTA_STATUS_ENC_POLICY                = (int32_t)0x03000002,
+    AM_HAL_OTA_STATUS_CRC                       =          0x04000002,
+    AM_HAL_OTA_STATUS_AUTH                      = (int32_t)0x05000002,
+    AM_HAL_OTA_STATUS_ENC                       = (int32_t)0x06000002,
+    AM_HAL_OTA_STATUS_CC                        =          0x07000002,
+    AM_HAL_OTA_STATUS_MAGIC                     = (int32_t)0x08000002,
+    AM_HAL_OTA_STATUS_RECURSE                   =          0x09000002,
+    AM_HAL_OTA_STATUS_ERR                       = (int32_t)0x0A000002,
+    AM_HAL_OTA_STATUS_INVALID_IMAGE             = (int32_t)0x0B000002,
+    AM_HAL_OTA_STATUS_FAIL                      =          0x0C000002,      // Only for Patch
+    AM_HAL_OTA_STATUS_VALIDATION                =          0x0D000002,
+    AM_HAL_OTA_STATUS_INVALID_OPERATION         =          0x0E000002,      // Only for Wired
+    AM_HAL_OTA_STATUS_INTERRUPTED               = (int32_t)0x0F000002,
+    AM_HAL_OTA_STATUS_NO_INFO1_EXT_ADDR_FOUND   =          0x1F000002,
 } am_hal_ota_status_e;
 
 #define AM_HAL_OTA_GET_BLOB_PTR(ptr)         (((uint32_t)(ptr) & ~(AM_HAL_OTA_VALID_MASK | AM_HAL_OTA_STATUS_MASK)))

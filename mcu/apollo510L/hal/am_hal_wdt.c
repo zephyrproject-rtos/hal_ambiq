@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -87,12 +114,19 @@ am_hal_wdt_config(am_hal_wdt_select_e eTimer, void *pvConfig)
 uint32_t
 am_hal_wdt_start(am_hal_wdt_select_e eTimer, bool bLock)
 {
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
     //
     // Enable the timer.
     //
     switch (eTimer)
     {
         case AM_HAL_WDT_MCU:
+
+            ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_LFRC, AM_HAL_CLKMGR_USER_ID_WDT);
+            if (ui32Status != AM_HAL_STATUS_SUCCESS)
+            {
+                return ui32Status;
+            }
             WDT->RSTRT = WDT_RSTRT_RSTRT_KEYVALUE;
             WDT->CFG_b.WDTEN = 1;
             break;
@@ -128,6 +162,7 @@ am_hal_wdt_start(am_hal_wdt_select_e eTimer, bool bLock)
 uint32_t
 am_hal_wdt_stop(am_hal_wdt_select_e eTimer)
 {
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
     switch (eTimer)
     {
         case AM_HAL_WDT_MCU:
@@ -136,6 +171,12 @@ am_hal_wdt_stop(am_hal_wdt_select_e eTimer)
 
         default:
             return AM_HAL_STATUS_FAIL;
+    }
+
+    ui32Status = am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_LFRC, AM_HAL_CLKMGR_USER_ID_WDT);
+    if (ui32Status != AM_HAL_STATUS_SUCCESS)
+    {
+        return ui32Status;
     }
 
     return AM_HAL_STATUS_SUCCESS;

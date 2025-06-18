@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_I2S_H
@@ -54,6 +81,7 @@ extern "C"
 #define AM_HAL_I2S_CLK_CRM_MUX_MSK      (0x000000FF)
 #define AM_HAL_I2S_CLK_NCO_MUX_POS      (8)
 #define AM_HAL_I2S_CLK_NCO_MUX_MSK      (0x0000FF00)
+#define AM_HAL_I2S_CLK_OFF              (0xFF000000)
 
 //
 //! A software flag to indicate if the clock is an NCO clock.
@@ -61,29 +89,85 @@ extern "C"
 #define AM_HAL_I2S_CLK_NCO_ENABLE       (1)
 #define AM_HAL_I2S_CLK_NCO_DISABLE      (0)
 
+//
+//! For I2S mono mode, we can define AM_HAL_I2S_CH_NUM_FOR_MONO as 2 to set 2
+//! channels, one channel for mono audio data transfer, the other one is unused.
+//! We can also define AM_HAL_I2S_CH_NUM_FOR_MONO as 1 to set only 1 channel
+//! for the mono audio data transfer.
+//
+#ifndef AM_HAL_I2S_CH_NUM_FOR_MONO
+#define AM_HAL_I2S_CH_NUM_FOR_MONO       (1)
+#endif
+
 //*****************************************************************************
 //
-//! Clock source of I2S MCLK
-//!
-//! @note If an NCO clock is selected, the coefficient of the divider (configured
-//! by f64NcoDiv in am_hal_i2s_config_t) between the clock course and the MCLK
-//! must be no less than 4.
+//! Clock source of I2S module clock
 //
 //*****************************************************************************
 typedef enum
 {
-    AM_HAL_I2S_CLKSEL_HFRC_48MHz       = 0,
-    AM_HAL_I2S_CLKSEL_XTHS             = 1,
-    AM_HAL_I2S_CLKSEL_EXTREF           = 2,
-    AM_HAL_I2S_CLKSEL_PLL_POSTDIV      = 3,
-    AM_HAL_I2S_CLKSEL_PLL_FOUT4        = 4,
-    AM_HAL_I2S_CLKSEL_NCO_HFRC_48MHz   = (0 | AM_HAL_I2S_CLK_NCO_ENABLE << AM_HAL_I2S_CLK_NCO_MUX_POS),
-    AM_HAL_I2S_CLKSEL_NCO_XTHS         = (1 | AM_HAL_I2S_CLK_NCO_ENABLE << AM_HAL_I2S_CLK_NCO_MUX_POS),
-    AM_HAL_I2S_CLKSEL_NCO_EXTREF       = (2 | AM_HAL_I2S_CLK_NCO_ENABLE << AM_HAL_I2S_CLK_NCO_MUX_POS),
-    AM_HAL_I2S_CLKSEL_NCO_PLL_POSTDIV  = (3 | AM_HAL_I2S_CLK_NCO_ENABLE << AM_HAL_I2S_CLK_NCO_MUX_POS),
-    AM_HAL_I2S_CLKSEL_OFF,
-    AM_HAL_I2S_CLKSEL_MAX
+    //! HFRC 48 MHz, the actual frequency may change if HFADJ is enabled.
+    AM_HAL_I2S_CLKSEL_HFRC_48MHz       = (AM_HAL_I2S_CLK_NCO_DISABLE << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0MCLKCRM_I2S0MCLKCLKSEL_HFRC48,
+
+    //! External crystal oscillator.
+    AM_HAL_I2S_CLKSEL_XTHS             = (AM_HAL_I2S_CLK_NCO_DISABLE << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0MCLKCRM_I2S0MCLKCLKSEL_RF_XTAL_48MHz,
+
+    //! POSTDIV, an output of PLL.
+    AM_HAL_I2S_CLKSEL_PLL_POSTDIV      = (AM_HAL_I2S_CLK_NCO_DISABLE << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0MCLKCRM_I2S0MCLKCLKSEL_PLLPOSTDIV,
+
+    //! FOUT3, an output of PLL, its frequency is equal to POSTDIV / 6.
+    AM_HAL_I2S_CLKSEL_PLL_FOUT3        = (AM_HAL_I2S_CLK_NCO_DISABLE << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0MCLKCRM_I2S0MCLKCLKSEL_PLLFOUT3,
+
+    //! FOUT4, an output of PLL, its frequency is equal to POSTDIV / 8.
+    AM_HAL_I2S_CLKSEL_PLL_FOUT4        = (AM_HAL_I2S_CLK_NCO_DISABLE << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0MCLKCRM_I2S0MCLKCLKSEL_PLLFOUT4,
+
+    //! External clock from GPIO 15.
+    AM_HAL_I2S_CLKSEL_EXTREF           = (AM_HAL_I2S_CLK_NCO_DISABLE << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0MCLKCRM_I2S0MCLKCLKSEL_EXTREF_CLK,
+
+    //! HFRC 96 MHz through NCO circuitry, the actual frequency may change if HFADJ is enabled.
+    AM_HAL_I2S_CLKSEL_NCO_HFRC_96MHz   = (AM_HAL_I2S_CLK_NCO_ENABLE  << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0REFCLKCRM_I2S0REFCLKCLKSEL_HFRC_96MHz,
+
+    //! External crystal oscillator through NCO circuitry.
+    AM_HAL_I2S_CLKSEL_NCO_XTHS         = (AM_HAL_I2S_CLK_NCO_ENABLE  << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0REFCLKCRM_I2S0REFCLKCLKSEL_RF_XTAL_48MHz,
+
+    //! PLL POSTDIV through NCO circuitry.
+    AM_HAL_I2S_CLKSEL_NCO_PLL_POSTDIV  = (AM_HAL_I2S_CLK_NCO_ENABLE  << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0REFCLKCRM_I2S0REFCLKCLKSEL_PLLPOSTDIV,
+
+    //! External clock from GPIO 15 through NCO circuitry.
+    AM_HAL_I2S_CLKSEL_NCO_EXTREF       = (AM_HAL_I2S_CLK_NCO_ENABLE  << AM_HAL_I2S_CLK_NCO_MUX_POS) | CRM_I2S0REFCLKCRM_I2S0REFCLKCLKSEL_EXTREF_CLK,
+
+    //! A virtual clock for internal use only, shouldn't be set by applications.
+    AM_HAL_I2S_CLKSEL_OFF              = AM_HAL_I2S_CLK_OFF,
 } am_hal_i2s_clksel_e;
+
+//*****************************************************************************
+//
+//! Clock source of I2S MCLKOUT, which is used to drive external devices.
+//
+//*****************************************************************************
+typedef enum
+{
+    //! HFRC 48 MHz, the actual frequency may change if HFADJ is enabled.
+    AM_HAL_I2S_MCLKOUT_SEL_HFRC48     = CRM_I2S0MCLKOUTCRM_I2S0MCLKOUTCLKSEL_HFRC48,
+
+    //! External crystal oscillator.
+    AM_HAL_I2S_MCLKOUT_SEL_XTAL       = CRM_I2S0MCLKOUTCRM_I2S0MCLKOUTCLKSEL_RF_XTAL_48MHz,
+
+    //! POSTDIV, an output of PLL.
+    AM_HAL_I2S_MCLKOUT_SEL_PLLPOSTDIV = CRM_I2S0MCLKOUTCRM_I2S0MCLKOUTCLKSEL_PLLPOSTDIV,
+
+    //! FOUT3, an output of PLL, its frequency is equal to POSTDIV / 6.
+    AM_HAL_I2S_MCLKOUT_SEL_PLLFOUT3   = CRM_I2S0MCLKOUTCRM_I2S0MCLKOUTCLKSEL_PLLFOUT3,
+
+    //! FOUT4, an output of PLL, its frequency is equal to POSTDIV / 8.
+    AM_HAL_I2S_MCLKOUT_SEL_PLLFOUT4   = CRM_I2S0MCLKOUTCRM_I2S0MCLKOUTCLKSEL_PLLFOUT4,
+
+    //! External clock from GPIO 15.
+    AM_HAL_I2S_MCLKOUT_SEL_EXTREF     = CRM_I2S0MCLKOUTCRM_I2S0MCLKOUTCLKSEL_EXTREF_CLK,
+
+    //! A virtual clock for internal use only, shouldn't be set by applications.
+    AM_HAL_I2S_MCLKOUT_SEL_OFF,
+} am_hal_i2s_mclkout_sel_e;
 
 //*****************************************************************************
 //
@@ -130,6 +214,8 @@ typedef enum
     AM_HAL_I2S_REQ_READ_TXLOWERLIMIT    = 4,
     AM_HAL_I2S_REQ_WRITE_RXUPPERLIMIT   = 5,
     AM_HAL_I2S_REQ_WRITE_TXLOWERLIMIT   = 6,
+    //! Overwrite the value AM_HAL_I2S_CH_NUM_FOR_MONO at runtime.
+    AM_HAL_I2S_REQ_SET_CH_NUM_FOR_MONO  = 7,
     AM_HAL_I2S_REQ_MAX
 } am_hal_i2s_request_e;
 
@@ -360,7 +446,6 @@ typedef struct
     uint32_t ui32FsyncPulseWidth;
 } am_hal_i2s_fsync_pulse_t;
 
-
 //*****************************************************************************
 //
 //! @brief Configuration structure for the I2S IPB clocks and IO signals.
@@ -453,6 +538,12 @@ typedef struct
     am_hal_i2s_transfer_t*      eTransfer;
 
     uint32_t ui32ClockDivideRatio;
+
+    //
+    //! MCLKOUT selection.
+    //
+    am_hal_i2s_mclkout_sel_e eMclkout;
+    uint32_t ui32MclkoutDiv;
 } am_hal_i2s_config_t;
 
 //*****************************************************************************
@@ -514,6 +605,19 @@ extern uint32_t am_hal_i2s_power_control(void *pHandle, am_hal_sysctrl_power_sta
 //
 //*****************************************************************************
 extern uint32_t am_hal_i2s_configure(void *pHandle, am_hal_i2s_config_t *psConfig);
+
+//*****************************************************************************
+//
+//! @brief I2S control function
+//!
+//! @param pHandle  - handle for the module instance.
+//! @param eReq     - request type.
+//! @param pArgs    - pointer to the request arguments.
+//!
+//! @return status  - generic or interface specific status.
+//!
+//*****************************************************************************
+extern uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArgs);
 
 //*****************************************************************************
 //
@@ -602,12 +706,26 @@ extern uint32_t am_hal_i2s_interrupt_clear(void *pHandle, uint32_t ui32IntMask);
 
 //*****************************************************************************
 //
-//! @brief I2S disable interrupts function
+//! @brief I2S enable interrupts function
 //!
-//! @param pHandle       - handle for the interface.
+//! @param pHandle       - pointer to the handle for the interface.
 //! @param ui32IntMask   - I2S interrupt mask.
 //!
-//! This function disable the specific indicated interrupts.
+//! This function enables the specific indicated interrupts.
+//!
+//! @return status       - generic or interface specific status.
+//
+//*****************************************************************************
+extern uint32_t am_hal_i2s_interrupt_enable(void *pHandle, uint32_t ui32IntMask);
+
+//*****************************************************************************
+//
+//! @brief I2S disable interrupts function
+//!
+//! @param pHandle       - pointer to the handle for the interface.
+//! @param ui32IntMask   - I2S interrupt mask.
+//!
+//! This function disables the specific indicated interrupts.
 //!
 //! @return status       - generic or interface specific status.
 //

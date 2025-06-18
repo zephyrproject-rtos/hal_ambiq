@@ -12,15 +12,43 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
+#include "mcu/am_hal_crm_private.h"
 
 //*****************************************************************************
 //
@@ -35,17 +63,6 @@
     (((am_hal_handle_prefix_t *)(h))->s.bInit) &&                             \
     (((am_hal_handle_prefix_t *)(h))->s.magic == AM_HAL_MAGIC_PDM))
 //! @}
-
-//*****************************************************************************
-//
-//! Convenience macro for passing errors
-//
-//*****************************************************************************
-#define RETURN_ON_ERROR(x)                                                    \
-    if ((x) != AM_HAL_STATUS_SUCCESS)                                         \
-    {                                                                         \
-        return (x);                                                           \
-    };
 
 //*****************************************************************************
 //
@@ -84,23 +101,19 @@
 //! it takes to fill the entire DMA buffer.
 //
 //*****************************************************************************
-// #### INTERNAL BEGIN ####
-// Please refer to the following wiki link for detailed information.
-// https://ambiqmicro.atlassian.net/wiki/spaces/C/pages/3551854611/Two-Stage+DMA+Request+Pipeline+Feature
-// #### INTERNAL END ####
 #ifndef AM_HAL_DISABLE_PDM_TWO_STAGE_DMA
 #define USE_PDM_TWO_STAGE_DMA
 #else
-#undef  USE_PDM_TWO_STAGE_DMA
+#undef USE_PDM_TWO_STAGE_DMA
 #endif
 
-#if defined(AM_PART_APOLLO5B) && defined(USE_PDM_TWO_STAGE_DMA)
-#define CLEAR_DMACPL_SAFELY
-#endif
-
-#ifndef PDM0_DMAENNEXTCTRL_DMAENNEXT_Pos
-#define DMAENNEXTCTRL       (*(volatile uint32_t*)(AM_REG_PDMn(ui32Module) + 0x168))
-#endif
+//*****************************************************************************
+//
+// Extract CRM clock source and clock divider ratio.
+//
+//*****************************************************************************
+#define EXTRACT_PDM_CRM_CLKSRC(x)   (((x) & AM_HAL_PDM_CRM_CLKSRC_MSK) >> AM_HAL_PDM_CRM_CLKSRC_POS)
+#define EXTRACT_PDM_CRM_CLKDIV(x)   (((x) & AM_HAL_PDM_CRM_CLKDIV_MSK) >> AM_HAL_PDM_CRM_CLKDIV_POS)
 
 //*****************************************************************************
 //
@@ -135,11 +148,8 @@ typedef struct
     //
     //! Selected Clock Source
     //
-    am_hal_pdm_clkspd_e eClkSource;
-
-    #ifdef CLEAR_DMACPL_SAFELY
-    bool                bNeedtoClearDmacpl;
-    #endif
+    am_hal_pdm_clkspd_e eClockSel;
+    bool                bModuleEnabledBeforePowerdown;
 }
 am_hal_pdm_state_t;
 
@@ -149,6 +159,114 @@ am_hal_pdm_state_t;
 //
 //*****************************************************************************
 am_hal_pdm_state_t g_PDMhandles[AM_REG_PDM_NUM_MODULES];
+
+//*****************************************************************************
+//
+//! @brief [Internal] Get the CLKMGR ID from the clock selection
+//!
+//! @param eClocksel - Clock selection in am_hal_pdm_clkspd_e.
+//!
+//! @return clockId  - Clock ID in clock manager.
+//
+//*****************************************************************************
+static am_hal_clkmgr_clock_id_e
+pdm_clock_id_get(am_hal_pdm_clkspd_e eClocksel)
+{
+    switch (eClocksel)
+    {
+        case AM_HAL_PDM_CLK_PLL:
+        case AM_HAL_PDM_CLK_PLL_DIV16:
+        case AM_HAL_PDM_CLK_PLL_DIV48:
+        case AM_HAL_PDM_CLK_PLL_FOUT4:
+            return AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+
+        case AM_HAL_PDM_CLK_HFXTAL:
+        case AM_HAL_PDM_CLK_HFXTAL_DIV2:
+        case AM_HAL_PDM_CLK_HFXTAL_DIV4:
+            return AM_HAL_CLKMGR_CLK_ID_XTAL_HS;
+
+        case AM_HAL_PDM_CLK_HFRC_24MHZ:
+        case AM_HAL_PDM_CLK_HFRC_1P5MHZ:
+        case AM_HAL_PDM_CLK_HFRC_0P5MHZ:
+            return AM_HAL_CLKMGR_CLK_ID_HFRC;
+
+        case AM_HAL_PDM_CLK_EXTREF:
+            return AM_HAL_CLKMGR_CLK_ID_EXTREF_CLK;
+
+        case AM_HAL_PDM_CLK_OFF:
+        default:
+            return AM_HAL_CLKMGR_CLK_ID_MAX;
+    }
+}
+
+//*****************************************************************************
+//
+//! @brief [Internal] Set PDM moudule clock
+//!
+//! @param ui32Module - PDM instance index.
+//! @param eClocksel  - Clock selection in am_hal_pdm_clkspd_e.
+//!
+//! @return status    - generic or interface specific status.
+//
+//*****************************************************************************
+static uint32_t
+pdm_clock_set(uint32_t ui32Module, am_hal_pdm_clkspd_e eClocksel)
+{
+    uint32_t ui32Status;
+    am_hal_clkmgr_user_id_e eUserID = AM_HAL_CLKMGR_USER_ID_PDM0;
+    // Array to store the clock ID for each suceessful request.
+    static am_hal_clkmgr_clock_id_e eStoredClockId[AM_REG_PDM_NUM_MODULES] = {AM_HAL_CLKMGR_CLK_ID_MAX};
+
+    if (eClocksel != AM_HAL_PDM_CLK_OFF)
+    {
+        //
+        // Request clock from the clock manager.
+        //
+        am_hal_clkmgr_clock_id_e eClockID = pdm_clock_id_get(eClocksel);
+        ui32Status = am_hal_clkmgr_clock_request(eClockID, eUserID);
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            return ui32Status;
+        }
+
+        //
+        // Set and enable clock via CRM.
+        //
+        ui32Status = am_hal_crm_clock_config_PDM0CLK(EXTRACT_PDM_CRM_CLKSRC(eClocksel), EXTRACT_PDM_CRM_CLKDIV(eClocksel));
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            am_hal_clkmgr_clock_release(eClockID, eUserID);
+            return ui32Status;
+        }
+
+        ui32Status = am_hal_crm_control_PDM0CLK_CLOCK_SET(true);
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            am_hal_clkmgr_clock_release(eClockID, eUserID);
+            return ui32Status;
+        }
+
+        //
+        // Store the clock ID if everything is successful.
+        //
+        eStoredClockId[ui32Module] = eClockID;
+    }
+    else
+    {
+        //
+        // Gate clock.
+        //
+        am_hal_crm_control_PDM0CLK_CLOCK_SET(false);
+
+        //
+        // Release the clock if it was previously requested.
+        //
+        am_hal_clkmgr_clock_release(eStoredClockId[ui32Module], eUserID);
+        eStoredClockId[ui32Module] = AM_HAL_CLKMGR_CLK_ID_MAX;
+    }
+
+    return AM_HAL_STATUS_SUCCESS;
+}
 
 //*****************************************************************************
 //
@@ -189,9 +307,7 @@ am_hal_pdm_initialize(uint32_t ui32Module, void **ppHandle)
     g_PDMhandles[ui32Module].prefix.s.magic = AM_HAL_MAGIC_PDM;
     g_PDMhandles[ui32Module].ui32Module = ui32Module;
     g_PDMhandles[ui32Module].sRegState.bValid = false;
-    #ifdef CLEAR_DMACPL_SAFELY
-    g_PDMhandles[ui32Module].bNeedtoClearDmacpl = false;
-    #endif
+    g_PDMhandles[ui32Module].bModuleEnabledBeforePowerdown = false;
 
     //
     // Return the handle.
@@ -225,6 +341,7 @@ am_hal_pdm_deinitialize(void *pHandle)
     pState->prefix.s.bInit = false;
     pState->prefix.s.magic = 0;
     pState->ui32Module = 0;
+    pState->bModuleEnabledBeforePowerdown = false;
 
     //
     // Return the status.
@@ -247,6 +364,7 @@ am_hal_pdm_power_control(void *pHandle,
     //
     AM_HAL_PDM_HANDLE_CHECK(pHandle);
 
+    uint32_t ui32Status;
     am_hal_pdm_state_t *pState = (am_hal_pdm_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
 
@@ -269,18 +387,16 @@ am_hal_pdm_power_control(void *pHandle,
             {
                 return AM_HAL_STATUS_INVALID_OPERATION;
             }
-// #### INTERNAL BEGIN ####
-#ifdef HFRC2_ON_WA
-            //
-            // HFRC2 ON request.
-            //
-            am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_HFRC2_ON_REQ, false);
-#endif // HFRC2_ON_WA
-// #### INTERNAL END ####
+
             //
             // Enable power control.
             //
             am_hal_pwrctrl_periph_enable(ePDMPowerModule);
+
+            //
+            // Enable APB clock.
+            //
+            am_hal_crm_control_PDM0_CLOCK_SET(true);
 
             if (bRetainState)
             {
@@ -288,6 +404,16 @@ am_hal_pdm_power_control(void *pHandle,
                 // Restore PDM registers
                 //
                 AM_CRITICAL_BEGIN;
+
+                if (pState->bModuleEnabledBeforePowerdown)
+                {
+                    ui32Status = am_hal_pdm_enable(pHandle);
+                    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+                    {
+                        am_hal_pwrctrl_periph_disable(ePDMPowerModule);
+                        return ui32Status;
+                    }
+                }
 
                 pState->sRegState.bValid = false;
 
@@ -309,18 +435,25 @@ am_hal_pdm_power_control(void *pHandle,
                 AM_CRITICAL_END;
             }
 
+            if (pState->prefix.s.bEnable == true)
+            {
+                //
+                // Record enabled state and disable PDM.
+                //
+                pState->bModuleEnabledBeforePowerdown = true;
+                am_hal_pdm_disable(pHandle);
+            }
+
+            //
+            // Disable APB clock.
+            //
+            am_hal_crm_control_PDM0_CLOCK_SET(false);
+
             //
             // Disable power control.
             //
             am_hal_pwrctrl_periph_disable(ePDMPowerModule);
-// #### INTERNAL BEGIN ####
-#ifdef HFRC2_OFF_WA
-            //
-            // HFRC2 OFF request.
-            //
-            am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_HFRC2_OFF_REQ, false);
-#endif // HFRC2_ON_WA
-// #### INTERNAL END ####
+
             break;
 
         default:
@@ -359,9 +492,6 @@ am_hal_pdm_configure(void *pHandle, am_hal_pdm_config_t *psConfig)
 
     PDMn(ui32Module)->CORECFG0_b.HPGAIN = psConfig->ui32HighPassCutoff;
     PDMn(ui32Module)->CORECFG0_b.ADCHPD = psConfig->bHighPassEnable;
-    // PDMA_CKO frequency divisor. Fpdma_cko = Fmclk_l/(MCLKDIV+1)
-    PDMn(ui32Module)->CORECFG0_b.MCLKDIV = psConfig->ePDMAClkOutDivder;
-    PDMn(ui32Module)->CORECFG0_b.SINCRATE = psConfig->ui32DecimationRate;
 
     PDMn(ui32Module)->CORECFG0_b.PGAL = psConfig->eLeftGain;
     PDMn(ui32Module)->CORECFG0_b.PGAR = psConfig->eRightGain;
@@ -370,8 +500,6 @@ am_hal_pdm_configure(void *pHandle, am_hal_pdm_config_t *psConfig)
     // Program the "CORECFG1_b" registers.
     //
     PDMn(ui32Module)->CORECFG1_b.PCMCHSET = psConfig->ePCMChannels;
-    // Divide down ratio for generating internal master MCLKQ.
-    PDMn(ui32Module)->CORECFG1_b.DIVMCLKQ = psConfig->eClkDivider;
     // PDMA_CKO clock phase delay in terms of PDMCLK period to internal sampler
     PDMn(ui32Module)->CORECFG1_b.CKODLY = psConfig->bPDMSampleDelay;
     // Fine grain step size for smooth PGA or Softmute attenuation transition
@@ -380,14 +508,82 @@ am_hal_pdm_configure(void *pHandle, am_hal_pdm_config_t *psConfig)
     //
     // Set the PDM Control register.
     //
-    CRMn(ui32Module)->DSPPDM0CRM_b.DSPPDM0CLKEN = 0;
-    PDMn(ui32Module)->CTRL_b.PCMPACK = psConfig->bDataPacking;
+    // PDMn(ui32Module)->CTRL_b.CLKEN = 0;
+    // PDMn(ui32Module)->CTRL_b.PCMPACK = psConfig->bDataPacking;
     PDMn(ui32Module)->CTRL_b.CLKGATEMODE = 1;
 
-    //
-    // Save clock selection.
-    //
-    pState->eClkSource = psConfig->ePDMClkSpeed;
+    bool bI2sOn = false;
+    switch (psConfig->eDataFlowDirection)
+    {
+        case AM_HAL_PDM_DATA_FLOW_TO_MEMORY:
+            PDMn(ui32Module)->CORECFG1_b.I2SON = 0;
+            PDMn(ui32Module)->CORECFG1_b.PCMON = 1;
+            bI2sOn = false;
+            break;
+        case AM_HAL_PDM_DATA_FLOW_TO_I2S:
+            PDMn(ui32Module)->CORECFG1_b.I2SON = 1;
+            PDMn(ui32Module)->CORECFG1_b.PCMON = 0;
+            bI2sOn = true;
+            break;
+        case AM_HAL_PDM_DATA_FLOW_TO_BOTH:
+            PDMn(ui32Module)->CORECFG1_b.I2SON = 1;
+            PDMn(ui32Module)->CORECFG1_b.PCMON = 1;
+            bI2sOn = true;
+            break;
+    }
+
+    if (bI2sOn)
+    {
+        if (psConfig->bI2sMaster)
+        {
+            PDMn(ui32Module)->CTRL_b.I2SMASTERMODE = 1;
+
+            if (psConfig->ui32DecimationRate == 32)
+            {
+                PDMn(ui32Module)->CTRL_b.I2SNUMBCLKSINHALFWDCLK = 0;
+            }
+            else if (psConfig->ui32DecimationRate == 24)
+            {
+                PDMn(ui32Module)->CTRL_b.I2SNUMBCLKSINHALFWDCLK = 1;
+            }
+            else
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+        }
+        else
+        {
+            PDMn(ui32Module)->CTRL_b.I2SMASTERMODE = 0;
+        }
+    }
+
+    if (psConfig->eWordWidth == AM_HAL_PDM_DATA_WORD_WIDTH_16BITS)
+    {
+        PDMn(ui32Module)->DMACFG_b.DMAPACKED = 1;
+    }
+    else
+    {
+        PDMn(ui32Module)->DMACFG_b.DMAPACKED = 0;
+    }
+
+    pState->eClockSel = psConfig->ePDMClkSpeed;
+
+    PDMn(ui32Module)->CORECFG1_b.CASES = 0;
+    PDMn(ui32Module)->CORECFG0_b.MCLKDIV = psConfig->ePDMAClkOutDivder;
+    PDMn(ui32Module)->CORECFG1_b.DIVMCLKQ = psConfig->eClkDivider;
+
+    bool bHpOn;
+    if (bI2sOn == true)
+    {
+        bHpOn = false;
+    }
+    else
+    {
+        bHpOn = ((psConfig->ui32DecimationRate == 25) || (psConfig->ui32DecimationRate == 50)) ? false : true;
+    }
+
+    PDMn(ui32Module)->CORECFG1_b.HPON     = (bHpOn == true) ? 1 : 0;
+    PDMn(ui32Module)->CORECFG0_b.SINCRATE = (bHpOn == true) ? (psConfig->ui32DecimationRate) : (psConfig->ui32DecimationRate * 2);
 
     PDMn(ui32Module)->CTRL_b.RSTB = 0;
 
@@ -411,77 +607,39 @@ am_hal_pdm_enable(void *pHandle)
     //
     AM_HAL_PDM_HANDLE_CHECK(pHandle);
 
+    uint32_t ui32Status;
     am_hal_pdm_state_t *pState = (am_hal_pdm_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
-    am_hal_syspll_mux_select_e eSysPLLMux = AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN;
+
+    //
+    // Request HFRC for APBDMA.
+    //
+    ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_PDM0);
+    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+    {
+        return ui32Status;
+    }
+
+    //
+    // Set PDM module clock.
+    //
+    ui32Status = pdm_clock_set(ui32Module, pState->eClockSel);
+    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+    {
+        return ui32Status;
+    }
 
     //
     // Reset PDM module
     //
     PDMn(ui32Module)->CTRL_b.RSTB = 0;
-
     am_hal_delay_us(100);
-
     PDMn(ui32Module)->CTRL_b.RSTB = 1;
-
-    //
-    // Select and enable PDM clock source
-    //
-    if ((pState->eClkSource == AM_HAL_PDM_CLK_PLL) || (pState->eClkSource == AM_HAL_PDM_CLK_HFRC_DED))
-    {
-        // Make sure that CLKGEN clock source is active before configuring
-        // PLL Mux
-#warning: FIXME:TODO PDM0 CLOCK must be updated
-        // if (PDMn(ui32Module)->CTRL_b.CLKSEL == PDM0_CTRL_CLKSEL_OFF)
-        // {
-        //     PDMn(ui32Module)->CTRL_b.CLKSEL = PDM0_CTRL_CLKSEL_HFRC_24MHz;
-        // }
-
-        // Update target SysPLL Mux Select
-        if (pState->eClkSource == AM_HAL_PDM_CLK_PLL)
-        {
-            eSysPLLMux = AM_HAL_SYSPLL_LLMUX_PDM_SRC_PLL;
-        }
-        else
-        {
-            eSysPLLMux = AM_HAL_SYSPLL_LLMUX_PDM_SRC_HFRC;
-        }
-    }
-    else
-    {
-        #warning: FIXME TODO: Need to fix PDM clock select option
-        CRMn(ui32Module)->DSPPDM0CRM_b.DSPPDM0CLKSEL =  pState->eClkSource;
-    }
-
-    //
-    // Enable PDM CLKGEN clock source
-    //
-    CRMn(ui32Module)->DSPPDM0CRM_b.DSPPDM0CLKEN = 1;
-
-    //
-    // Switch PLL MUX select and wait for switching to complete
-    //
-    am_hal_syspll_mux_select(eSysPLLMux);
-    // #### INTERNAL BEGIN ####
-    // Assuming Lowest Possible PDM_CLK that a customer will set is 2.048MHz,
-    // The time needed for 2 clock cycle is: 2/2.048MHz = 0.975625us. delay
-    // 2us to gain some margin.
-    // #### INTERNAL END ####
-    am_hal_delay_us(2);
-
-    //
-    // Switch Off CLKGEN clock source if it is not used
-    //
-    if (eSysPLLMux != AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN)
-    {
-        #warning: FIXME TODO: Need to fix PDM clock select option
-        //PDMn(ui32Module)->CTRL_b.CLKSEL = PDM0_CTRL_CLKSEL_OFF;
-    }
 
     //
     // Enable PDM Module
     //
-    PDMn(ui32Module)->CTRL_b.EN    = 1;
+    PDMn(ui32Module)->CTRL_b.EN = 1;
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -522,42 +680,21 @@ am_hal_pdm_disable(void *pHandle)
 
     am_hal_pdm_state_t *pState = (am_hal_pdm_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
-    am_hal_syspll_mux_select_e eSysPLLMux = AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN;
 
     //
-    // Query current PLL Mux selection
+    // Release HFRC for APBDMA.
     //
-    am_hal_syspll_mux_get(AM_HAL_SYSPLL_LLMUX_OUT_PDM, &eSysPLLMux);
+    am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_PDM0);
 
     //
-    // Switch PLL MUX select back to CLKGEN
+    // Gate PDM module clock.
     //
-    if (eSysPLLMux != AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN)
-    {
-        // Make sure that CLKGEN clock source is active before configuring
-        // PLL Mux
-        #warning: FIXME TODO: Need to fix PDM clock select option
-        // if ( PDMn(ui32Module)->CTRL_b.CLKSEL == PDM0_CTRL_CLKSEL_OFF )
-        // {
-        //     PDMn(ui32Module)->CTRL_b.CLKSEL = PDM0_CTRL_CLKSEL_HFRC_24MHz;
-        // }
-        am_hal_syspll_mux_select(AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN);
-        // #### INTERNAL BEGIN ####
-        // Assuming Lowest Possible PDM_CLK that a customer will set is 2.048MHz,
-        // The time needed for 2 clock cycle is: 2/2.048MHz = 0.975625us. delay
-        // 2us to gain some margin.
-        // #### INTERNAL END ####
-        am_hal_delay_us(2);
-    }
+    pdm_clock_set(ui32Module, AM_HAL_PDM_CLK_OFF);
 
     //
     // Disable PDM
     //
-    PDMn(ui32Module)->CTRL_b.EN    = 0;
-    CRMn(ui32Module)->DSPPDM0CRM_b.DSPPDM0CLKEN  = 0;
-
-#warning: FIXME TODO: Need to fix PDM clock select option
-    // PDMn(ui32Module)->CTRL_b.CLKSEL = PDM0_CTRL_CLKSEL_OFF;
+    PDMn(ui32Module)->CTRL_b.EN = 0;
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -603,18 +740,6 @@ find_dma_threshold(uint32_t ui32TotalCount)
 
     return ui32Threshold;
 }
-// #### INTERNAL BEGIN ####
-//*****************************************************************************
-//
-// TEST USE ONLY!
-//
-//*****************************************************************************
-uint32_t
-am_hal_pdm_find_dma_threshold(uint32_t ui32TotalCount)
-{
-    return find_dma_threshold(ui32TotalCount);
-}
-// #### INTERNAL END ####
 
 //*****************************************************************************
 //
@@ -632,7 +757,9 @@ am_hal_pdm_dma_start(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg)
     am_hal_pdm_state_t *pState = (am_hal_pdm_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
 
+    //
     // Configure Pingpong Buffer
+    //
     pState->ui32BufferPtr  = \
     pState->ui32BufferPing = pTransferCfg->ui32TargetAddr;
     pState->ui32BufferPong = pTransferCfg->ui32TargetAddrReverse;
@@ -654,17 +781,14 @@ am_hal_pdm_dma_start(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg)
     PDMn(ui32Module)->FIFOTHR = ui32Threshold;
 
     //
-    // Reset DMA status.
+    // Reset DMA status, write 1 to clear.
     //
-    PDMn(ui32Module)->DMASTAT = 0;
-    #ifdef CLEAR_DMACPL_SAFELY
-    pState->bNeedtoClearDmacpl = false;
-    #endif
+    PDMn(ui32Module)->DMASTAT = 0xFFFFFFFF;
 
     //
     // Enable DMA
     //
-    PDMn(ui32Module)->DMACFG = _VAL2FLD(PDM0_DMACFG_DMAEN, PDM0_DMACFG_DMAEN_EN);
+    PDMn(ui32Module)->DMACFG_b.DMAEN = PDM0_DMACFG_DMAEN_EN;
 
     //
     // Configure DMA.
@@ -682,11 +806,7 @@ am_hal_pdm_dma_start(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg)
     PDMn(ui32Module)->DMACFG_b.NEXTDMAEN = 1;
     PDMn(ui32Module)->DMATARGADDRNEXT = pState->ui32BufferPing;
     PDMn(ui32Module)->DMATOTCOUNTNEXT = pState->ui32BufferSizeBytes;
-    #ifdef PDM0_DMAENNEXTCTRL_DMAENNEXT_Pos
     PDMn(ui32Module)->DMAENNEXTCTRL = 1;
-    #else
-    DMAENNEXTCTRL = 1;
-    #endif
     #else
     PDMn(ui32Module)->DMATARGADDR = pState->ui32BufferPing;
     PDMn(ui32Module)->DMATOTCOUNT = pState->ui32BufferSizeBytes;
@@ -697,10 +817,6 @@ am_hal_pdm_dma_start(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg)
     //
     PDMn(ui32Module)->DMATRIGEN_b.DTHR = 1;
 
-    // #### INTERNAL BEGIN ####
-    // Trigger DMA at FIFO 90 percent full. This signal is also used internally for AUTOHIP function
-    PDMn(ui32Module)->DMATRIGEN_b.DTHR90 = 1; // DTHR90 = 0
-    // #### INTERNAL END ####
 
     //
     // If a pong buffer is provided, and the USE_PDM_TWO_STAGE_DMA macro is defined,
@@ -713,7 +829,6 @@ am_hal_pdm_dma_start(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg)
     {
         am_hal_delay_us(10);
 
-        #ifdef PDM0_DMAENNEXTCTRL_DMAENNEXT_Pos
         if (PDMn(ui32Module)->DMAENNEXTCTRL == 0)
         {
             pState->ui32BufferPtr = pState->ui32BufferPong;
@@ -721,20 +836,45 @@ am_hal_pdm_dma_start(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg)
             PDMn(ui32Module)->DMATOTCOUNTNEXT = pState->ui32BufferSizeBytes;
             PDMn(ui32Module)->DMAENNEXTCTRL = 1;
         }
-        #else
-        if (DMAENNEXTCTRL == 0)
-        {
-            pState->ui32BufferPtr = pState->ui32BufferPong;
-            PDMn(ui32Module)->DMATARGADDRNEXT = pState->ui32BufferPong;
-            PDMn(ui32Module)->DMATOTCOUNTNEXT = pState->ui32BufferSizeBytes;
-            DMAENNEXTCTRL = 1;
-        }
-        #endif
         else
         {
             return AM_HAL_STATUS_HW_ERR;
         }
     }
+    #endif
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
+// Stop DMA transfer.
+//
+//*****************************************************************************
+uint32_t
+am_hal_pdm_dma_stop(void *pHandle)
+{
+    //
+    // Check the handle.
+    //
+    AM_HAL_PDM_HANDLE_CHECK(pHandle);
+
+    am_hal_pdm_state_t *pState = (am_hal_pdm_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
+
+    //
+    // Disable DMA.
+    //
+    PDMn(ui32Module)->DMACFG_b.DMAEN = PDM0_DMACFG_DMAEN_DIS;
+
+    //
+    // Clear TOTCOUNT register.
+    //
+    #ifdef USE_PDM_TWO_STAGE_DMA
+    PDMn(ui32Module)->DMATOTCOUNTNEXT = 0;
+    PDMn(ui32Module)->DMATOTCOUNT     = 0;
+    #else
+    PDMn(ui32Module)->DMATOTCOUNT     = 0;
     #endif
 
     return AM_HAL_STATUS_SUCCESS;
@@ -795,58 +935,19 @@ uint32_t am_hal_pdm_interrupt_service(void *pHandle, uint32_t ui32IntMask, am_ha
 
     if (ui32IntMask & AM_HAL_PDM_INT_OVF)
     {
-        // #### INTERNAL BEGIN ####
-        //
-        // Overflow handling is not clearing overflow status, need update.
-        //
-        // #### INTERNAL END ####
         am_hal_pdm_fifo_flush(pHandle);
     }
 
     if ((ui32IntMask & AM_HAL_PDM_INT_DCMP) && (pState->ui32BufferPong != 0xFFFFFFFF))
     {
         #ifdef USE_PDM_TWO_STAGE_DMA
-        #ifdef CLEAR_DMACPL_SAFELY
-        // assert(PDMn(ui32Module)->DMASTAT_b.DMACPL == 1);
-        if (PDMn(ui32Module)->DMASTAT_b.DMATIP == 1)
-        {
-            //
-            // If DMATIP is 1, it's safe to clear DMACPL.
-            //
-            PDMn(ui32Module)->DMASTAT_b.DMACPL = 0;
-        }
-        else
-        {
-            //
-            // Otherwise, clear THR status and enable THR interrupt.
-            // Clear DMACPL in the next THR ISR.
-            //
-            PDMn(ui32Module)->INTCLR_b.THR = 1;
-            am_hal_pdm_interrupt_enable(pHandle, AM_HAL_PDM_INT_THR);
-            pState->bNeedtoClearDmacpl = true;
-            am_hal_sysctrl_sysbus_write_flush();
-        }
-        #else // !CLEAR_DMACPL_SAFELY
-        PDMn(ui32Module)->DMASTAT_b.DMACPL = 0;
-        #endif // !CLEAR_DMACPL_SAFELY
-
-
-
-        #ifdef PDM0_DMAENNEXTCTRL_DMAENNEXT_Pos
+        PDMn(ui32Module)->DMASTAT_b.DMACPL = 1;
         if (PDMn(ui32Module)->DMAENNEXTCTRL == 0)
         {
             PDMn(ui32Module)->DMATARGADDRNEXT = pState->ui32BufferPtr = (pState->ui32BufferPtr == pState->ui32BufferPong) ? pState->ui32BufferPing : pState->ui32BufferPong;
             PDMn(ui32Module)->DMATOTCOUNTNEXT = pState->ui32BufferSizeBytes;
             PDMn(ui32Module)->DMAENNEXTCTRL = 1;
         }
-        #else
-        if (DMAENNEXTCTRL == 0)
-        {
-            PDMn(ui32Module)->DMATARGADDRNEXT = pState->ui32BufferPtr = (pState->ui32BufferPtr == pState->ui32BufferPong) ? pState->ui32BufferPing : pState->ui32BufferPong;
-            PDMn(ui32Module)->DMATOTCOUNTNEXT = pState->ui32BufferSizeBytes;
-            DMAENNEXTCTRL = 1;
-        }
-        #endif // PDM0_DMAENNEXTCTRL_DMAENNEXT_Pos
         else
         {
             return AM_HAL_STATUS_HW_ERR;
@@ -857,20 +958,6 @@ uint32_t am_hal_pdm_interrupt_service(void *pHandle, uint32_t ui32IntMask, am_ha
         #endif // !USE_PDM_TWO_STAGE_DMA
     }
 
-    if (ui32IntMask & AM_HAL_PDM_INT_THR)
-    {
-        #ifdef CLEAR_DMACPL_SAFELY
-        if (pState->bNeedtoClearDmacpl)
-        {
-            // assert((ui32IntMask & AM_HAL_PDM_INT_DCMP) == 0);
-            // assert((PDMn(ui32Module)->DMASTAT & (AM_HAL_PDM_DMASTAT_DCMP | AM_HAL_PDM_DMASTAT_DMATIP))
-            //                                  == (AM_HAL_PDM_DMASTAT_DCMP | AM_HAL_PDM_DMASTAT_DMATIP));
-            am_hal_pdm_interrupt_disable(pHandle, AM_HAL_PDM_INT_THR);
-            PDMn(ui32Module)->DMASTAT_b.DMACPL = 0;
-            pState->bNeedtoClearDmacpl = false;
-        }
-        #endif
-    }
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -980,7 +1067,6 @@ am_hal_pdm_dma_get_buffer(void *pHandle)
 {
     uint32_t ui32BufferPtr;
     am_hal_pdm_state_t *pState = (am_hal_pdm_state_t *) pHandle;
-    am_hal_cachectrl_range_t pRange;
 
     //
     // "Pong = 0xFFFFFFFF" means that only the ping buffer works, just return the ping buffer.
@@ -1063,6 +1149,44 @@ uint32_t am_hal_pdm_dma_state(void *pHandle)
     uint32_t ui32Module = pState->ui32Module;
 
     return PDMn(ui32Module)->DMASTAT;
+}
+
+//*****************************************************************************
+//
+// am_hal_pdm_dma_transfer_continue
+//
+//*****************************************************************************
+uint32_t
+am_hal_pdm_dma_transfer_continue(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg)
+{
+    am_hal_pdm_state_t *pState = (am_hal_pdm_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
+
+    //
+    // The continue() API doesn't apply to the ping-pong mechanism.
+    //
+    if (pState->ui32BufferPong != 0xFFFFFFFF)
+    {
+        return AM_HAL_STATUS_INVALID_OPERATION;
+    }
+
+    #ifdef USE_PDM_TWO_STAGE_DMA
+    if (PDMn(ui32Module)->DMAENNEXTCTRL == 0)
+    {
+        PDMn(ui32Module)->DMATARGADDRNEXT = pState->ui32BufferPtr       = pTransferCfg->ui32TargetAddr;
+        PDMn(ui32Module)->DMATOTCOUNTNEXT = pState->ui32BufferSizeBytes = pTransferCfg->ui32TotalCount;
+        PDMn(ui32Module)->DMAENNEXTCTRL = 1;
+    }
+    else
+    {
+        return AM_HAL_STATUS_HW_ERR;
+    }
+    #else // !USE_PDM_TWO_STAGE_DMA
+    PDMn(ui32Module)->DMATARGADDR = pState->ui32BufferPtr       = pTransferCfg->ui32TargetAddr;
+    PDMn(ui32Module)->DMATOTCOUNT = pState->ui32BufferSizeBytes = pTransferCfg->ui32TotalCount;
+    #endif // !USE_PDM_TWO_STAGE_DMA
+
+    return AM_HAL_STATUS_SUCCESS;
 }
 
 //*****************************************************************************

@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_SYSPLL_H
@@ -32,15 +59,6 @@ extern "C"
 //*****************************************************************************
 #define SYSPLLn(n) ((MCUCTRL_Type*)(MCUCTRL_BASE + (n * (MCUCTRL_BASE - MCUCTRL_BASE))))
 
-//*****************************************************************************
-//
-//! @name System PLL Power States
-//! @{
-//
-//*****************************************************************************
-#define AM_HAL_SYSPLL_POWER_ON           AM_HAL_SYSCTRL_WAKE
-#define AM_HAL_SYSPLL_POWER_OFF          AM_HAL_SYSCTRL_NORMALSLEEP
-//! @}
 
 //*****************************************************************************
 //
@@ -48,7 +66,7 @@ extern "C"
 //
 //*****************************************************************************
 #define AM_HAL_SYSPLL_MAX_REFDIV                (63U)
-#define AM_HAL_SYSPLL_MIN_FBDIV_INT_MODE        (4U)
+#define AM_HAL_SYSPLL_MIN_FBDIV_INT_MODE        (9U)
 #define AM_HAL_SYSPLL_MAX_FBDIV_INT_MODE        (960U)
 #define AM_HAL_SYSPLL_MIN_FBDIV_FRAC_MODE       (10U)
 #define AM_HAL_SYSPLL_MAX_FBDIV_FRAC_MODE       (96U)
@@ -57,6 +75,20 @@ extern "C"
 #define AM_HAL_SYSPLL_VCO_HI_MODE_FREQ_MIN      (240U)
 #define AM_HAL_SYSPLL_VCO_HI_MODE_FREQ_MAX      (960U)
 #define AM_HAL_SYSPLL_POST_DIV_MAX              (7U)
+#define AM_HAL_SYSPLL_POST_DIV_TOTAL_MAX        (AM_HAL_SYSPLL_POST_DIV_MAX * AM_HAL_SYSPLL_POST_DIV_MAX)
+
+#ifndef AM_HAL_SYSPLL_DEFAULT_PPM
+#define AM_HAL_SYSPLL_DEFAULT_PPM               (100U)
+#endif
+//*****************************************************************************
+//
+//! @name SYSPLL power state
+//! @{
+//
+//*****************************************************************************
+#define AM_HAL_SYSPLL_POWER_ON           AM_HAL_SYSCTRL_WAKE
+#define AM_HAL_SYSPLL_POWER_OFF          AM_HAL_SYSCTRL_NORMALSLEEP
+//! @}
 
 // ****************************************************************************
 //
@@ -90,9 +122,9 @@ typedef enum
 // ****************************************************************************
 typedef enum
 {
-    AM_HAL_SYSPLL_FREFSEL_HFRCDIV4    = MCUCTRL_PLLCTL0_FREFSEL_HFRCDIV4,
-    AM_HAL_SYSPLL_FREFSEL_EXTREFCLK   = MCUCTRL_PLLCTL0_FREFSEL_EXTREFCLK,
-    AM_HAL_SYSPLL_FREFSEL_RFXTAL48MHZ = MCUCTRL_PLLCTL0_FREFSEL_RFXTAL48MHZ,
+    AM_HAL_SYSPLL_FREFSEL_HFRC192DIV4  = MCUCTRL_PLLCTL0_FREFSEL_HFRC192DIV4,
+    AM_HAL_SYSPLL_FREFSEL_EXTREFCLK    = MCUCTRL_PLLCTL0_FREFSEL_EXTREFCLK,
+    AM_HAL_SYSPLL_FREFSEL_XTAL48MHz    = MCUCTRL_PLLCTL0_FREFSEL_RFXTAL48MHZ,
 } am_hal_syspll_frefsel_e;
 
 // ****************************************************************************
@@ -107,39 +139,6 @@ typedef enum
     AM_HAL_SYSPLL_FMODE_INTEGER  = MCUCTRL_PLLCTL0_DSMPD_POWERDOWN,
 } am_hal_syspll_fraction_mode_e;
 
-// ****************************************************************************
-//
-//! @enum am_hal_syspll_mux_select_e
-//! @brief Last-layer clock mux selects for modules with PLL as one of its
-//!        clock sources.
-//
-// ****************************************************************************
-typedef enum
-{
-    AM_HAL_SYSPLL_LLMUX_PDM_SRC_PLL,
-    AM_HAL_SYSPLL_LLMUX_PDM_SRC_HFRC,
-    AM_HAL_SYSPLL_LLMUX_PDM_SRC_CLKGEN,
-    AM_HAL_SYSPLL_LLMUX_USB_SRC_PLL,
-    AM_HAL_SYSPLL_LLMUX_USB_SRC_CLKGEN,
-    AM_HAL_SYSPLL_LLMUX_I2S0_SRC_PLL_FOUT4,
-    AM_HAL_SYSPLL_LLMUX_I2S0_SRC_PLL_FOUT3,
-    AM_HAL_SYSPLL_LLMUX_I2S0_SRC_CLKGEN,
-} am_hal_syspll_mux_select_e;
-
-// ****************************************************************************
-//
-//! @enum am_hal_syspll_mux_output_e
-//! @brief Last-layer clock mux outputs for modules with PLL as one of its
-//!        clock sources.
-//
-// ****************************************************************************
-typedef enum
-{
-    AM_HAL_SYSPLL_LLMUX_OUT_PDM,
-    AM_HAL_SYSPLL_LLMUX_OUT_USB,
-    AM_HAL_SYSPLL_LLMUX_OUT_I2S0,
-} am_hal_syspll_mux_output_e;
-
 //*****************************************************************************
 //
 //! @struct am_hal_syspll_config_t
@@ -147,7 +146,7 @@ typedef enum
 //!     PLL Output Clock rates calculation:
 //!     - FBDiv = ui16FBDivInt + (ui32FBDivFrac / (2^24))
 //!     - PLL VCO Frequncy, Fvco = (Fref * FBDiv / ui8RefDiv)
-//!     - PLL Clkout for PDM and USB, F_PLL_POSTDIV = (Fvco / ui8PostDiv1 / ui8PostDiv2)
+//!     - PLL Clkout for PDM, AUDADC and USB, F_PLL_POSTDIV = (Fvco / ui8PostDiv1 / ui8PostDiv2)
 //!     - PLL Clkout for I2S, F_PLL_I2S = (F_PLL_POSTDIV / 6)  and (F_PLL_POSTDIV / 8)
 //
 //*****************************************************************************
@@ -176,122 +175,13 @@ typedef struct
 
     //! System PLL feedback divide value fractional part.
     uint32_t                        ui32FBDivFrac;
+
+    //! Enable PLLVCO output
+    bool                            bVCOOutEnable;
+
+    //! Enable POSTDIV outputs
+    bool                            bPostDivOutEnable;
 } am_hal_syspll_config_t;
-
-//! Default system PLL settings for USB applications using 32MHz XTAL as PLL
-//! reference clock. PLL Outputs for this setting:
-//! - USB: 24MHz
-#define AM_HAL_SYSPLL_DEFAULT_CFG_USB \
-    {\
-        .eFref         = AM_HAL_SYSPLL_FREFSEL_RFXTAL48MHZ, \
-        .eVCOSel       = AM_HAL_SYSPLL_VCOSEL_VCOLO, \
-        .eFractionMode = AM_HAL_SYSPLL_FMODE_INTEGER, \
-        .ui8RefDiv     = 2, \
-        .ui8PostDiv1   = 4, \
-        .ui8PostDiv2   = 2, \
-        .ui16FBDivInt  = 12, \
-        .ui32FBDivFrac = 0, \
-    }
-// #### INTERNAL BEGIN ####
-// Calculated Max Period Jitter (FOUTPOSTDIV) = 104ppm
-// #### INTERNAL END ####
-
-// #### INTERNAL BEGIN ####
-// Calculated Max Period Jitter (FOUTPOSTDIV) = 108ppm
-// #### INTERNAL END ####
-
-//! Default system PLL settings for telco applications at 16kHz,16-bit,1CH
-//! PLL Outputs for this setting:
-//! - PDM: 2.048MHz
-//! - I2S: 0.256MHz(FOUT4)
-#define AM_HAL_SYSPLL_DEFAULT_CFG_TELCO_16K_16BIT_1CH \
-    {\
-        .eFref         = AM_HAL_SYSPLL_FREFSEL_RFXTAL48MHZ, \
-        .eVCOSel       = AM_HAL_SYSPLL_VCOSEL_VCOLO, \
-        .eFractionMode = AM_HAL_SYSPLL_FMODE_FRACTION, \
-        .ui8RefDiv     = 5, \
-        .ui8PostDiv1   = 6, \
-        .ui8PostDiv2   = 6, \
-        .ui16FBDivInt  = 11, \
-        .ui32FBDivFrac = 8724152, \
-    }
-// #### INTERNAL BEGIN ####
-// Calculated Max Period Jitter (FOUTPOSTDIV) = 54ppm
-// #### INTERNAL END ####
-
-//! Default system PLL settings for telco applications at 16kHz,16-bit,2CH
-//! PLL Outputs for this setting:
-//! - PDM: 4.096MHz
-//! - I2S: 0.512MHz(FOUT4)
-#define AM_HAL_SYSPLL_DEFAULT_CFG_TELCO_16K_16BIT_2CH \
-    {\
-        .eFref         = AM_HAL_SYSPLL_FREFSEL_RFXTAL48MHZ, \
-        .eVCOSel       = AM_HAL_SYSPLL_VCOSEL_VCOLO, \
-        .eFractionMode = AM_HAL_SYSPLL_FMODE_FRACTION, \
-        .ui8RefDiv     = 3, \
-        .ui8PostDiv1   = 6, \
-        .ui8PostDiv2   = 6, \
-        .ui16FBDivInt  = 13, \
-        .ui32FBDivFrac = 13824426, \
-    }
-// #### INTERNAL BEGIN ####
-// Calculated Max Period Jitter (FOUTPOSTDIV) = 54ppm
-// #### INTERNAL END ####
-
-//! Default system PLL settings for telco applications at 48kHz,16-bit,2CH
-//! PLL Outputs for this setting:
-//! - PDM: 12.288MHz
-//! - I2S: 1.536MHz(FOUT4)
-#define AM_HAL_SYSPLL_DEFAULT_CFG_TELCO_48K_16BIT_2CH \
-    {\
-        .eFref         = AM_HAL_SYSPLL_FREFSEL_RFXTAL48MHZ, \
-        .eVCOSel       = AM_HAL_SYSPLL_VCOSEL_VCOLO, \
-        .eFractionMode = AM_HAL_SYSPLL_FMODE_FRACTION, \
-        .ui8RefDiv     = 2, \
-        .ui8PostDiv1   = 4, \
-        .ui8PostDiv2   = 4, \
-        .ui16FBDivInt  = 12, \
-        .ui32FBDivFrac = 4831838, \
-    }
-// #### INTERNAL BEGIN ####
-// Calculated Max Period Jitter (FOUTPOSTDIV) = 81ppm
-// #### INTERNAL END ####
-
-//! Default system PLL settings for audio applications at 44.1kHz,32-bit,2CH
-//! PLL Outputs for this setting:
-//! - I2S: 2.8224MHz(FOUT4)
-#define AM_HAL_SYSPLL_DEFAULT_CFG_AUDIO_44K1_32BIT_2CH \
-    {\
-        .eFref         = AM_HAL_SYSPLL_FREFSEL_RFXTAL48MHZ, \
-        .eVCOSel       = AM_HAL_SYSPLL_VCOSEL_VCOLO, \
-        .eFractionMode = AM_HAL_SYSPLL_FMODE_FRACTION, \
-        .ui8RefDiv     = 2, \
-        .ui8PostDiv1   = 5, \
-        .ui8PostDiv2   = 2, \
-        .ui16FBDivInt  = 14, \
-        .ui32FBDivFrac = 1879048, \
-    }
-// #### INTERNAL BEGIN ####
-// Calculated Max Period Jitter = 102ppm
-// #### INTERNAL END ####
-
-//! Default system PLL settings for audio applications at 48kHz,32-bit,2CH
-//! PLL Outputs for this setting:
-//! - I2S: 3.072MHz(FOUT4)
-#define AM_HAL_SYSPLL_DEFAULT_CFG_AUDIO_48K_32BIT_2CH \
-    {\
-        .eFref         = AM_HAL_SYSPLL_FREFSEL_RFXTAL48MHZ, \
-        .eVCOSel       = AM_HAL_SYSPLL_VCOSEL_VCOLO, \
-        .eFractionMode = AM_HAL_SYSPLL_FMODE_FRACTION, \
-        .ui8RefDiv     = 2, \
-        .ui8PostDiv1   = 3, \
-        .ui8PostDiv2   = 3, \
-        .ui16FBDivInt  = 13, \
-        .ui32FBDivFrac = 13824426, \
-    }
-// #### INTERNAL BEGIN ####
-// Calculated Max Period Jitter = 108ppm
-// #### INTERNAL END ####
 
 //*****************************************************************************
 //
@@ -316,6 +206,53 @@ typedef struct
 //
 //*****************************************************************************
 extern uint32_t am_hal_syspll_config_generate(am_hal_syspll_config_t* pConfig, float fRefClkMHz, float fVCOClkMHz);
+
+//*****************************************************************************
+//
+//  Generate system PLL configuration to achieve desired FOUTPOSTDIV
+//! @brief Generate system PLL configuration to achieve desired FOUTPOSTIDV
+//!        Frequency
+//! @note This function is unable to generate eFref of the config. Please fill
+//!       in the configuration separately
+//!
+//! @param pConfig              - pointer to the system PLL Config structure.
+//! @param ui32RefClk_Hz        - system PLL reference clock frequency in Hz
+//! @param ui32FoutPostDiv_Hz   - system PLL FOUTPOSTDIV clock frequency
+//!                               desired in Hz
+//!
+//! @return status      - status whether valid configuration is generated:
+//! - AM_HAL_STATUS_SUCCESS: configuration succesfully generated
+//! - AM_HAL_STATUS_INVALID_ARG: invalid arguments received.
+//! - AM_HAL_STATUS_OUT_OF_RANGE: fVCOClkMHz out of range.
+//! - AM_HAL_STATUS_FAIL: No valid configuration found.
+//
+//*****************************************************************************
+uint32_t
+am_hal_syspll_config_generate_with_postdiv(am_hal_syspll_config_t* pConfig,
+                                           uint32_t ui32RefClk_Hz,
+                                           uint32_t ui32FoutPostDiv_Hz);
+
+//*****************************************************************************
+//
+//! @brief Generate system PLL POSTDIV1 POSTDIV2 to achieve desired FOUTPOSTDIV
+//!        Frequency
+//!
+//! @param pConfig              - pointer to the system PLL Config structure.
+//! @param ui32VCO_Hz           - based FOUTPLLVCO clock frequency in Hz
+//! @param ui32PostDiv_Hz       - desired FOUTPOSTDIV clock frequency in Hz
+//! @param ui32PPM              - accuracy of the FOUTPOSTDIV
+//!
+//! @return status      - status whether valid configuration is generated:
+//! - AM_HAL_STATUS_SUCCESS: configuration succesfully generated
+//! - AM_HAL_STATUS_OUT_OF_RANGE: fVCOClkMHz out of range.
+//! - AM_HAL_STATUS_FAIL: No valid configuration found.
+//
+//*****************************************************************************
+uint32_t
+am_hal_syspll_config_generate_postdiv(am_hal_syspll_config_t* pConfig,
+                                      uint32_t ui32VCO_Hz,
+                                      uint32_t ui32PostDiv_Hz,
+                                      uint32_t ui32PPM);
 
 //*****************************************************************************
 //
@@ -351,18 +288,6 @@ extern uint32_t am_hal_syspll_initialize(uint32_t ui32Module, void **ppHandle);
 //
 //*****************************************************************************
 extern uint32_t am_hal_syspll_deinitialize(void *pHandle);
-
-//*****************************************************************************
-//
-//! @brief SYSPLL power control function.
-//!
-//! @param pHandle      - handle for the SYSPLL.
-//! @param ePowerState  - power state requested
-//!
-//! @return status      - generic or interface specific status.
-//
-//*****************************************************************************
-extern uint32_t am_hal_syspll_power_control(void *pHandle, am_hal_sysctrl_power_state_e ePowerState);
 
 //*****************************************************************************
 //
@@ -436,6 +361,23 @@ extern uint32_t am_hal_syspll_lock_read(void *pHandle, bool *pll_ready);
 
 //*****************************************************************************
 //
+//! @brief System PLL Wait PLL Lock function
+//!
+//! @param pHandle   - pointer to handle for the module instance.
+//!
+//! This function waits for PLL lock according to System PLL settings
+//!
+//! @return status      - generic or interface specific status.
+//!         - AM_HAL_STATUS_SUCCESS: System PLL locked.
+//!         - AM_HAL_STATUS_INVALID_HANDLE: Invalid pHandle.
+//!         - AM_HAL_STATUS_INVALID_OPERATION: System PLL not enabled
+//!         - AM_HAL_STATUS_TIMEOUT: System PLL lock wait timed out
+//
+//*****************************************************************************
+extern uint32_t am_hal_syspll_lock_wait(void *pHandle);
+
+//*****************************************************************************
+//
 //! @brief System PLL refClk bypass function
 //!
 //! @param pHandle   - handle for the module instance.
@@ -451,42 +393,6 @@ extern uint32_t am_hal_syspll_lock_read(void *pHandle, bool *pll_ready);
 //*****************************************************************************
 extern uint32_t am_hal_syspll_bypass_set(void *pHandle, bool bBypass);
 
-//*****************************************************************************
-//
-//! @brief System PLL Mux select
-//!
-//! @param eMuxSel   - am_hal_syspll_mux_select_e value for mux selection.
-//!
-//! This function set last level mux select for modules using PLL clock as one
-//! of its clock source.
-//! Note: Do not call this function directly. Use respective module's HAL to
-//!       select the clock. Calling this directly might cause clock malfunction.
-//!
-//! @return status      - generic or interface specific status.
-//!         - AM_HAL_STATUS_SUCCESS: System PLL MUX selected succesfully.
-//
-//*****************************************************************************
-extern uint32_t am_hal_syspll_mux_select(am_hal_syspll_mux_select_e eMuxSel);
-
-//*****************************************************************************
-//
-//! @brief System PLL Mux Get
-//!
-//! @param eMuxOut   - am_hal_syspll_mux_output_e value for mux output to
-//!                    query.
-//! @param pEMuxSel  - pointer to am_hal_syspll_mux_select_e variable to return
-//!                    query result.
-//!
-//!
-//! This function get current setting of last level mux select for modules
-//! using PLL clock as one of its clock source.
-//!
-//! @return status      - generic or interface specific status.
-//!         - AM_HAL_STATUS_SUCCESS: System PLL MUX setting get successfully.
-//
-//*****************************************************************************
-extern uint32_t am_hal_syspll_mux_get(am_hal_syspll_mux_output_e eMuxOut, am_hal_syspll_mux_select_e *pEMuxSel);
-
 #ifdef __cplusplus
 }
 #endif
@@ -499,5 +405,3 @@ extern uint32_t am_hal_syspll_mux_get(am_hal_syspll_mux_output_e eMuxOut, am_hal
 //! @}
 //
 //*****************************************************************************
-
-

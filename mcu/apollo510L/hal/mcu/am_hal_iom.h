@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -100,6 +127,20 @@ typedef enum
     AM_HAL_IOM_ERR_I2C_NAK,
 } am_hal_iom_err_e;
 
+
+
+typedef enum
+{
+    AM_HAL_IOM_PREFER_SYMMETRICAL_DC  = 0,  //!< Prefer 50% duty cycle if available; otherwise fall back to best frequency match
+    AM_HAL_IOM_BALANCED_SELECTION     = 1,  //!< Minimize total score: freq error + duty cycle deviation
+    AM_HAL_IOM_PREFER_FREQ_MATCH      = 2,  //!< Prioritize frequency accuracy; tolerate non-50% duty
+    AM_HAL_IOM_FORCE_SYMMETRICAL_DC   = 3,  //!< Must generate exactly 50% duty cycle (TOTPER must be odd when divEN is true)
+    AM_HAL_IOM_CLOCK_SEL_PRIO_MAX,
+
+}
+am_hal_iom_clock_sel_priority_e;
+
+
 //*****************************************************************************
 //
 //! @name General defines
@@ -174,28 +215,36 @@ typedef void (*am_hal_iom_callback_t)(void *pCallbackCtxt, uint32_t transactionS
 //*****************************************************************************
 typedef struct
 {
-  //
-  //! Select the interface mode, SPI or I2C
-  //
-  am_hal_iom_mode_e eInterfaceMode;
 
-  //
-  //! Select the interface clock frequency
-  //
-  uint32_t ui32ClockFreq;
+    //
+    //! Select the interface clock frequency
+    //
+    uint32_t ui32ClockFreq;
 
-  //
-  //! Select the SPI clock mode (polarity/phase). Ignored for I2C operation.
-  //
-  am_hal_iom_spi_mode_e eSpiMode;
 
-  //
-  //! Non-Blocking transaction memory configuration
-  //! Set length and pointer to Transfer Control Buffer.
-  //! Length is in 4 byte multiples
-  //
-  uint32_t *pNBTxnBuf;
-  uint32_t ui32NBTxnBufLength;
+    //
+    //! Non-Blocking transaction memory configuration
+    //! Set length and pointer to Transfer Control Buffer.
+    //! Length is in 4 byte multiples
+    //
+    uint32_t *pNBTxnBuf;
+    uint32_t ui32NBTxnBufLength;
+
+    //
+    //! Select the interface mode, SPI or I2C
+    //
+    am_hal_iom_mode_e eInterfaceMode;
+    //
+    //! Select the SPI clock mode (polarity/phase). Ignored for I2C operation.
+    //
+    am_hal_iom_spi_mode_e eSpiMode;
+
+    //
+    //! Clock computation priority/preference
+    //
+    am_hal_iom_clock_sel_priority_e    eClockSelPriority;
+
+    uint8_t align;
 }
 am_hal_iom_config_t;
 
@@ -268,9 +317,6 @@ typedef struct
     //!     AM_HAL_IOM_STATUS_XFER_COMPLETE
     //!     AM_HAL_IOM_STATUS_DMAERR
     //
-// #### INTERNAL BEGIN ####
-    // TODO - Does this make sense to keep if we are just using CQ for all DMA?
-// #### INTERNAL END ####
     uint32_t ui32DmaStat;
 
     uint32_t ui32MaxTransactions;
@@ -464,10 +510,6 @@ typedef enum
   //! Raw CQ transaction
   //! Pass am_hal_iom_cq_raw_t * as pArgs
   AM_HAL_IOM_REQ_CQ_RAW,
-// #### INTERNAL BEGIN ####
-  //! Pass uint32_t as pArgs
-  AM_HAL_IOM_REQ_LINK_GPIO,     // TODO - Not yet implemented
-// #### INTERNAL END ####
   AM_HAL_IOM_REQ_MAX
 } am_hal_iom_request_e;
 

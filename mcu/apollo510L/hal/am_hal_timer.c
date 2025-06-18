@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -22,10 +49,46 @@
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
 
-// #### INTERNAL BEGIN ####
-#warning TODO:Need delete it when add spot manager.
-#define AM_HAL_INTERNAL_TIMER_NUM_A     15
-// #### INTERNAL END ####
+static am_hal_clkmgr_clock_id_e
+am_hal_timer_clksrc_get(uint32_t clk)
+{
+    switch(clk)
+    {
+        case AM_HAL_TIMER_CLOCK_HFRC_DIV4:
+        case AM_HAL_TIMER_CLOCK_HFRC_DIV16:
+        case AM_HAL_TIMER_CLOCK_HFRC_DIV64:
+        case AM_HAL_TIMER_CLOCK_HFRC_DIV256:
+        case AM_HAL_TIMER_CLOCK_HFRC_DIV1024:
+        case AM_HAL_TIMER_CLOCK_HFRC_DIV4K:
+            return AM_HAL_CLKMGR_CLK_ID_HFRC;
+        case AM_HAL_TIMER_CLOCK_LFRC:
+        case AM_HAL_TIMER_CLOCK_LFRC_DIV32:
+        case AM_HAL_TIMER_CLOCK_LFRC_DIV1K:
+            return AM_HAL_CLKMGR_CLK_ID_LFRC;
+        case AM_HAL_TIMER_CLOCK_XT:
+        case AM_HAL_TIMER_CLOCK_XT_DIV4:
+        case AM_HAL_TIMER_CLOCK_XT_DIV16:
+        case AM_HAL_TIMER_CLOCK_XT_DIV32:
+        case AM_HAL_TIMER_CLOCK_XT_DIV64:
+        case AM_HAL_TIMER_CLOCK_XT_DIV128:
+        case AM_HAL_TIMER_CLOCK_XT_DIV1024:
+            return AM_HAL_CLKMGR_CLK_ID_XTAL_LS;
+        case AM_HAL_TIMER_CLOCK_PLL_POSTDIV:
+            return AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+        case AM_HAL_TIMER_CLOCK_RF_XTAL:
+        case AM_HAL_TIMER_CLOCK_RF_XTAL_DIV2:
+        case AM_HAL_TIMER_CLOCK_RF_XTAL_DIV4:
+            return AM_HAL_CLKMGR_CLK_ID_XTAL_HS;
+        case AM_HAL_TIMER_CLOCK_XTHS_EXTREF_CLK:
+        case AM_HAL_TIMER_CLOCK_XTHS_EXTREF_CLK_DIV2:
+        case AM_HAL_TIMER_CLOCK_XTHS_EXTREF_CLK_DIV4:
+        case AM_HAL_TIMER_CLOCK_XTHS_EXTREF_CLK_DIV8:
+            return AM_HAL_CLKMGR_CLK_ID_EXTREF_CLK;
+        default:
+            return AM_HAL_CLKMGR_CLK_ID_MAX;
+    }
+}
+
 //
 // Not declared as static as this function can be used from within HAL
 //
@@ -38,13 +101,24 @@ internal_timer_config(uint32_t ui32TimerNumber,
     uint32_t ui32Compare0 = psTimerConfig->ui32Compare0;
     uint32_t ui32Compare1 = psTimerConfig->ui32Compare1;
 
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
 
     //
     // Mode/function specific error checking.
@@ -79,12 +153,6 @@ internal_timer_config(uint32_t ui32TimerNumber,
 
             break;
 
-// #### INTERNAL BEGIN ####
-        // TODO - Remove deprecated TIMER functions.
-        //case AM_HAL_TIMER_FN_CONTINUOUS:
-        //case AM_HAL_TIMER_FN_DOWNCOUNT:
-        //case AM_HAL_TIMER_FN_EVENTTIMER:
-// #### INTERNAL END ####
         default:
             return AM_HAL_STATUS_INVALID_OPERATION;
     }
@@ -130,13 +198,25 @@ uint32_t
 am_hal_timer_config(uint32_t ui32TimerNumber,
                     am_hal_timer_config_t *psTimerConfig)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
+
     return internal_timer_config(ui32TimerNumber, psTimerConfig);
 }
 
@@ -166,13 +246,25 @@ am_hal_timer_default_config_set(am_hal_timer_config_t *psTimerConfig)
 uint32_t
 am_hal_timer_reset_config(uint32_t ui32TimerNumber)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
+
     //
     // Disable Interrupts.
     //
@@ -208,13 +300,33 @@ am_hal_timer_reset_config(uint32_t ui32TimerNumber)
 uint32_t
 am_hal_timer_enable(uint32_t ui32TimerNumber)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+    uint32_t ui32TimerClk;
+
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
+
+    ui32TimerClk = TIMERn(ui32TimerNumber)->CTRL0_b.TMR0CLK;
+    if ( ui32TimerClk <= TIMER_CTRL0_TMR0CLK_XTHS_EXTREF_CLK_DIV8 && ui32TimerClk != AM_HAL_TIMER_CLOCK_RTC_100HZ)
+    {
+        am_hal_clkmgr_clock_request(am_hal_timer_clksrc_get(ui32TimerClk), (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_TIMER0 + ui32TimerNumber));
+    }
+
     AM_CRITICAL_BEGIN;
     //
     // Enable the timer in both the individual enable register and the global
@@ -240,13 +352,27 @@ am_hal_timer_enable(uint32_t ui32TimerNumber)
 uint32_t
 am_hal_timer_disable(uint32_t ui32TimerNumber)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+    uint32_t ui32TimerClk;
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
+
+    ui32TimerClk = TIMERn(ui32TimerNumber)->CTRL0_b.TMR0CLK;
 
     AM_CRITICAL_BEGIN;
 
@@ -257,6 +383,11 @@ am_hal_timer_disable(uint32_t ui32TimerNumber)
 
     AM_CRITICAL_END;
 
+    if ( ui32TimerClk <= TIMER_CTRL0_TMR0CLK_XTHS_EXTREF_CLK_DIV8 && ui32TimerClk != AM_HAL_TIMER_CLOCK_RTC_100HZ)
+    {
+        am_hal_clkmgr_clock_release(am_hal_timer_clksrc_get(ui32TimerClk), (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_TIMER0 + ui32TimerNumber));
+    }
+
     return AM_HAL_STATUS_SUCCESS;
 }
 
@@ -266,6 +397,27 @@ am_hal_timer_disable(uint32_t ui32TimerNumber)
 uint32_t
 am_hal_timer_enable_sync(uint32_t ui32TimerMask)
 {
+    uint32_t ui32TmrMskTmp;
+    uint32_t ui32TimerClk;
+    //
+    // Request for clock needed from clock manager before entering
+    // CRITICAL_SECTION. This needs to be outside of CRITICAL_SECTION as clock
+    // request for RFXTAL needs interrupt to be enabled to work.
+    //
+    ui32TmrMskTmp = ui32TimerMask;
+    for (uint32_t i = 0; (i < AM_REG_NUM_TIMERS) && (ui32TmrMskTmp != 0); i++)
+    {
+        if (ui32TmrMskTmp & 0x00000001)
+        {
+            ui32TimerClk = TIMERn(i)->CTRL0_b.TMR0CLK;
+            if ( ui32TimerClk <= TIMER_CTRL0_TMR0CLK_XTHS_EXTREF_CLK_DIV8 && ui32TimerClk != AM_HAL_TIMER_CLOCK_RTC_100HZ)
+            {
+                am_hal_clkmgr_clock_request(am_hal_timer_clksrc_get(ui32TimerClk), (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_TIMER0 + i));
+            }
+        }
+        ui32TmrMskTmp >>= 1;
+    }
+
     //
     // Disable the timers in the global sync register, make sure they are all
     // individually enabled, and then re-enable them in the global sync
@@ -304,6 +456,8 @@ am_hal_timer_enable_sync(uint32_t ui32TimerMask)
 uint32_t
 am_hal_timer_disable_sync(uint32_t ui32TimerMask)
 {
+    uint32_t ui32TmrMskTmp;
+    uint32_t ui32TimerClk;
     //
     // Disable the timers in the global sync register, make sure they are all
     // individually disabled, and then re-enable them in the global sync
@@ -326,6 +480,25 @@ am_hal_timer_disable_sync(uint32_t ui32TimerMask)
 
     AM_CRITICAL_END;
 
+    //
+    // Release clock that is no longer from clock manager after completing
+    // CRITICAL_SECTION. This needs to be outside of CRITICAL_SECTION as clock
+    // request for RFXTAL needs interrupt to be enabled to work.
+    //
+    ui32TmrMskTmp = ui32TimerMask;
+    for (uint32_t i = 0; (i < AM_REG_NUM_TIMERS) && (ui32TmrMskTmp != 0); i++)
+    {
+        if (ui32TmrMskTmp & 0x00000001)
+        {
+            ui32TimerClk = TIMERn(i)->CTRL0_b.TMR0CLK;
+            if ( ui32TimerClk <= TIMER_CTRL0_TMR0CLK_XTHS_EXTREF_CLK_DIV8 && ui32TimerClk != AM_HAL_TIMER_CLOCK_RTC_100HZ)
+            {
+                am_hal_clkmgr_clock_release(am_hal_timer_clksrc_get(ui32TimerClk), (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_TIMER0 + i));
+            }
+        }
+        ui32TmrMskTmp >>= 1;
+    }
+
     return AM_HAL_STATUS_SUCCESS;
 }
 
@@ -335,13 +508,24 @@ am_hal_timer_disable_sync(uint32_t ui32TimerMask)
 uint32_t
 am_hal_timer_clear(uint32_t ui32TimerNumber)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
 
     AM_CRITICAL_BEGIN;
 
@@ -372,13 +556,28 @@ am_hal_timer_clear(uint32_t ui32TimerNumber)
 uint32_t
 am_hal_timer_clear_stop(uint32_t ui32TimerNumber)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+    uint32_t ui32TimerClk;
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
+
+    ui32TimerClk = TIMERn(ui32TimerNumber)->CTRL0_b.TMR0CLK;
+
     AM_CRITICAL_BEGIN;
 
     //
@@ -395,6 +594,11 @@ am_hal_timer_clear_stop(uint32_t ui32TimerNumber)
 
     AM_CRITICAL_END;
 
+    if ( ui32TimerClk <= TIMER_CTRL0_TMR0CLK_XTHS_EXTREF_CLK_DIV8 && ui32TimerClk != AM_HAL_TIMER_CLOCK_RTC_100HZ)
+    {
+        am_hal_clkmgr_clock_release(am_hal_timer_clksrc_get(ui32TimerClk), (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_TIMER0 + ui32TimerNumber));
+    }
+
     return AM_HAL_STATUS_SUCCESS;
 }
 
@@ -407,13 +611,24 @@ am_hal_timer_read(uint32_t ui32TimerNumber)
     uint32_t      ui32TimerAddr = (uint32_t)&TIMERn(ui32TimerNumber)->TIMER0;
     uint32_t      ui32TimerVals[3];
 
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
 
     //
     // Read the register into ui32TimerVals[].
@@ -486,13 +701,25 @@ uint32_t
 am_hal_timer_compare0_set(uint32_t ui32TimerNumber,
                           uint32_t ui32CompareValue)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
+
     //
     // Apply the Compare0 value without disabling the timer.
     //
@@ -508,13 +735,25 @@ uint32_t
 am_hal_timer_compare1_set(uint32_t ui32TimerNumber,
                           uint32_t ui32CompareValue)
 {
-    if ((ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) || (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A))
+#if AM_HAL_INTERNAL_TIMER_NUM_A != AM_HAL_INTERNAL_TIMER_NUM_B
+    if ( (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_B) ||
+         (ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A) )
     {
         //
         // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
         //
         return AM_HAL_STATUS_IN_USE;
     }
+#else
+    if ( ui32TimerNumber == AM_HAL_INTERNAL_TIMER_NUM_A )
+    {
+        //
+        // Timer AM_HAL_INTERNAL_TIMER_NUM_B and AM_HAL_INTERNAL_TIMER_NUM_A are used by HAL.
+        //
+        return AM_HAL_STATUS_IN_USE;
+    }
+#endif
+
     //
     // Apply the Compare1 value without disabling the timer.
     //

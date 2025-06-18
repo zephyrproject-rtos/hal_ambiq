@@ -8,9 +8,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -49,19 +76,6 @@ extern "C"
                                       offsetof(periph##0_Type, reg)     +   \
                                       (n * (periph##1_BASE - periph##0_BASE)) )
 
-// #### INTERNAL BEGIN ####
-#if 0 // Not yet tested.
-//
-// AM_CMREGn()
-// This macro reads and returns the value of the register of the indicated
-// peripheral module number using CMSIS register specifiers.
-//
-#define AM_CMREGn(periph, n, reg)                               \
-        (*((volatile uint32_t *)(                               \
-            ( periph##0_BASE + offsetof(periph##0_Type,reg) +   \
-              (n * (periph##1_BASE - periph##0_BASE)) ) )))
-#endif
-// #### INTERNAL END ####
 //*****************************************************************************
 //
 // Bitfield macros.
@@ -111,11 +125,66 @@ extern "C"
 
 //*****************************************************************************
 //
+// Register boost/reduction overflow/underflow checks and cap
+// DIFF_*      - Calculate safe boost/reduction amount based on current register
+//               value to avoid overflow/underflow.
+// FINAL_VAL_* - Calculate safe boost/reduce value based on register's current
+//               value, and write it into the register.
+// *_BASE      - Derive final capped value with base and diff provided and
+//               write it into the register.
+//
+//*****************************************************************************
+#define DIFF_OVF_CAP(diff, boost, module, reg, field) \
+    diff = \
+    ( (module->reg##_b.field + boost) > ((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos)) ? \
+      (((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos)) - module->reg##_b.field) : boost );
+
+#define DIFF_UDF_CAP(diff, reduce, module, reg, field) \
+    diff = \
+    ( (module->reg##_b.field > reduce) ? \
+      reduce : module->reg##_b.field );
+
+#define FINAL_VAL_OVF_CAP(boost, module, reg, field) \
+    module->reg##_b.field = \
+    ( (module->reg##_b.field + boost) > ((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos)) ? \
+      (((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos))) : (module->reg##_b.field + boost) );
+
+#define FINAL_VAL_UDF_CAP(reduce, module, reg, field) \
+    module->reg##_b.field = \
+    ( (module->reg##_b.field > reduce) ? \
+      (module->reg##_b.field - reduce) : 0 );
+
+#define DIFF_OVF_CAP_BASE(diff, base, boost, module, reg, field) \
+    diff = \
+    ( (base + boost) > ((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos)) ? \
+      (((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos)) - base) : boost )
+
+#define DIFF_UDF_CAP_BASE(diff, base, reduce) \
+    diff = \
+    ( (base > reduce) ? \
+      reduce : base )
+
+#define FINAL_VAL_OVF_CAP_BASE(base, boost, module, reg, field) \
+    module->reg##_b.field = \
+    ( (base + boost) > ((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos)) ? \
+      (((module##_##reg##_##field##_Msk) >> (module##_##reg##_##field##_Pos))) : (base + boost) )
+
+#define FINAL_VAL_UDF_CAP_BASE(base, reduce, module, reg, field) \
+    module->reg##_b.field = \
+    ( (base > reduce) ? \
+      (base - reduce) : 0 )
+
+//*****************************************************************************
+//
 // Compiler-specific macros.
 //
 // Macros that accomplish compiler-specific tasks.
 // For example, suppression of certain compiler warnings.
 //
+//*****************************************************************************
+
+//*****************************************************************************
+// Suppress warnings for volatile variable ordering (generally IAR).
 //*****************************************************************************
 #if defined(__IAR_SYSTEMS_ICC__)
 /* Suppress IAR compiler warning about volatile ordering  */
@@ -127,9 +196,41 @@ extern "C"
 #define DIAG_DEFAULT_VOLATILE_ORDER()
 #endif
 
-//
+//*****************************************************************************
+// Suppress unused variable warnings
+// NOTE: This diagnostic suppress macro must be RARELY used!
+//*****************************************************************************
+#if defined(__IAR_SYSTEMS_ICC__)
+#define DIAG_SUPPRESS_UNUSED_VAR                        _Pragma("diag_suppress=Pe177")
+#define DIAG_SUPPRESS_UNUSED_VAR_DEFAULT                _Pragma("diag_default=Pe177")
+
+#elif defined(__GNUC__)
+#define DIAG_SUPPRESS_UNUSED_VAR                        \
+_Pragma("GCC diagnostic push")                          \
+_Pragma("GCC diagnostic ignored \"-Wunused-variable\"")
+#define DIAG_SUPPRESS_UNUSED_VAR_DEFAULT                \
+_Pragma("GCC diagnostic pop")
+
+#else
+#define DIAG_SUPPRESS_UNUSED_VAR
+#endif
+
+//*****************************************************************************
+// Suppress variable set but not used warnings
+// NOTE: This diagnostic suppress macro must be RARELY used!
+//*****************************************************************************
+#if defined(__IAR_SYSTEMS_ICC__)
+#define DIAG_SUPPRESS_SETNOTUSED_VAR                    _Pragma("diag_suppress=Pe550")
+#define DIAG_SUPPRESS_SETNOTUSED_VAR_DEFAULT            _Pragma("diag_default=Pe550")
+
+#else
+#define DIAG_SUPPRESS_SETNOTUSED_VAR
+#define DIAG_SUPPRESS_SETNOTUSED_VAR_DEFAULT
+#endif
+
+//*****************************************************************************
 // The intrinsic for IAR's CLZ instruction is different than other compilers.
-//
+//*****************************************************************************
 #ifdef __IAR_SYSTEMS_ICC__
 #define AM_ASM_CLZ(ui32val)     __CLZ(ui32val)
 #else

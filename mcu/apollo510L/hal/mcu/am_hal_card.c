@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -249,7 +276,7 @@ static uint32_t am_hal_sdmmc_cmd7_card_deselect(am_hal_card_t *pCard)
     pCard->ui32RCA = 0;
     if ( AM_HAL_CMD_ERR_NONE != am_hal_sdmmc_cmd7_card_select(pCard) )
     {
-        AM_HAL_CARD_DEBUG("sleep - am_hal_sdmmc_cmd7_card_select Failed\n");
+        AM_HAL_CARD_DEBUG("sleep - am_hal_sdmmc_cmd7_card_select Failed\n", 0);
         ui32Status = AM_HAL_STATUS_FAIL;
     }
     pCard->ui32RCA = ui32RCA;
@@ -369,13 +396,13 @@ static inline uint32_t am_hal_sdio_cmd8_send_if_cond(am_hal_card_t *pCard, uint3
     {
         if ( (cmd.ui32Resp[0] & 0xFF) != 0xAA )
         {
-            AM_HAL_CARD_DEBUG("CMD8 response ERROR!\n");
+            AM_HAL_CARD_DEBUG("CMD8 response ERROR!\n", 0);
             return AM_HAL_CMD_ERR_INVALID_RESPONSE;
         }
 
         if ( (cmd.ui32Resp[0] & 0x0F00) == SD_CARD_2P7_3P6_VOLTAGE_SUPPLY )
         {
-            AM_HAL_CARD_DEBUG("Card support 2.7 ~ 3.6 V\n");
+            AM_HAL_CARD_DEBUG("Card support 2.7 ~ 3.6 V\n", 0);
         }
         else
         {
@@ -384,11 +411,11 @@ static inline uint32_t am_hal_sdio_cmd8_send_if_cond(am_hal_card_t *pCard, uint3
     }
     else if ( cmd.eError == AM_HAL_CMD_ERR_TIMEOUT )
     {
-        AM_HAL_CARD_DEBUG("Card CMD8 no resp, voltage mismatch or Ver1.X SD or not SD\r\n");
+        AM_HAL_CARD_DEBUG("Card CMD8 no resp, voltage mismatch or Ver1.X SD or not SD\r\n", 0);
     }
     else if ( cmd.eError == AM_HAL_CMD_ERR_CRC )
     {
-        AM_HAL_CARD_DEBUG("Card CMD8 crc err\r\n");
+        AM_HAL_CARD_DEBUG("Card CMD8 crc err\r\n", 0);
     }
 
     return cmd.eError;
@@ -424,7 +451,7 @@ static inline uint32_t am_hal_sdio_cmd52_io_rw_direct(am_hal_card_t *pCard,
 
     if ( cmd.eError != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SDIO card CMD52 ERROR!\n");
+        AM_HAL_CARD_DEBUG("SDIO card CMD52 ERROR!\n", 0);
     }
 
     if ( ui8RdData )
@@ -524,7 +551,7 @@ static inline uint32_t am_hal_sdcard_acmd6_set_bus_width(am_hal_card_t *pCard, a
 
     if ( cmd.eError != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD card CMD55 response ERROR!\n");
+        AM_HAL_CARD_DEBUG("SD card CMD55 response ERROR!\n", 0);
         return cmd.eError;
     }
 
@@ -573,7 +600,7 @@ static inline uint32_t am_hal_sdcard_acmd41_send_op_cond(am_hal_card_t *pCard, u
 
     if ( cmd.eError != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD card CMD55 response ERROR!\n");
+        AM_HAL_CARD_DEBUG("SD card CMD55 response ERROR!\n", 0);
         return cmd.eError;
     }
 
@@ -617,7 +644,7 @@ am_hal_sdio_card_read_cccr(am_hal_card_t *pCard)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_CCCR_REV, 0, &ui8CccrReg, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR revision register \n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR revision register \n", 0);
         return ui32Status;
     }
     pCard->cccr.ui8CccrRev = ui8CccrReg & 0x0F;
@@ -625,7 +652,7 @@ am_hal_sdio_card_read_cccr(am_hal_card_t *pCard)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_SD_REV, 0, &ui8CccrReg, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SD Spec revision register \n");
+        AM_HAL_CARD_DEBUG("Fail to read SD Spec revision register \n", 0);
         return ui32Status;
     }
     pCard->cccr.ui8SdRev = ui8CccrReg & 0x0F;
@@ -633,7 +660,7 @@ am_hal_sdio_card_read_cccr(am_hal_card_t *pCard)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_CARD_CAPAB, 0, &ui8CccrReg, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR card capability register \n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR card capability register \n", 0);
         return ui32Status;
     }
     if ( ui8CccrReg & SDIO_CCCR_CAP_SMB )
@@ -652,7 +679,7 @@ am_hal_sdio_card_read_cccr(am_hal_card_t *pCard)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_PWR_CNTRL, 0, &ui8CccrReg, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR power control register \n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR power control register \n", 0);
         return ui32Status;
     }
     if ( ui8CccrReg & SDIO_POWER_SMPC )
@@ -663,7 +690,7 @@ am_hal_sdio_card_read_cccr(am_hal_card_t *pCard)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_SPEED_SELECT, 0, &ui8CccrReg, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR bus speed select register \n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO CCCR bus speed select register \n", 0);
         return ui32Status;
     }
     if ( ui8CccrReg & SDIO_SPEED_SHS )
@@ -709,7 +736,7 @@ am_hal_sdio_card_read_cis(am_hal_card_t *pCard)
         ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_CIS_PTR1 + i, 0, &ui8RdData[i], true);
         if ( ui32Status != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Fail to read SDIO common CIS pointer register \n");
+            AM_HAL_CARD_DEBUG("Fail to read SDIO common CIS pointer register \n", 0);
             return ui32Status;
         }
         ui32CisAddr |= ui8RdData[i] << ( i * 8);
@@ -720,13 +747,13 @@ am_hal_sdio_card_read_cis(am_hal_card_t *pCard)
         ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, ui32CisAddr, 0, &ui8TupleCode, true);
         if ( ui32Status != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Fail to read SDIO tuple code \n");
+            AM_HAL_CARD_DEBUG("Fail to read SDIO tuple code \n", 0);
             return ui32Status;
         }
 
         if ( (ui8TupleCode == SDIO_CIS_TPL_NULL) || (ui8TupleCode == SDIO_CIS_TPL_END) )
         {
-            AM_HAL_CARD_DEBUG("CIS tuple code is NULL or END \n\n");
+            AM_HAL_CARD_DEBUG("CIS tuple code is NULL or END \n\n", 0);
             break;
         }
 
@@ -734,7 +761,7 @@ am_hal_sdio_card_read_cis(am_hal_card_t *pCard)
         ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, ui32CisAddr, 0, &ui8TupleLink, true);
         if ( ui32Status != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Fail to read SDIO tuple link register \n");
+            AM_HAL_CARD_DEBUG("Fail to read SDIO tuple link register \n", 0);
             return ui32Status;
         }
 
@@ -746,7 +773,7 @@ am_hal_sdio_card_read_cis(am_hal_card_t *pCard)
                 ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, ui32CisAddr, 0, &ui8RdData[i], true);
                 if ( ui32Status != AM_HAL_STATUS_SUCCESS )
                 {
-                    AM_HAL_CARD_DEBUG("Fail to read SDIO tuple MID register \n");
+                    AM_HAL_CARD_DEBUG("Fail to read SDIO tuple MID register \n", 0);
                     return ui32Status;
                 }
             }
@@ -763,7 +790,7 @@ am_hal_sdio_card_read_cis(am_hal_card_t *pCard)
                 ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, ui32CisAddr, 0, &ui8RdData[i], true);
                 if ( ui32Status != AM_HAL_STATUS_SUCCESS )
                 {
-                    AM_HAL_CARD_DEBUG("Fail to read SDIO tuple FUNCE register \n");
+                    AM_HAL_CARD_DEBUG("Fail to read SDIO tuple FUNCE register \n", 0);
                     return ui32Status;
                 }
             }
@@ -806,12 +833,12 @@ am_hal_sdio_card_set_bus_width(am_hal_card_t *pCard, am_hal_host_bus_width_e eBu
             ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_CNTRL, 0, NULL, false);
             if ( ui32Status != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Fail to set SDIO card into 1-bit mode. ERROR!\n");
+                AM_HAL_CARD_DEBUG("Fail to set SDIO card into 1-bit mode. ERROR!\n", 0);
                 return ui32Status;
             }
             else
             {
-                AM_HAL_CARD_DEBUG("SDIO card is set into 1-bit mode\n");
+                AM_HAL_CARD_DEBUG("SDIO card is set into 1-bit mode\n", 0);
             }
             break;
 
@@ -819,17 +846,17 @@ am_hal_sdio_card_set_bus_width(am_hal_card_t *pCard, am_hal_host_bus_width_e eBu
             ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_CNTRL, 2, NULL, false);
             if ( ui32Status != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Fail to set SDIO card into 4-bit mode. ERROR!\n");
+                AM_HAL_CARD_DEBUG("Fail to set SDIO card into 4-bit mode. ERROR!\n", 0);
                 return ui32Status;
             }
             else
             {
-                AM_HAL_CARD_DEBUG("SDIO card is set into 4-bit mode\n");
+                AM_HAL_CARD_DEBUG("SDIO card is set into 4-bit mode\n", 0);
             }
             break;
 
         case AM_HAL_HOST_BUS_WIDTH_8:
-            AM_HAL_CARD_DEBUG("8 bit width is not supported for SDIO card\n");
+            AM_HAL_CARD_DEBUG("8 bit width is not supported for SDIO card\n", 0);
             return AM_HAL_STATUS_INVALID_OPERATION;
 
         default:
@@ -867,7 +894,7 @@ am_hal_sdio_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
 
     if ( ui32Clock > SDIO_CARD_MAX_SPEED_LIMIT)
     {
-        AM_HAL_CARD_DEBUG("Clock speed setting is out of range\n");
+        AM_HAL_CARD_DEBUG("Clock speed setting is out of range\n", 0);
         return AM_HAL_STATUS_OUT_OF_RANGE;
     }
     else if (ui32Clock > SDIO_CARD_FULL_SPEED_LIMIT)
@@ -875,7 +902,7 @@ am_hal_sdio_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
         ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_SPEED_SELECT, 0, &ui8SpeedReg, true);
         if ( ui32Status != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Fail to read SDIO card bus speed register\n");
+            AM_HAL_CARD_DEBUG("Fail to read SDIO card bus speed register\n", 0);
             return ui32Status;
         }
 
@@ -887,7 +914,7 @@ am_hal_sdio_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
             ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_SPEED_SELECT, 1, NULL, false);
             if ( ui32Status != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Fail to set SDIO card into high speed mode\n");
+                AM_HAL_CARD_DEBUG("Fail to set SDIO card into high speed mode\n", 0);
                 return ui32Status;
             }
 
@@ -895,23 +922,23 @@ am_hal_sdio_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
             ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_SPEED_SELECT, 0, &ui8SpeedReg, true);
             if ( ui32Status != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Fail to read SDIO card bus speed register\n");
+                AM_HAL_CARD_DEBUG("Fail to read SDIO card bus speed register\n", 0);
                 return ui32Status;
             }
 
             if ( ui8SpeedReg & SDIO_HIGHSPEED_ENABLED )
             {
-                AM_HAL_CARD_DEBUG("SDIO card is set into high speed mode\n");
+                AM_HAL_CARD_DEBUG("SDIO card is set into high speed mode\n", 0);
             }
             else
             {
-                AM_HAL_CARD_DEBUG("SDIO card high speed mode check failed\n");
+                AM_HAL_CARD_DEBUG("SDIO card high speed mode check failed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
         }
         else
         {
-                AM_HAL_CARD_DEBUG("This SDIO card does not support high speed mode\n");
+                AM_HAL_CARD_DEBUG("This SDIO card does not support high speed mode\n", 0);
                 return AM_HAL_STATUS_INVALID_OPERATION;
         }
     }
@@ -923,7 +950,7 @@ am_hal_sdio_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
         ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_SPEED_SELECT, 0, NULL, false);
         if ( ui32Status != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Fail to set SDIO card into full speed mode\n");
+            AM_HAL_CARD_DEBUG("Fail to set SDIO card into full speed mode\n", 0);
             return ui32Status;
         }
 
@@ -931,17 +958,17 @@ am_hal_sdio_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
         ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, SDIO_CCCR_BUS_SPEED_SELECT, 0, &ui8SpeedReg, true);
         if ( ui32Status != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Fail to read SDIO card bus speed register\n");
+            AM_HAL_CARD_DEBUG("Fail to read SDIO card bus speed register\n", 0);
             return ui32Status;
         }
 
         if ( ((ui8SpeedReg >> 1) & 0x1) == SDIO_FULLSPEED_ENABLED )
         {
-            AM_HAL_CARD_DEBUG("SDIO card is set into full speed mode\n");
+            AM_HAL_CARD_DEBUG("SDIO card is set into full speed mode\n", 0);
         }
         else
         {
-            AM_HAL_CARD_DEBUG("SDIO card full speed mode check failed\n");
+            AM_HAL_CARD_DEBUG("SDIO card full speed mode check failed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -955,7 +982,7 @@ am_hal_sdio_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
     }
     else
     {
-        AM_HAL_CARD_DEBUG("SDIO clock frequency is %dHz\n", ui32Clock);
+        AM_HAL_CARD_DEBUG("SDIO clock frequency is %dHz\n", ui32Clock, 0);
     }
 
     return AM_HAL_STATUS_SUCCESS;
@@ -988,7 +1015,7 @@ am_hal_sdio_card_func_enable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_IO_ENABLE, 0, &ui8RegData, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Enable register\n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Enable register\n", 0);
         return ui32Status;
     }
     else
@@ -1000,7 +1027,7 @@ am_hal_sdio_card_func_enable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_IO_ENABLE, ui8RegData, NULL, false);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to write SDIO card IO Enable register\n");
+        AM_HAL_CARD_DEBUG("Fail to write SDIO card IO Enable register\n", 0);
         return ui32Status;
     }
 
@@ -1050,7 +1077,7 @@ am_hal_sdio_card_func_disable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_IO_ENABLE, 0, &ui8RegData, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Enable register\n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Enable register\n", 0);
         return ui32Status;
     }
     else
@@ -1062,7 +1089,7 @@ am_hal_sdio_card_func_disable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_IO_ENABLE, ui8RegData, NULL, false);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to Disable SDIO card IO function\n");
+        AM_HAL_CARD_DEBUG("Fail to Disable SDIO card IO function\n", 0);
         return ui32Status;
     }
     else
@@ -1099,7 +1126,7 @@ am_hal_sdio_card_func_interrupt_enable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_INT_ENABLE, 0, &ui8RegData, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Interrupt Enable register\n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Interrupt Enable register\n", 0);
         return ui32Status;
     }
     else
@@ -1111,7 +1138,7 @@ am_hal_sdio_card_func_interrupt_enable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_INT_ENABLE, ui8RegData, NULL, false);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to Enable SDIO card IO function's interrupt\n");
+        AM_HAL_CARD_DEBUG("Fail to Enable SDIO card IO function's interrupt\n", 0);
         return ui32Status;
     }
     else
@@ -1148,7 +1175,7 @@ am_hal_sdio_card_func_interrupt_disable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_INT_ENABLE, 0, &ui8RegData, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Interrupt Enable register\n");
+        AM_HAL_CARD_DEBUG("Fail to read SDIO card IO Interrupt Enable register\n", 0);
         return ui32Status;
     }
     else
@@ -1160,7 +1187,7 @@ am_hal_sdio_card_func_interrupt_disable(am_hal_card_t *pCard, uint32_t ui32Func)
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, 0, SDIO_CCCR_INT_ENABLE, ui8RegData, NULL, false);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to disable SDIO card IO function's interrupt\n");
+        AM_HAL_CARD_DEBUG("Fail to disable SDIO card IO function's interrupt\n", 0);
         return ui32Status;
     }
     else
@@ -1352,56 +1379,56 @@ am_hal_sd_card_check_speed(am_hal_card_t *pCard)
         if ( ui8Resp[13] & ( 1 << SD_CARD_SDR12 ) )
         {
             pCard->sdcard.bSupportSDR12 = 1;
-            AM_HAL_CARD_DEBUG("Card support SDR12 speed\n");
+            AM_HAL_CARD_DEBUG("Card support SDR12 speed\n", 0);
         }
         else
         {
             pCard->sdcard.bSupportSDR12 = 0;
-            AM_HAL_CARD_DEBUG("Card not support SDR12 speed\n");
+            AM_HAL_CARD_DEBUG("Card not support SDR12 speed\n", 0);
         }
 
         if ( ui8Resp[13] & ( 1 << SD_CARD_SDR25 ) )
         {
             pCard->sdcard.bSupportSDR25 = 1;
-            AM_HAL_CARD_DEBUG("Card support SDR25 speed\n");
+            AM_HAL_CARD_DEBUG("Card support SDR25 speed\n", 0);
         }
         else
         {
             pCard->sdcard.bSupportSDR25 = 0;
-            AM_HAL_CARD_DEBUG("Card not support SDR25 speed\n");
+            AM_HAL_CARD_DEBUG("Card not support SDR25 speed\n", 0);
         }
 
         if ( ui8Resp[13] & ( 1 << SD_CARD_SDR50 ) )
         {
             pCard->sdcard.bSupportSDR50 = 1;
-            AM_HAL_CARD_DEBUG("Card support SDR50 speed\n");
+            AM_HAL_CARD_DEBUG("Card support SDR50 speed\n", 0);
         }
         else
         {
             pCard->sdcard.bSupportSDR50 = 0;
-            AM_HAL_CARD_DEBUG("Card not support SDR50 speed\n");
+            AM_HAL_CARD_DEBUG("Card not support SDR50 speed\n", 0);
         }
 
         if ( ui8Resp[13] & ( 1 << SD_CARD_SDR104 ) )
         {
             pCard->sdcard.bSupportSDR104 = 1;
-            AM_HAL_CARD_DEBUG("Card support SDR104 speed\n");
+            AM_HAL_CARD_DEBUG("Card support SDR104 speed\n", 0);
         }
         else
         {
             pCard->sdcard.bSupportSDR104 = 0;
-            AM_HAL_CARD_DEBUG("Card not support SDR104 speed\n");
+            AM_HAL_CARD_DEBUG("Card not support SDR104 speed\n", 0);
         }
 
         if ( ui8Resp[13] & ( 1 << SD_CARD_DDR50 ) )
         {
             pCard->sdcard.bSupportDDR50 = 1;
-            AM_HAL_CARD_DEBUG("Card support DDR50 speed\n");
+            AM_HAL_CARD_DEBUG("Card support DDR50 speed\n", 0);
         }
         else
         {
             pCard->sdcard.bSupportDDR50 = 0;
-            AM_HAL_CARD_DEBUG("Card not support DDR50 speed\n");
+            AM_HAL_CARD_DEBUG("Card not support DDR50 speed\n", 0);
         }
 
     }
@@ -1410,23 +1437,23 @@ am_hal_sd_card_check_speed(am_hal_card_t *pCard)
         if ( ui8Resp[13] & 0x1 )
         {
             pCard->sdcard.bSupportDefaultSpeed = 1;
-            AM_HAL_CARD_DEBUG("Card support Default speed\n");
+            AM_HAL_CARD_DEBUG("Card support Default speed\n", 0);
         }
         else
         {
             pCard->sdcard.bSupportDefaultSpeed = 0;
-            AM_HAL_CARD_DEBUG("Card not support Default speed\n");
+            AM_HAL_CARD_DEBUG("Card not support Default speed\n", 0);
         }
 
         if ( ui8Resp[13] & 0x2 )
         {
             pCard->sdcard.bSupportHighSpeed = 1;
-            AM_HAL_CARD_DEBUG("Card support High speed\n");
+            AM_HAL_CARD_DEBUG("Card support High speed\n", 0);
         }
         else
         {
             pCard->sdcard.bSupportHighSpeed = 0;
-            AM_HAL_CARD_DEBUG("Card not support High speed\n");
+            AM_HAL_CARD_DEBUG("Card not support High speed\n", 0);
         }
     }
 
@@ -1465,7 +1492,7 @@ am_hal_sd_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
     {
         if ( (ui32Clock > 25000000) && (pCard->sdcard.bSupportHighSpeed == 0) )
         {
-            AM_HAL_CARD_DEBUG("Setting high speed failed, Card not support High speed\n");
+            AM_HAL_CARD_DEBUG("Setting high speed failed, Card not support High speed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
         else if ( ui32Clock > 25000000 )
@@ -1528,12 +1555,12 @@ am_hal_sd_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
         {
             if ( ui32AccessMode == SD_CARD_HIGH_SPEED )
             {
-                AM_HAL_CARD_DEBUG("Succeed on Switching High-Speed\n");
+                AM_HAL_CARD_DEBUG("Succeed on Switching High-Speed\n", 0);
                 pCard->sdcard.bHighSpeed = 1;
             }
             else
             {
-                AM_HAL_CARD_DEBUG("Failed on Switching High-Speed\n"); // Quirk
+                AM_HAL_CARD_DEBUG("Failed on Switching High-Speed\n", 0); // Quirk
                 return AM_HAL_STATUS_FAIL;
             }
         }
@@ -1541,12 +1568,12 @@ am_hal_sd_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
         {
             if ( ui32AccessMode == SD_CARD_DEFAULT_SPEED )
             {
-                AM_HAL_CARD_DEBUG("Succeed on Switching Default-Speed\n");
+                AM_HAL_CARD_DEBUG("Succeed on Switching Default-Speed\n", 0);
                 pCard->sdcard.bHighSpeed = 0;
             }
             else
             {
-                AM_HAL_CARD_DEBUG("Failed on Switching Default-Speed\n");
+                AM_HAL_CARD_DEBUG("Failed on Switching Default-Speed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
         }
@@ -1559,7 +1586,7 @@ am_hal_sd_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
         }
         else
         {
-            AM_HAL_CARD_DEBUG("Failed on Switching High-Speed\n"); // Quirk
+            AM_HAL_CARD_DEBUG("Failed on Switching High-Speed\n", 0); // Quirk
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -1737,7 +1764,7 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
     //
     if ( am_hal_sdmmc_cmd0_go_idle(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("CMD0 Failed\n");
+        AM_HAL_CARD_DEBUG("CMD0 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -1747,7 +1774,7 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
     uint32_t ui32OCR = SD_CARD_CHECK_PATTERN | SD_CARD_2P7_3P6_VOLTAGE_SUPPLY;
     if ( am_hal_sdio_cmd8_send_if_cond(pCard, ui32OCR) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("CMD8 Failed\n");
+        AM_HAL_CARD_DEBUG("CMD8 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -1773,12 +1800,12 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
             if ( ui32Resp0 & SD_CARD_OCR_MSK_HC )
             {
                 pCard->bHighCapcity = 1;
-                AM_HAL_CARD_DEBUG("High Capacity SD Memory Card\r\n");
+                AM_HAL_CARD_DEBUG("High Capacity SD Memory Card\r\n", 0);
             }
             else
             {
                 pCard->bHighCapcity = 0;
-                AM_HAL_CARD_DEBUG("Standard Capacity SD Memory Card\r\n");
+                AM_HAL_CARD_DEBUG("Standard Capacity SD Memory Card\r\n", 0);
             }
 
             //
@@ -1787,13 +1814,13 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
             if ( ui32Resp0 & SD_CARD_1P8V_MSK )
             {
                 pCard->sdcard.bSupportLowVolt = true;
-                AM_HAL_CARD_DEBUG("SD Card Support 1.8v Switching\r\n");
+                AM_HAL_CARD_DEBUG("SD Card Support 1.8v Switching\r\n", 0);
             }
             else
             {
                 pCard->sdcard.ui32CurrentVolt = AM_HAL_SD_CARD_3_3_V;
                 pCard->sdcard.bSupportLowVolt = false;
-                AM_HAL_CARD_DEBUG("SD Card not support 1.8V, working at 3.3V signaling\r\n");
+                AM_HAL_CARD_DEBUG("SD Card not support 1.8V, working at 3.3V signaling\r\n", 0);
             }
 
             if ( eIoVoltage == AM_HAL_HOST_BUS_VOLTAGE_1_8 && pCard->sdcard.bSupportLowVolt )
@@ -1806,7 +1833,7 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
                 {
                     pCard->pCardPwrCtrlFunc(AM_HAL_CARD_PWR_SWITCH);
                     pCard->sdcard.ui32CurrentVolt = AM_HAL_SD_CARD_1_8_V;
-                    AM_HAL_CARD_DEBUG("SD Card Switch 1.8v Successfully\r\n");
+                    AM_HAL_CARD_DEBUG("SD Card Switch 1.8v Successfully\r\n", 0);
                 }
                 else
                 {
@@ -1821,18 +1848,18 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
 
     if ( !ui32Retries )
     {
-        AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 retry time out\r\n");
+        AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 retry time out\r\n", 0);
         return AM_HAL_CMD_ERR_TIMEOUT;
     }
 
-    AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 complete, card is ready\r\n");
+    AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 complete, card is ready\r\n", 0);
 
     //
     // Get CID
     //
     if ( am_hal_sdmmc_cmd2_send_cid(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD2 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD2 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -1841,7 +1868,7 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
     //
     if ( am_hal_sdmmc_cmd3_set_rca(pCard, 0) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD3 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD3 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -1850,7 +1877,7 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
     //
     if ( am_hal_sdmmc_cmd9_send_csd(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD9 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD9 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -1859,7 +1886,7 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
     //
     if ( am_hal_sdmmc_cmd7_card_select(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD7 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD7 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -1870,13 +1897,13 @@ am_hal_sd_card_set_voltage(am_hal_card_t *pCard, am_hal_host_bus_voltage_e eIoVo
     {
         if ( am_hal_sd_card_set_bus_width(pCard, AM_HAL_HOST_BUS_WIDTH_4) != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Failed to change bus width\n");
+            AM_HAL_CARD_DEBUG("Failed to change bus width\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
 
     AM_HAL_CARD_DEBUG("SD Card sdcard.ui32CurrentVolt  = 0x%x \n", pCard->sdcard.ui32CurrentVolt);
-    AM_HAL_CARD_DEBUG("SD Card set voltage done\n");
+    AM_HAL_CARD_DEBUG("SD Card set voltage done\n", 0);
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -1934,7 +1961,7 @@ am_hal_card_cache_ctrl(am_hal_card_t *pCard, bool bCacheEnable)
 #ifndef AM_HAL_DISABLE_API_VALIDATION
         if ( !pCard || !pCard->pHost )
         {
-            AM_HAL_CARD_DEBUG("This card is not connected to a host\n");
+            AM_HAL_CARD_DEBUG("This card is not connected to a host\n", 0);
             return AM_HAL_STATUS_INVALID_ARG;
         }
 #endif // AM_HAL_DISABLE_API_VALIDATION
@@ -1979,14 +2006,14 @@ am_hal_card_pwr_notification(am_hal_card_t *pCard,
 #ifndef AM_HAL_DISABLE_API_VALIDATION
         if ( !pCard || !pCard->pHost )
         {
-            AM_HAL_CARD_DEBUG("This card is not connected to a host\n");
+            AM_HAL_CARD_DEBUG("This card is not connected to a host\n", 0);
             return AM_HAL_STATUS_INVALID_ARG;
         }
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
     if (pCard->ui8ExtCSDRev < 6)
     {
-        AM_HAL_CARD_DEBUG("this eMMC card type is not supporting notification\n");
+        AM_HAL_CARD_DEBUG("this eMMC card type is not supporting notification\n", 0);
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
 
@@ -2007,13 +2034,13 @@ am_hal_card_pwr_notification(am_hal_card_t *pCard,
             ui32Timeout = DEFAULT_CMD6_TIMEOUT_MS;
             break;
         default:
-            AM_HAL_CARD_DEBUG("Unknown notification type\n");
+            AM_HAL_CARD_DEBUG("Unknown notification type\n", 0);
             return AM_HAL_STATUS_INVALID_ARG;
     }
 
     if (am_hal_card_mode_switch(pCard, ui32Mode, ui32Timeout) != AM_HAL_STATUS_SUCCESS)
     {
-        AM_HAL_CARD_DEBUG("Unknown notification type\n");
+        AM_HAL_CARD_DEBUG("Unknown notification type\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2040,7 +2067,7 @@ am_hal_card_mmc_init(am_hal_card_t *pCard)
         //
         if ( am_hal_sdmmc_cmd0_go_idle(pCard) != AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("CMD0 Failed\n");
+            AM_HAL_CARD_DEBUG("CMD0 Failed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -2049,7 +2076,7 @@ am_hal_card_mmc_init(am_hal_card_t *pCard)
         //
         if ( am_hal_sdmmc_cmd1_send_op_cond(pCard) != AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("CMD1 Failed\n");
+            AM_HAL_CARD_DEBUG("CMD1 Failed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -2059,7 +2086,7 @@ am_hal_card_mmc_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd2_send_cid(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("CMD2 Failed\n");
+        AM_HAL_CARD_DEBUG("CMD2 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2068,7 +2095,7 @@ am_hal_card_mmc_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd3_set_rca(pCard, 0x1) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("CMD3 Failed\n");
+        AM_HAL_CARD_DEBUG("CMD3 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2077,7 +2104,7 @@ am_hal_card_mmc_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd9_send_csd(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("CMD9 Failed\n");
+        AM_HAL_CARD_DEBUG("CMD9 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2086,7 +2113,7 @@ am_hal_card_mmc_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd7_card_select(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("CMD7 Failed\n");
+        AM_HAL_CARD_DEBUG("CMD7 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2095,7 +2122,7 @@ am_hal_card_mmc_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd8_send_ext_csd(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-       AM_HAL_CARD_DEBUG("CMD8 Failed\n");
+       AM_HAL_CARD_DEBUG("CMD8 Failed\n", 0);
        return AM_HAL_STATUS_FAIL;
     }
 
@@ -2179,7 +2206,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
         //
         if ( am_hal_sdmmc_cmd0_go_idle(pCard) != AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("CMD0 Failed\n");
+            AM_HAL_CARD_DEBUG("CMD0 Failed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -2190,7 +2217,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
         ui32RetVal = am_hal_sdio_cmd8_send_if_cond(pCard, ui32OCR);
         if ( ui32RetVal != AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("SD Card CMD8 Failed\n");
+            AM_HAL_CARD_DEBUG("SD Card CMD8 Failed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -2217,12 +2244,12 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
             if ( ui32Resp0 & SD_CARD_OCR_MSK_HC )
             {
                 pCard->bHighCapcity = 1;
-                AM_HAL_CARD_DEBUG("High Capacity SD Memory Card\r\n");
+                AM_HAL_CARD_DEBUG("High Capacity SD Memory Card\r\n", 0);
             }
             else
             {
                 pCard->bHighCapcity = 0;
-                AM_HAL_CARD_DEBUG("Standard Capacity SD Memory Card\r\n");
+                AM_HAL_CARD_DEBUG("Standard Capacity SD Memory Card\r\n", 0);
             }
 
             //
@@ -2231,12 +2258,12 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
             if ( ui32Resp0 & SD_CARD_1P8V_MSK )
             {
                 pCard->sdcard.bSupportLowVolt = true;
-                AM_HAL_CARD_DEBUG("SD Card Support 1.8v Switching\r\n");
+                AM_HAL_CARD_DEBUG("SD Card Support 1.8v Switching\r\n", 0);
             }
             else
             {
                 pCard->sdcard.bSupportLowVolt = false;
-                AM_HAL_CARD_DEBUG("SD Card not support 1.8V, working at 3.3V signaling\r\n");
+                AM_HAL_CARD_DEBUG("SD Card not support 1.8V, working at 3.3V signaling\r\n", 0);
             }
 
             break;
@@ -2245,11 +2272,11 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
 
     if ( !ui32Retries )
     {
-        AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 retry time out\r\n");
+        AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 retry time out\r\n", 0);
         return AM_HAL_CMD_ERR_TIMEOUT;
     }
 
-    AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 complete, card is ready\r\n");
+    AM_HAL_CARD_DEBUG("SD Card send cmd55&cmd41 complete, card is ready\r\n", 0);
 
     //
     // Init sd card working at 3.3V signaling
@@ -2261,7 +2288,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
     //
     if ( am_hal_sdmmc_cmd2_send_cid(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD2 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD2 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2270,7 +2297,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
     //
     if ( am_hal_sdmmc_cmd3_set_rca(pCard, 0) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD3 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD3 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2279,7 +2306,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
     //
     if ( am_hal_sdmmc_cmd9_send_csd(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD9 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD9 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2288,7 +2315,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
     //
     if ( am_hal_sdmmc_cmd7_card_select(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SD Card CMD7 Failed\n");
+        AM_HAL_CARD_DEBUG("SD Card CMD7 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2312,7 +2339,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
         //
         pCard->ui32MaxBlks = ( pCard->sdcard.ui32CSize + 1 ) * ui32Mult * ui32BlockLen / 512;
         pCard->ui32BlkSize = ui32BlockLen;
-        AM_HAL_CARD_DEBUG("This is a SDSC Card\n");
+        AM_HAL_CARD_DEBUG("This is a SDSC Card\n", 0);
     }
     else if ( pCard->sdcard.ui32CsdVersion == 1 )
     {
@@ -2331,17 +2358,17 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
         if ( pCard->ui32MaxBlks <= SDHC_MAX_BLK_CNT )
         {
             pCard->eType = AM_HAL_CARD_TYPE_SDHC;
-            AM_HAL_CARD_DEBUG("This is a SDHC Card\n");
+            AM_HAL_CARD_DEBUG("This is a SDHC Card\n", 0);
         }
         else
         {
             pCard->eType = AM_HAL_CARD_TYPE_SDXC;
-            AM_HAL_CARD_DEBUG("This is a SDXC Card\n");
+            AM_HAL_CARD_DEBUG("This is a SDXC Card\n", 0);
         }
     }
     else
     {
-        AM_HAL_CARD_DEBUG("Current driver don't support CSD is Version3.0 or Higher \n");
+        AM_HAL_CARD_DEBUG("Current driver don't support CSD is Version3.0 or Higher \n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2359,7 +2386,7 @@ am_hal_sd_card_init(am_hal_card_t *pCard, am_hal_card_pwr_ctrl_func pCardPwrCtrl
         AM_HAL_CARD_DEBUG("SD Card sdcard.ui32RdBlockLen = 0x%x \n", pCard->sdcard.ui32RdBlockLen);
     }
 
-    AM_HAL_CARD_DEBUG("SD Card initialize is done\n");
+    AM_HAL_CARD_DEBUG("SD Card initialize is done\n", 0);
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -2381,7 +2408,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
         //
         if ( am_hal_sdmmc_cmd0_go_idle(pCard) != AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("CMD0 Failed\n");
+            AM_HAL_CARD_DEBUG("CMD0 Failed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -2391,7 +2418,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
         ui32OCR |= (MMC_VDD_18_19 | MMC_VDD_17_18);
         if ( am_hal_sdio_cmd8_send_if_cond(pCard, ui32OCR) == AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("SDIO CMD8 Passed.\n");
+            AM_HAL_CARD_DEBUG("SDIO CMD8 Passed.\n", 0);
         }
 
         //
@@ -2400,7 +2427,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
         ui32OCR = 0;
         if ( am_hal_sdio_cmd5_io_send_op_cond(pCard, ui32OCR) != AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("SDIO CMD5 Error\n");
+            AM_HAL_CARD_DEBUG("SDIO CMD5 Error\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -2411,7 +2438,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
     ui32OCR = pCard->ui32OCR;
     if ( am_hal_sdio_cmd5_io_send_op_cond(pCard, ui32OCR) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SDIO Second CMD5 Error\n");
+        AM_HAL_CARD_DEBUG("SDIO Second CMD5 Error\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2420,7 +2447,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd3_set_rca(pCard, 0) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SDIO CMD3 Error\n");
+        AM_HAL_CARD_DEBUG("SDIO CMD3 Error\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2429,7 +2456,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd7_card_select(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SDIO CMD7 Error\n");
+        AM_HAL_CARD_DEBUG("SDIO CMD7 Error\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2438,7 +2465,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdio_card_read_cccr(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SDIO read CCCR Failed\n");
+        AM_HAL_CARD_DEBUG("SDIO read CCCR Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2447,7 +2474,7 @@ am_hal_card_sdio_init(am_hal_card_t *pCard)
     //
     if ( am_hal_sdio_card_read_cis(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("SDIO read CIS Failed\n");
+        AM_HAL_CARD_DEBUG("SDIO read CIS Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2476,7 +2503,7 @@ am_hal_card_type_detect(am_hal_card_t *pCard)
     //
     if ( am_hal_sdmmc_cmd0_go_idle(pCard) != AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("CMD0 Failed\n");
+        AM_HAL_CARD_DEBUG("CMD0 Failed\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -2487,7 +2514,7 @@ am_hal_card_type_detect(am_hal_card_t *pCard)
     ui32RetVal = am_hal_sdio_cmd8_send_if_cond(pCard, ui32OCR);
     if ( ui32RetVal == AM_HAL_CMD_ERR_NONE )
     {
-            AM_HAL_CARD_DEBUG("Detected SD Card device\n");
+            AM_HAL_CARD_DEBUG("Detected SD Card device\n", 0);
             pCard->eType = AM_HAL_CARD_TYPE_SDHC;
             return AM_HAL_STATUS_SUCCESS;
     }
@@ -2499,7 +2526,7 @@ am_hal_card_type_detect(am_hal_card_t *pCard)
     ui32RetVal = am_hal_sdmmc_cmd1_send_op_cond(pCard);
     if ( ui32RetVal == AM_HAL_CMD_ERR_NONE )
     {
-        AM_HAL_CARD_DEBUG("Detected MMC device\n");
+        AM_HAL_CARD_DEBUG("Detected MMC device\n", 0);
         pCard->eType = AM_HAL_CARD_TYPE_EMMC;
     }
     else
@@ -2507,12 +2534,12 @@ am_hal_card_type_detect(am_hal_card_t *pCard)
         ui32RetVal = am_hal_sdio_cmd5_io_send_op_cond(pCard, ui32OCR);
         if ( ui32RetVal == AM_HAL_CMD_ERR_NONE )
         {
-            AM_HAL_CARD_DEBUG("Detected SDIO Card device\n");
+            AM_HAL_CARD_DEBUG("Detected SDIO Card device\n", 0);
             pCard->eType = AM_HAL_CARD_TYPE_SDIO;
         }
         else
         {
-            AM_HAL_CARD_DEBUG("NO Device Found...\n");
+            AM_HAL_CARD_DEBUG("NO Device Found...\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -2731,7 +2758,8 @@ am_hal_card_set_speed(am_hal_card_t *pCard, uint32_t ui32Clock)
         ui32HSMode = 2;
     }
 
-    if ( (pCard->ui8SpecVer >= 4) && (ui32Clock >= MMC_LEGACY_HS) )
+    if ( ((pCard->ui8SpecVer >= 4) && (ui32Clock >= MMC_LEGACY_HS))
+          || (pCard->cfg.eUHSMode == AM_HAL_HOST_UHS_DDR50) )
     {
         //
         // Already in the high speed mode
@@ -2876,6 +2904,8 @@ am_hal_card_emmc_calibrate(am_hal_host_inst_index_e eIndex,
     uint8_t  ui8RxDelay = 0;
     uint32_t ui32TxResult = 0;
     uint32_t ui32RxResultArray[16] = {0};
+    uint32_t ui32BufAddr = (uint32_t)ui8CalibBuf;
+    am_hal_cachectrl_range_t sRange;
 
 #ifdef AM_DEBUG_PRINTF
     if (eUHSMode == AM_HAL_HOST_UHS_DDR50)
@@ -2899,7 +2929,7 @@ am_hal_card_emmc_calibrate(am_hal_host_inst_index_e eIndex,
 
             if (pSdhcCardHost == NULL)
             {
-                AM_HAL_CARD_DEBUG("No such card host and stop\n");
+                AM_HAL_CARD_DEBUG("No such card host and stop\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -2913,13 +2943,13 @@ am_hal_card_emmc_calibrate(am_hal_host_inst_index_e eIndex,
             //
             if (am_hal_card_host_find_card(pSdhcCardHost, &eMMCard) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("No card is present now\n");
+                AM_HAL_CARD_DEBUG("No card is present now\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
             if (am_hal_card_init(&eMMCard, AM_HAL_CARD_TYPE_EMMC, NULL, AM_HAL_CARD_PWR_CTRL_NONE) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("card initialization failed\n");
+                AM_HAL_CARD_DEBUG("card initialization failed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -2927,7 +2957,7 @@ am_hal_card_emmc_calibrate(am_hal_host_inst_index_e eIndex,
                 eBusWidth, ui32Clock, AM_HAL_HOST_BUS_VOLTAGE_1_8,
                 eUHSMode) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("card config failed\n");
+                AM_HAL_CARD_DEBUG("card config failed\n", 0);
                 continue;
             }
 
@@ -2936,10 +2966,32 @@ am_hal_card_emmc_calibrate(am_hal_host_inst_index_e eIndex,
                 ui8CalibBuf[i] = i % 256;
             }
 
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = len;
+                am_hal_cachectrl_dcache_clean(&sRange);
+            }
+
             am_hal_card_block_write_sync(&eMMCard, ui32StartBlk, ui32BlkCnt, (uint8_t *)ui8CalibBuf);
 
             memset((void *)ui8CalibBuf, 0x0, len);
+
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = len;
+                am_hal_cachectrl_dcache_clean(&sRange);
+            }
+
             am_hal_card_block_read_sync(&eMMCard, ui32StartBlk, ui32BlkCnt, (uint8_t *)ui8CalibBuf);
+
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = len;
+                am_hal_cachectrl_dcache_invalidate(&sRange, false);
+            }
 
             for (i = 0; i < len; i++)
             {
@@ -2962,7 +3014,7 @@ am_hal_card_emmc_calibrate(am_hal_host_inst_index_e eIndex,
     }
 
 #ifdef AM_DEBUG_PRINTF
-    AM_HAL_CARD_DEBUG("\nSDIO TX RX Delay Scan Result:\n");
+    AM_HAL_CARD_DEBUG("\nSDIO TX RX Delay Scan Result:\n", 0);
     for (i = 0; i < SDIO_SCAN_TXDELAY_MAX; i++ )
     {
         AM_HAL_CARD_DEBUG("TX_Delay = %2d, RX_Delay Window = 0x%08X\n", i, ui32RxResultArray[i]);
@@ -3024,14 +3076,13 @@ am_hal_card_emmc_calibrate(am_hal_host_inst_index_e eIndex,
 
     if (pSdhcCardHost == NULL)
     {
-        AM_HAL_CARD_DEBUG("No such card host and stop\n");
+        AM_HAL_CARD_DEBUG("No such card host and stop\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
     am_hal_card_host_set_txrx_delay(pSdhcCardHost, ui8TxRxDelays);
 
     return AM_HAL_STATUS_SUCCESS;
 }
-
 
 uint32_t
 am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
@@ -3054,6 +3105,8 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
     uint32_t ui32TxResult = 0;
     uint32_t ui32RxResultArray[16] = {0};
     uint32_t ui32RxIndexEnd = SDIO_SCAN_RXDELAY_MAX;
+    uint32_t ui32BufAddr = (uint32_t)ui8CalibBuf;
+    am_hal_cachectrl_range_t sRange;
 
 #ifdef AM_DEBUG_PRINTF
     if (eUHSMode == AM_HAL_HOST_UHS_DDR50)
@@ -3066,11 +3119,6 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
     }
 #endif
 
-    // #### INTERNAL BEGIN ####
-    //
-    // Calibration will case hard fault if ui32RxIndexEnd >= 28 in SDR104 mode.
-    //
-    // #### INTERNAL END ####
     if ( eUHSMode == AM_HAL_HOST_UHS_SDR104 )
     {
         ui32RxIndexEnd = 15;
@@ -3087,7 +3135,7 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
 
             if (pSdhcCardHost == NULL)
             {
-                AM_HAL_CARD_DEBUG("No such card host and stop\n");
+                AM_HAL_CARD_DEBUG("No such card host and stop\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3101,13 +3149,13 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
             //
             if (am_hal_card_host_find_card(pSdhcCardHost, &SdCard) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("No card is present now\n");
+                AM_HAL_CARD_DEBUG("No card is present now\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
             if (am_hal_card_init(&SdCard, AM_HAL_CARD_TYPE_SDHC, pCardPwrCtrlFunc, AM_HAL_CARD_PWR_CTRL_NONE) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("card initialization failed\n");
+                AM_HAL_CARD_DEBUG("card initialization failed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3115,7 +3163,7 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
                 eBusWidth, ui32Clock, AM_HAL_HOST_BUS_VOLTAGE_1_8,
                 eUHSMode) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("card config failed\n");
+                AM_HAL_CARD_DEBUG("card config failed\n", 0);
                 continue;
             }
 
@@ -3124,9 +3172,32 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
                 ui8CalibBuf[i] = i % 256;
             }
 
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = len;
+                am_hal_cachectrl_dcache_clean(&sRange);
+            }
+
             am_hal_sd_card_block_write_sync(&SdCard, ui32StartBlk, ui32BlkCnt, (uint8_t *)ui8CalibBuf);
+
             memset((void *)ui8CalibBuf, 0x0, len);
+
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = len;
+                am_hal_cachectrl_dcache_clean(&sRange);
+            }
+
             am_hal_sd_card_block_read_sync(&SdCard, ui32StartBlk, ui32BlkCnt, (uint8_t *)ui8CalibBuf);
+
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = len;
+                am_hal_cachectrl_dcache_invalidate(&sRange, false);
+            }
 
             for (i = 0; i < len; i++)
             {
@@ -3149,7 +3220,7 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
     }
 
 #ifdef AM_DEBUG_PRINTF
-    AM_HAL_CARD_DEBUG("\nSDIO TX RX Delay Scan Result:\n");
+    AM_HAL_CARD_DEBUG("\nSDIO TX RX Delay Scan Result:\n", 0);
     for (i = 0; i < SDIO_SCAN_TXDELAY_MAX; i++ )
     {
         AM_HAL_CARD_DEBUG("TX_Delay = %2d, RX_Delay Window = 0x%08X\n", i, ui32RxResultArray[i]);
@@ -3211,7 +3282,7 @@ am_hal_sd_card_calibrate(am_hal_host_inst_index_e eIndex,
 
     if (pSdhcCardHost == NULL)
     {
-        AM_HAL_CARD_DEBUG("No such card host and stop\n");
+        AM_HAL_CARD_DEBUG("No such card host and stop\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
     am_hal_card_host_set_txrx_delay(pSdhcCardHost, ui8TxRxDelays);
@@ -3251,7 +3322,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ( (ui32Status = am_hal_card_cache_off(pCard)) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("sdhc & card power off - am_hal_card_cache_off Failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card power off - am_hal_card_cache_off Failed\n", 0);
                 return ui32Status;
             }
 
@@ -3260,7 +3331,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ((ui32Status = am_hal_card_pwr_notification(pCard, MMC_EXT_CSD_POWER_OFF_LONG)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("sdhc & card power off - am_hal_card_cache_off Failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card power off - am_hal_card_cache_off Failed\n", 0);
                 return ui32Status;
             }
 
@@ -3269,7 +3340,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ((ui32Status = am_hal_sdmmc_cmd7_card_deselect(pCard)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("sdhc & card sleep - Failed to deselect the card\n");
+                AM_HAL_CARD_DEBUG("sdhc & card sleep - Failed to deselect the card\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3278,7 +3349,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ( AM_HAL_CMD_ERR_NONE != am_hal_sdmmc_cmd5(pCard, true) )
             {
-                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_sdmmc_cmd5 Failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_sdmmc_cmd5 Failed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3294,7 +3365,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
 
             if ((ui32Status = pHost->ops->deinit(pHost->pHandle)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("sdhc & card power off - host deinit failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card power off - host deinit failed\n", 0);
                 return ui32Status;
             }
             break;
@@ -3306,7 +3377,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ( (ui32Status = am_hal_card_cache_off(pCard)) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_card_cache_off Failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_card_cache_off Failed\n", 0);
                 return ui32Status;
             }
 
@@ -3315,7 +3386,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ( (ui32Status = am_hal_card_pwr_notification(pCard, MMC_EXT_CSD_SLEEP_NOTIFICATION)) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_card_pwr_notification Failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_card_pwr_notification Failed\n", 0);
                 return ui32Status;
             }
 
@@ -3324,7 +3395,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ((ui32Status = am_hal_sdmmc_cmd7_card_deselect(pCard)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("sdhc & card sleep - Failed to deselect the card\n");
+                AM_HAL_CARD_DEBUG("sdhc & card sleep - Failed to deselect the card\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3333,7 +3404,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ( AM_HAL_CMD_ERR_NONE != am_hal_sdmmc_cmd5(pCard, true) )
             {
-                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_sdmmc_cmd5 Failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card sleep - am_hal_sdmmc_cmd5 Failed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3342,7 +3413,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ((ui32Status = pHost->ops->pwr_ctrl(pHost->pHandle, false)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("sdhc & card sleep - emmc card power control failed\n");
+                AM_HAL_CARD_DEBUG("sdhc & card sleep - emmc card power control failed\n", 0);
                 return ui32Status;
             }
             break;
@@ -3353,7 +3424,7 @@ am_hal_card_pwrctrl_sleep(am_hal_card_t *pCard)
             //
             if ((ui32Status = pHost->ops->pwr_ctrl(pHost->pHandle, false)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("sdhc - emmc card power control failed\n");
+                AM_HAL_CARD_DEBUG("sdhc - emmc card power control failed\n", 0);
                 return ui32Status;
             }
             break;
@@ -3394,7 +3465,7 @@ am_hal_card_pwrctrl_wakeup(am_hal_card_t *pCard)
             //
             if ((ui32Status = pHost->ops->init(pHost)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("wakeup reinit sdhc controller failed\n");
+                AM_HAL_CARD_DEBUG("wakeup reinit sdhc controller failed\n", 0);
                 return ui32Status;
             }
 
@@ -3404,7 +3475,7 @@ am_hal_card_pwrctrl_wakeup(am_hal_card_t *pCard)
             if ((ui32Status = am_hal_card_init(pCard, pCard->eType,
                 pCard->pCardPwrCtrlFunc, pCard->eCardPwrCtrlPolicy)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("wakeup reinit sd card failed\n");
+                AM_HAL_CARD_DEBUG("wakeup reinit sd card failed\n", 0);
                 return ui32Status;
             }
 
@@ -3414,7 +3485,7 @@ am_hal_card_pwrctrl_wakeup(am_hal_card_t *pCard)
             if ((ui32Status = am_hal_card_cfg_set(pCard, pCard->eType, pCard->cfg.eBusWidth,
                 pCard->cfg.ui32Clock, pCard->cfg.eIoVoltage, pCard->cfg.eUHSMode)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("wakeup configure sd card failed\n");
+                AM_HAL_CARD_DEBUG("wakeup configure sd card failed\n", 0);
                 return ui32Status;
             }
             break;
@@ -3425,7 +3496,7 @@ am_hal_card_pwrctrl_wakeup(am_hal_card_t *pCard)
             //
             if ((ui32Status = pHost->ops->pwr_ctrl(pHost->pHandle, true)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("wakeup - power on the sdhc controller failed\n");
+                AM_HAL_CARD_DEBUG("wakeup - power on the sdhc controller failed\n", 0);
                 return ui32Status;
             }
 
@@ -3434,7 +3505,7 @@ am_hal_card_pwrctrl_wakeup(am_hal_card_t *pCard)
             //
             if ( AM_HAL_CMD_ERR_NONE != am_hal_sdmmc_cmd5(pCard, false) )
             {
-                AM_HAL_CARD_DEBUG("wakeup - am_hal_sdmmc_cmd5 Failed\n");
+                AM_HAL_CARD_DEBUG("wakeup - am_hal_sdmmc_cmd5 Failed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3443,7 +3514,7 @@ am_hal_card_pwrctrl_wakeup(am_hal_card_t *pCard)
             //
             if ( AM_HAL_CMD_ERR_NONE != am_hal_sdmmc_cmd7_card_select(pCard) )
             {
-                AM_HAL_CARD_DEBUG("wakeup - am_hal_sdmmc_cmd7_card_select Failed\n");
+                AM_HAL_CARD_DEBUG("wakeup - am_hal_sdmmc_cmd7_card_select Failed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
             break;
@@ -3454,7 +3525,7 @@ am_hal_card_pwrctrl_wakeup(am_hal_card_t *pCard)
             //
             if ((ui32Status = pHost->ops->pwr_ctrl(pHost->pHandle, true)) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("wakeup - power on the sdhc controller failed\n");
+                AM_HAL_CARD_DEBUG("wakeup - power on the sdhc controller failed\n", 0);
                 return ui32Status;
             }
             break;
@@ -3521,7 +3592,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( !pCard || !pCard->pHost )
     {
-        AM_HAL_CARD_DEBUG("This card is not connected to a host\n");
+        AM_HAL_CARD_DEBUG("This card is not connected to a host\n", 0);
         return AM_HAL_STATUS_INVALID_ARG;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
@@ -3557,7 +3628,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         //
         if ( am_hal_card_set_voltage(pCard, pCard->cfg.eIoVoltage) != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Failed to change bus voltage\n");
+            AM_HAL_CARD_DEBUG("Failed to change bus voltage\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -3580,7 +3651,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
             //
             if ( am_hal_card_set_bus_width(pCard, pCard->cfg.eBusWidth) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Failed to change bus width\n");
+                AM_HAL_CARD_DEBUG("Failed to change bus width\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3589,7 +3660,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
             //
             if ( am_hal_card_set_speed(pCard, pCard->cfg.ui32Clock) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Failed to change bus speed\n");
+                AM_HAL_CARD_DEBUG("Failed to change bus speed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
         }
@@ -3600,7 +3671,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
             //
             if ( am_hal_card_set_speed(pCard, pCard->cfg.ui32Clock) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Failed to change bus speed\n");
+                AM_HAL_CARD_DEBUG("Failed to change bus speed\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -3609,7 +3680,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
             //
             if ( am_hal_card_set_bus_width(pCard, pCard->cfg.eBusWidth) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Failed to change bus width\n");
+                AM_HAL_CARD_DEBUG("Failed to change bus width\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
         }
@@ -3619,7 +3690,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         //
         if (am_hal_card_set_uhs_mode(pCard, pCard->cfg.eUHSMode) != AM_HAL_STATUS_SUCCESS)
         {
-            AM_HAL_CARD_DEBUG("Failed to change UHS mode\n");
+            AM_HAL_CARD_DEBUG("Failed to change UHS mode\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -3630,7 +3701,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         //
         if ( am_hal_sdio_card_set_speed(pCard, pCard->cfg.ui32Clock) != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Failed to change bus speed\n");
+            AM_HAL_CARD_DEBUG("Failed to change bus speed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -3639,7 +3710,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         //
         if ( am_hal_sdio_card_set_bus_width(pCard, pCard->cfg.eBusWidth) != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Failed to change bus width\n");
+            AM_HAL_CARD_DEBUG("Failed to change bus width\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
     }
@@ -3652,7 +3723,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         //
         if ( am_hal_sd_card_set_voltage(pCard, eIoVoltage)!= AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Failed to set sd card voltage\n");
+            AM_HAL_CARD_DEBUG("Failed to set sd card voltage\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -3661,7 +3732,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         //
         if ( am_hal_sd_card_set_speed(pCard, pCard->cfg.ui32Clock) != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Failed to change bus speed\n");
+            AM_HAL_CARD_DEBUG("Failed to change bus speed\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -3672,7 +3743,7 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         {
             if ( am_hal_sd_card_set_bus_width(pCard, pCard->cfg.eBusWidth) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("Failed to change bus width\n");
+                AM_HAL_CARD_DEBUG("Failed to change bus width\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
         }
@@ -3684,14 +3755,14 @@ am_hal_card_cfg_set(am_hal_card_t *pCard, am_hal_card_type_e eType,
         {
             if (am_hal_card_set_uhs_mode(pCard, pCard->cfg.eUHSMode) != AM_HAL_STATUS_SUCCESS)
             {
-                AM_HAL_CARD_DEBUG("Failed to change UHS mode\n");
+                AM_HAL_CARD_DEBUG("Failed to change UHS mode\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
         }
     }
     else
     {
-        AM_HAL_CARD_DEBUG("Card Tpye is not supported!\n");
+        AM_HAL_CARD_DEBUG("Card Tpye is not supported!\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
 
@@ -3712,7 +3783,7 @@ am_hal_card_init(am_hal_card_t *pCard,
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( !pCard || !pCard->pHost )
     {
-        AM_HAL_CARD_DEBUG("This card is not connected to a host\n");
+        AM_HAL_CARD_DEBUG("This card is not connected to a host\n", 0);
         return AM_HAL_STATUS_INVALID_ARG;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
@@ -3722,7 +3793,7 @@ am_hal_card_init(am_hal_card_t *pCard,
     //
     if (pCardPwrCtrlFunc != NULL)
     {
-        AM_HAL_CARD_DEBUG("turn on the eMMC/sdcard power supply\n");
+        AM_HAL_CARD_DEBUG("turn on the eMMC/sdcard power supply\n", 0);
         pCardPwrCtrlFunc(AM_HAL_CARD_PWR_CYCLE);
     }
 
@@ -3739,7 +3810,7 @@ am_hal_card_init(am_hal_card_t *pCard,
     //
     if ( pCard->eType == AM_HAL_CARD_TYPE_UNKNOWN )
     {
-        AM_HAL_CARD_DEBUG("enter into card type detect\n");
+        AM_HAL_CARD_DEBUG("enter into card type detect\n", 0);
         if ( am_hal_card_type_detect(pCard) != AM_HAL_STATUS_SUCCESS )
         {
             return AM_HAL_STATUS_FAIL;
@@ -3797,7 +3868,7 @@ am_hal_card_deinit(am_hal_card_t *pCard)
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( !pCard || !pCard->pHost )
     {
-        AM_HAL_CARD_DEBUG("This card is not connected to a host\n");
+        AM_HAL_CARD_DEBUG("This card is not connected to a host\n", 0);
         return AM_HAL_STATUS_INVALID_ARG;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
@@ -3807,7 +3878,7 @@ am_hal_card_deinit(am_hal_card_t *pCard)
     //
     if (pCard->pCardPwrCtrlFunc != NULL)
     {
-        AM_HAL_CARD_DEBUG("turn off the eMMC/sdcard power supply\n");
+        AM_HAL_CARD_DEBUG("turn off the eMMC/sdcard power supply\n", 0);
         pCard->pCardPwrCtrlFunc(AM_HAL_CARD_PWR_OFF);
     }
 
@@ -4178,7 +4249,7 @@ am_hal_card_block_erase(am_hal_card_t *pCard, uint32_t ui32Blk, uint32_t ui32Blk
     {
         if ( !(pCard->ui8SecureErase & SEC_ER_EN) )
         {
-            AM_HAL_CARD_DEBUG("This device does not support Secure Erase or Trim\n");
+            AM_HAL_CARD_DEBUG("This device does not support Secure Erase or Trim\n", 0);
             return AM_HAL_STATUS_INVALID_ARG;
         }
     }
@@ -4187,7 +4258,7 @@ am_hal_card_block_erase(am_hal_card_t *pCard, uint32_t ui32Blk, uint32_t ui32Blk
     {
         if ( !(pCard->ui8SecureErase & SEC_GB_CL_EN) )
         {
-            AM_HAL_CARD_DEBUG("This device does not support Trim operation\n");
+            AM_HAL_CARD_DEBUG("This device does not support Trim operation\n", 0);
             return AM_HAL_STATUS_INVALID_ARG;
         }
     }
@@ -4490,7 +4561,7 @@ am_hal_card_register_evt_callback(am_hal_card_t *pCard, am_hal_host_event_cb_t p
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( !pCard || !pCard->pHost )
     {
-        AM_HAL_CARD_DEBUG("both Card and Host are needed to be initialized firstly\n");
+        AM_HAL_CARD_DEBUG("both Card and Host are needed to be initialized firstly\n", 0);
         return AM_HAL_STATUS_INVALID_ARG;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
@@ -4517,20 +4588,6 @@ am_hal_card_get_cid_field(am_hal_card_t *pCard, uint16_t ui16Offset, uint8_t ui8
 
     return am_hal_unstuff_bits(pCard->ui32CID, ui16Offset, ui8Size);
 
-    // #### INTERNAL BEGIN ####
-
-#if 0
-    pCID->MID = am_hal_unstuff_bits(pCard->ui32CID, 120, 8);
-    pCID->CBX = am_hal_unstuff_bits(pCard->ui32CID, 112, 2);
-    pCID->OID = am_hal_unstuff_bits(pCard->ui32CID, 104, 8);
-    pCID->PNM1 = am_hal_unstuff_bits(pCard->ui32CID, 56, 32);
-    pCID->PNM2 = am_hal_unstuff_bits(pCard->ui32CID, 88, 16);
-    pCID->PRV = am_hal_unstuff_bits(pCard->ui32CID, 48, 8);
-    pCID->PSN = am_hal_unstuff_bits(pCard->ui32CID, 16, 32);
-    pCID->MDT = am_hal_unstuff_bits(pCard->ui32CID, 8, 8);
-#endif
-
-    // #### INTERNAL END ####
 
 }
 
@@ -4551,44 +4608,6 @@ am_hal_card_get_csd_field(am_hal_card_t *pCard, uint16_t ui16Offset, uint8_t ui8
 
     return am_hal_unstuff_bits(pCard->ui32CSD, ui16Offset, ui8Size);
 
-    // #### INTERNAL BEGIN ####
-#if 0
-    pCSD->CSD_STRUCTURE = am_hal_unstuff_bits(pCard->ui32CSD, 126, 2);
-    pCSD->SPEC_VERS = am_hal_unstuff_bits(pCard->ui32CSD, 122, 4);
-    pCSD->TAAC = am_hal_unstuff_bits(pCard->ui32CSD, 112, 8);
-    pCSD->NSAC = am_hal_unstuff_bits(pCard->ui32CSD, 104, 8);
-    pCSD->TRANS_SPEED = am_hal_unstuff_bits(pCard->ui32CSD, 96, 8);
-    pCSD->CCC = am_hal_unstuff_bits(pCard->ui32CSD, 84, 12);
-    pCSD->READ_BL_LEN = am_hal_unstuff_bits(pCard->ui32CSD, 80, 4);
-    pCSD->READ_BL_PARTIAL = am_hal_unstuff_bits(pCard->ui32CSD, 79, 1);
-    pCSD->WRITE_BLK_MISALIGN = am_hal_unstuff_bits(pCard->ui32CSD, 78, 1);
-    pCSD->READ_BLK_MISALIGN = am_hal_unstuff_bits(pCard->ui32CSD, 77, 1);
-    pCSD->DSR_IMP = am_hal_unstuff_bits(pCard->ui32CSD, 76, 1);
-    pCSD->C_SIZE = am_hal_unstuff_bits(pCard->ui32CSD, 62, 12);
-    pCSD->VDD_R_CURR_MIN = am_hal_unstuff_bits(pCard->ui32CSD, 59, 3);
-    pCSD->VDD_R_CURR_MAX = am_hal_unstuff_bits(pCard->ui32CSD, 56, 3);
-    pCSD->VDD_W_CURR_MIN = am_hal_unstuff_bits(pCard->ui32CSD, 53, 3);
-    pCSD->VDD_W_CURR_MAX = am_hal_unstuff_bits(pCard->ui32CSD, 50, 3);
-    pCSD->C_SIZE_MULT = am_hal_unstuff_bits(pCard->ui32CSD, 47, 3);
-    pCSD->ERASE_GRP_SIZE = am_hal_unstuff_bits(pCard->ui32CSD, 42, 5);
-    pCSD->ERASE_GRP_MULT = am_hal_unstuff_bits(pCard->ui32CSD, 37, 5);
-    pCSD->WP_GRP_SIZE = am_hal_unstuff_bits(pCard->ui32CSD, 32, 5);
-    pCSD->WP_GRP_ENABLE = am_hal_unstuff_bits(pCard->ui32CSD, 31, 1);
-    pCSD->DEFAULT_ECC = am_hal_unstuff_bits(pCard->ui32CSD, 29, 2);
-    pCSD->R2W_FACTOR = am_hal_unstuff_bits(pCard->ui32CSD, 26, 3);
-    pCSD->WRITE_BL_LEN = am_hal_unstuff_bits(pCard->ui32CSD, 22, 4);
-    pCSD->WRITE_BL_PARTIAL = am_hal_unstuff_bits(pCard->ui32CSD, 21, 1);
-    pCSD->CONTENT_PROT_APP = am_hal_unstuff_bits(pCard->ui32CSD, 16, 1);
-    pCSD->FILE_FORMAT_GRP = am_hal_unstuff_bits(pCard->ui32CSD, 15, 1);
-    pCSD->COPY = am_hal_unstuff_bits(pCard->ui32CSD, 14, 1);
-    pCSD->PERM_WRITE_PROTECT = am_hal_unstuff_bits(pCard->ui32CSD, 13, 1);
-    pCSD->TMP_WRITE_PROTECT = am_hal_unstuff_bits(pCard->ui32CSD, 12, 1);
-    pCSD->FILE_FORMAT = am_hal_unstuff_bits(pCard->ui32CSD, 10, 2);
-    pCSD->ECC = am_hal_unstuff_bits(pCard->ui32CSD, 8, 2);
-    pCSD->CRC = am_hal_unstuff_bits(pCard->ui32CSD, 1, 7);
-    return AM_HAL_STATUS_SUCCESS;
-#endif
-    // #### INTERNAL END ####
 }
 
 //*****************************************************************************
@@ -4633,7 +4652,7 @@ am_hal_card_get_info(am_hal_card_t *pCard, am_hal_card_info_t *pCardInfo)
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( !pCard || !pCard->pHost )
     {
-        AM_HAL_CARD_DEBUG("both Card and Host are needed to be initialized firstly\n");
+        AM_HAL_CARD_DEBUG("both Card and Host are needed to be initialized firstly\n", 0);
         return AM_HAL_STATUS_INVALID_ARG;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
@@ -4668,7 +4687,7 @@ am_hal_sdio_card_byte_read(am_hal_card_t *pCard, uint32_t ui32Func, uint32_t ui3
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, ui32Addr, 0, pui8Data, true);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to read byte from SDIO card\n");
+        AM_HAL_CARD_DEBUG("Fail to read byte from SDIO card\n", 0);
         return ui32Status;
     }
 
@@ -4686,7 +4705,7 @@ am_hal_sdio_card_byte_write(am_hal_card_t *pCard, uint32_t ui32Func, uint32_t ui
     ui32Status = am_hal_sdio_cmd52_io_rw_direct(pCard, ui32Func, ui32Addr, ui8Data, NULL, false);
     if ( ui32Status != AM_HAL_STATUS_SUCCESS )
     {
-        AM_HAL_CARD_DEBUG("Fail to write byte to SDIO card\n");
+        AM_HAL_CARD_DEBUG("Fail to write byte to SDIO card\n", 0);
         return ui32Status;
     }
 
@@ -4847,7 +4866,7 @@ am_hal_card_emmc_partition_switch(am_hal_card_t *pCard, am_hal_card_emmc_partiti
         ui32Status = am_hal_card_mode_switch(pCard, ui32Mode, DEFAULT_CMD6_TIMEOUT_MS);
         if ( ui32Status != AM_HAL_STATUS_SUCCESS )
         {
-            AM_HAL_CARD_DEBUG("Failed to switch partition config\n");
+            AM_HAL_CARD_DEBUG("Failed to switch partition config\n", 0);
             return AM_HAL_STATUS_FAIL;
         }
 
@@ -4896,6 +4915,8 @@ am_hal_sdio_card_calibrate(am_hal_host_inst_index_e eIndex,
     uint32_t ui32RxResultArray[16] = {0};
     uint32_t ui32MisMatchCnt = 0;
     uint32_t ui32WrErrCnt = 0;
+    uint32_t ui32BufAddr = (uint32_t)ui8CalibBuf;
+    am_hal_cachectrl_range_t sRange;
 
 #ifdef AM_DEBUG_PRINTF
     if (eUHSMode == AM_HAL_HOST_UHS_DDR50)
@@ -4932,7 +4953,7 @@ am_hal_sdio_card_calibrate(am_hal_host_inst_index_e eIndex,
             pSdhcCardHost = am_hal_get_card_host((am_hal_host_inst_index_e)(AM_HAL_SDHC_CARD_HOST + eIndex), true);
             if ( pSdhcCardHost == NULL )
             {
-                AM_HAL_CARD_DEBUG("No such card host and stop\n");
+                AM_HAL_CARD_DEBUG("No such card host and stop\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
@@ -4946,20 +4967,20 @@ am_hal_sdio_card_calibrate(am_hal_host_inst_index_e eIndex,
             //
             if ( am_hal_card_host_find_card(pSdhcCardHost, &SdioCard) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("No card is present now\n");
+                AM_HAL_CARD_DEBUG("No card is present now\n", 0);
                 return AM_HAL_STATUS_FAIL;
             }
 
             if ( am_hal_card_init(&SdioCard, AM_HAL_CARD_TYPE_SDIO, NULL, AM_HAL_CARD_PWR_CTRL_SDHC_OFF) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("card initialization failed\n");
+                AM_HAL_CARD_DEBUG("card initialization failed\n", 0);
                 continue;
             }
 
             if ( am_hal_card_cfg_set(&SdioCard, AM_HAL_CARD_TYPE_SDIO,
                 eBusWidth, ui32Clock, eIoVoltage, AM_HAL_HOST_UHS_NONE) != AM_HAL_STATUS_SUCCESS )
             {
-                AM_HAL_CARD_DEBUG("sdio card config failed\n");
+                AM_HAL_CARD_DEBUG("sdio card config failed\n", 0);
                 continue;
             }
 
@@ -5011,6 +5032,13 @@ am_hal_sdio_card_calibrate(am_hal_host_inst_index_e eIndex,
                 ui8CalibBuf[i] = i % 256;
             }
 
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = ui32BufLength;
+                am_hal_cachectrl_dcache_clean(&sRange);
+            }
+
             ui32Status = am_hal_sdio_card_multi_bytes_write_sync(&SdioCard, ui32FuncNum, ui32StartAddr, (uint8_t *)ui8CalibBuf, ui32BlockCnt, ui32BlkSize, true);
             if ( (ui32Status & 0xffff) != AM_HAL_STATUS_SUCCESS )
             {
@@ -5021,12 +5049,26 @@ am_hal_sdio_card_calibrate(am_hal_host_inst_index_e eIndex,
 
             memset((void *)ui8CalibBuf, 0x0, ui32BufLength);
 
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = ui32BufLength;
+                am_hal_cachectrl_dcache_clean(&sRange);
+            }
+
             ui32Status = am_hal_sdio_card_multi_bytes_read_sync(&SdioCard, ui32FuncNum, ui32StartAddr, (uint8_t *)ui8CalibBuf, ui32BlockCnt, ui32BlkSize, true);
             if ( (ui32Status & 0xffff)  != AM_HAL_STATUS_SUCCESS )
             {
                 ui32WrErrCnt ++;
                 AM_HAL_CARD_DEBUG("Sdio Card calibration read fail. Status=0x%x\n", ui32Status & 0xffff);
                 continue;
+            }
+
+            if (ui32BufAddr >= SSRAM_BASEADDR)
+            {
+                sRange.ui32StartAddr = (uint32_t)ui8CalibBuf;
+                sRange.ui32Size = ui32BufLength;
+                am_hal_cachectrl_dcache_invalidate(&sRange, false);
             }
 
             for (i = 0; i < ui32BufLength; i++)
@@ -5051,7 +5093,7 @@ am_hal_sdio_card_calibrate(am_hal_host_inst_index_e eIndex,
     }
 
 #ifdef AM_DEBUG_PRINTF
-    AM_HAL_CARD_DEBUG("\nSDIO TX RX Delay Scan Result:\n");
+    AM_HAL_CARD_DEBUG("\nSDIO TX RX Delay Scan Result:\n", 0);
     for (i = 0; i < SDIO_SCAN_TXDELAY_MAX; i++ )
     {
         AM_HAL_CARD_DEBUG("TX_Delay = %2d, RX_Delay Window = 0x%08X\n", i, ui32RxResultArray[i]);
@@ -5113,7 +5155,7 @@ am_hal_sdio_card_calibrate(am_hal_host_inst_index_e eIndex,
 
     if (pSdhcCardHost == NULL)
     {
-        AM_HAL_CARD_DEBUG("No such card host and stop\n");
+        AM_HAL_CARD_DEBUG("No such card host and stop\n", 0);
         return AM_HAL_STATUS_FAIL;
     }
     am_hal_card_host_set_txrx_delay(pSdhcCardHost, ui8TxRxDelays);
@@ -5213,7 +5255,7 @@ am_hal_sd_card_block_write_sync(am_hal_card_t *pCard, uint32_t ui32Blk, uint32_t
 {
     if ( pCard->sdcard.bWrProtect )
     {
-        AM_HAL_CARD_DEBUG("SD Card is protected, fail to write sd card\n");
+        AM_HAL_CARD_DEBUG("SD Card is protected, fail to write sd card\n", 0);
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
 
@@ -5241,7 +5283,7 @@ am_hal_sd_card_block_write_async(am_hal_card_t *pCard, uint32_t ui32Blk, uint32_
 {
     if ( pCard->sdcard.bWrProtect )
     {
-        AM_HAL_CARD_DEBUG("SD Card is protected, fail to write sd card\n");
+        AM_HAL_CARD_DEBUG("SD Card is protected, fail to write sd card\n", 0);
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
 

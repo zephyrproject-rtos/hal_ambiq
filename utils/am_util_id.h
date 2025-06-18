@@ -95,6 +95,16 @@ extern "C"
 #if defined(AM_PART_APOLLO510)
 #define AM_ID_APOLLO510
 #endif
+#if defined(AM_PART_APOLLO330P)
+#define AM_ID_APOLLO330P
+#endif
+#if defined(AM_PART_APOLLO510L)
+#define AM_ID_APOLLO510L
+#endif
+#if defined(AM_PART_APOLLO510L_CM4)
+#define AM_ID_APOLLO510L_CM4
+#endif
+
 
 //
 //! Handle AM_ID_APOLLO_ALL
@@ -127,13 +137,19 @@ extern "C"
 #ifndef AM_ID_APOLLO510
 #define AM_ID_APOLLO510
 #endif
+#ifndef AM_ID_APOLLO510L
+#define AM_ID_APOLLO510L
+#endif
+#ifndef AM_ID_APOLLO510L_CM4
+#define AM_ID_APOLLO510L_CM4
+#endif
 #endif // AM_ID_APOLLO_ALL
 
 
 //
 // Define a macro for packages for certain devices.
 //
-#if defined(AM_ID_APOLLO4P) || defined(AM_ID_APOLLO510)
+#if defined(AM_ID_APOLLO4P) || defined(AM_ID_APOLLO510) || defined(AM_ID_APOLLO510L)
 //
 // PKGSTD is SIP, SIP2, BGA, CSP
 //
@@ -202,17 +218,19 @@ am_util_id_t;
 //! @{
 //
 //*****************************************************************************
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO510         0x10000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO4L          0x09000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO4           0x08000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO3P          0x07000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO3           0x06000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLOBL          0x05000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_VOYAGER           0x04000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO2           0x03000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLOHC          0x02000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO            0x01000000
-#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_PN_M              0xFF000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO330P  0x12000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO510L  0x11000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO510   0x10000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO4L    0x09000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO4     0x08000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO3P    0x07000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO3     0x06000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLOBL    0x05000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_VOYAGER     0x04000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO2     0x03000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLOHC    0x02000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO      0x01000000
+#define AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_PN_M        0xFF000000
 //! @}
 
 //*****************************************************************************
@@ -230,6 +248,9 @@ am_util_id_t;
 #define AM_UTIL_ID_APOLLO4P         0x0104      // Apollo4 Plus
 #define AM_UTIL_ID_APOLLO4L         0x0204      // Apollo4 Lite
 #define AM_UTIL_ID_APOLLO510        0x0105      // Apollo510 (revB)
+#define AM_UTIL_ID_APOLLO510L       0x0205      // Apollo510 Lite
+#define AM_UTIL_ID_APOLLO510L_CM4   0x0205      // Apollo5 Lite
+#define AM_UTIL_ID_APOLLO330P       0x0305      // Apollo330P
 //! @}
 
 //*****************************************************************************

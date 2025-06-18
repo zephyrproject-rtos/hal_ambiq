@@ -9,9 +9,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_REG_JEDEC_H
@@ -58,7 +85,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID4;                /*!< 0xE00FFFD0 (R/ )  PID4 Register */
+    __IM  uint32_t PID4;                /*!< 0xE00FEFD0 (R/ )  PID4 Register */
 
     struct
     {
@@ -68,7 +95,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID5;                /*!< 0xE00FFFD4 (R/ )  PID5 Register */
+    __IM  uint32_t PID5;                /*!< 0xE00FEFD4 (R/ )  PID5 Register */
 
     struct
     {
@@ -78,7 +105,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID6;                /*!< 0xE00FFFD8 (R/ )  PID6 Register */
+    __IM  uint32_t PID6;                /*!< 0xE00FEFD8 (R/ )  PID6 Register */
 
     struct
     {
@@ -88,7 +115,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID7;                /*!< 0xE00FFFDC (R/ )  PID7 Register */
+    __IM  uint32_t PID7;                /*!< 0xE00FEFDC (R/ )  PID7 Register */
 
     struct
     {
@@ -98,7 +125,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID0;                /*!< 0xE00FFFE0 (R/ )  PID0 Register */
+    __IM  uint32_t PID0;                /*!< 0xE00FEFE0 (R/ )  PID0 Register */
 
     struct
     {
@@ -108,7 +135,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID1;                /*!< 0xE00FFFE4 (R/ )  PID1 Register */
+    __IM  uint32_t PID1;                /*!< 0xE00FEFE4 (R/ )  PID1 Register */
 
     struct
     {
@@ -119,7 +146,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID2;                /*!< 0xE00FFFE8 (R/ )  PID2 Register */
+    __IM  uint32_t PID2;                /*!< 0xE00FEFE8 (R/ )  PID2 Register */
 
     struct
     {
@@ -130,7 +157,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t PID3;                /*!< 0xE00FFFEC (R/ )  PID3 Register */
+    __IM  uint32_t PID3;                /*!< 0xE00FEFEC (R/ )  PID3 Register */
 
     struct
     {
@@ -141,7 +168,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t CID0;                /*!< 0xE00FFFF0 (R/ )  CID0 Register */
+    __IM  uint32_t CID0;                /*!< 0xE00FEFF0 (R/ )  CID0 Register */
 
     struct
     {
@@ -151,7 +178,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t CID1;                /*!< 0xE00FFFF4 (R/ )  CID1 Register */
+    __IM  uint32_t CID1;                /*!< 0xE00FEFF4 (R/ )  CID1 Register */
 
     struct
     {
@@ -161,7 +188,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t CID2;                /*!< 0xE00FFFF8 (R/ )  CID2 Register */
+    __IM  uint32_t CID2;                /*!< 0xE00FEFF8 (R/ )  CID2 Register */
 
     struct
     {
@@ -171,7 +198,7 @@ typedef struct
 
   union
   {
-    __IM  uint32_t CID3;                /*!< 0xE00FFFFC (R/ )  CID3 Register */
+    __IM  uint32_t CID3;                /*!< 0xE00FEFFC (R/ )  CID3 Register */
 
     struct
     {
@@ -306,9 +333,11 @@ typedef struct
 #define JEDEC_CID3_CID_Pos                  0U
 #define JEDEC_CID3_CID_Msk                  (0x000000FFUL)
 
-
-
-#define JEDEC_BASE  (0xE00FFF00UL)                            /*!< JEDEC Base Address */
+//
+// The Arm Cortex-M55 ROM Table base address is 0xE00FFxxx.
+// The base address for Apollo510 JEP-106 ID is 0xE00FExxx.
+//
+#define JEDEC_BASE  (0xE00FEF00UL)                            /*!< JEDEC Base Address */
 
 #define JEDEC   ((JEDEC_Type       *)     JEDEC_BASE      )   /*!< JEDEC configuration struct */
 
@@ -328,7 +357,6 @@ typedef struct
 #elif defined (__CSMC__)
   /* anonymous unions are enabled by default */
 #endif
-
 
 #endif // AM_REG_JEDEC_H
 

@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -22,6 +49,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include "am_mcu_apollo.h"
+#include "mcu/am_hal_crm_private.h"
 
 //*****************************************************************************
 //
@@ -30,7 +58,26 @@
 //
 //*****************************************************************************
 #define AM_HAL_MAGIC_I2S            0x125125
-#define AM_HAL_I2S_HANDLE_VALID(h)    ((h) && ((am_hal_handle_prefix_t *)(h))->s.bInit && (((am_hal_handle_prefix_t *)(h))->s.magic == AM_HAL_MAGIC_I2S))
+#define AM_HAL_I2S_HANDLE_VALID(h)                                            \
+    ((h) &&                                                                   \
+    ((am_hal_handle_prefix_t *)(h))->s.bInit &&                               \
+    (((am_hal_handle_prefix_t *)(h))->s.magic == AM_HAL_MAGIC_I2S))
+//! @}
+
+//*****************************************************************************
+//
+//! Abbreviation for validating handles and returning errors
+//
+//*****************************************************************************
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+#define AM_HAL_I2S_CHK_HANDLE(h)                                              \
+    if (!AM_HAL_I2S_HANDLE_VALID(h))                                          \
+    {                                                                         \
+        return AM_HAL_STATUS_INVALID_HANDLE;                                  \
+    }
+#else
+#define AM_HAL_I2S_CHK_HANDLE(h)
+#endif // AM_HAL_DISABLE_API_VALIDATION
 
 //*****************************************************************************
 //
@@ -50,30 +97,19 @@
 //! it takes to fill the entire DMA buffer.
 //
 //*****************************************************************************
-// #### INTERNAL BEGIN ####
-// Please refer to the following wiki link for detailed information.
-// https://ambiqmicro.atlassian.net/wiki/spaces/C/pages/3551854611/Two-Stage+DMA+Request+Pipeline+Feature
-// #### INTERNAL END ####
 #ifndef AM_HAL_DISABLE_I2S_TWO_STAGE_DMA
 #define USE_I2S_TWO_STAGE_DMA
 #else
 #undef  USE_I2S_TWO_STAGE_DMA
 #endif
 
-#define AM_HAL_I2S_CHK_HANDLE(h)                                              \
-    if (!AM_HAL_I2S_HANDLE_VALID(h))                                          \
-    {                                                                         \
-        return AM_HAL_STATUS_INVALID_HANDLE;                                  \
-    }
-//! @}
-
 //*****************************************************************************
 //
 // Extract the mux selection from a given clock.
 //
 //*****************************************************************************
-#define extract_crm_mux(x)     ((x & AM_HAL_I2S_CLK_CRM_MUX_MSK) >> AM_HAL_I2S_CLK_CRM_MUX_POS)
-#define extract_nco_mux(x)     ((x & AM_HAL_I2S_CLK_NCO_MUX_MSK) >> AM_HAL_I2S_CLK_NCO_MUX_POS)
+#define EXTRACT_CRM_MUX(x)     ((x & AM_HAL_I2S_CLK_CRM_MUX_MSK) >> AM_HAL_I2S_CLK_CRM_MUX_POS)
+#define EXTRACT_NCO_MUX(x)     ((x & AM_HAL_I2S_CLK_NCO_MUX_MSK) >> AM_HAL_I2S_CLK_NCO_MUX_POS)
 
 //*****************************************************************************
 //
@@ -129,7 +165,16 @@ typedef struct
     uint32_t                ui32TxBufferSizeBytes;
 
     am_hal_i2s_clksel_e     eClockSel;
-    uint32_t ui32ClockDivideRatio;
+    uint32_t                ui32ClockDivideRatio;
+
+    am_hal_i2s_mclkout_sel_e eMclkout;
+    uint32_t                ui32MclkoutDiv;
+    bool                    bInternalMclkRequired;
+    bool                    bModuleEnabledBeforePowerdown;
+
+    //! Store application's settings.
+    am_hal_i2s_data_format_t sDataFormat;
+    am_hal_i2s_io_signal_t   sIoConfig;
 }am_hal_i2s_state_t;
 
 //*****************************************************************************
@@ -139,23 +184,106 @@ typedef struct
 //*****************************************************************************
 am_hal_i2s_state_t          g_I2Shandles[AM_REG_I2S_NUM_MODULES];
 
-static void
-i2s_clock_set(uint32_t ui32Module, am_hal_i2s_clksel_e targetClk, uint32_t clkDivideRatio)
+//*****************************************************************************
+//
+//! @brief [Internal] Get the CLKMGR ID from the clock selection
+//!
+//! @param ui32Clocksel - Clock selection in am_hal_i2s_clksel_e or am_hal_i2s_mclkout_sel_e.
+//! @param bIsMclkout   - Specifies if ui32Clocksel is am_hal_i2s_mclkout_sel_e, true for yes.
+//!
+//! @return clockId     - Clock ID in clock manager.
+//
+//*****************************************************************************
+static am_hal_clkmgr_clock_id_e
+i2s_clock_id_get(uint32_t ui32Clocksel, bool bIsMclkout)
 {
-    if (clkDivideRatio == 0)
+    if (bIsMclkout == false)
     {
-        clkDivideRatio = 1;
+        switch ((am_hal_i2s_clksel_e)ui32Clocksel)
+        {
+            case AM_HAL_I2S_CLKSEL_HFRC_48MHz:
+            case AM_HAL_I2S_CLKSEL_NCO_HFRC_96MHz:
+                return AM_HAL_CLKMGR_CLK_ID_HFRC;
+
+            case AM_HAL_I2S_CLKSEL_XTHS:
+            case AM_HAL_I2S_CLKSEL_NCO_XTHS:
+                return AM_HAL_CLKMGR_CLK_ID_XTAL_HS;
+
+            case AM_HAL_I2S_CLKSEL_PLL_POSTDIV:
+            case AM_HAL_I2S_CLKSEL_PLL_FOUT3:
+            case AM_HAL_I2S_CLKSEL_PLL_FOUT4:
+            case AM_HAL_I2S_CLKSEL_NCO_PLL_POSTDIV:
+                return AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+
+            case AM_HAL_I2S_CLKSEL_EXTREF:
+            case AM_HAL_I2S_CLKSEL_NCO_EXTREF:
+                return AM_HAL_CLKMGR_CLK_ID_EXTREF_CLK;
+
+            case AM_HAL_I2S_CLKSEL_OFF:
+            default:
+                return AM_HAL_CLKMGR_CLK_ID_MAX;
+        }
     }
-
-    if (targetClk != AM_HAL_I2S_CLKSEL_OFF)
+    else
     {
-        //
-        // Reset CRM by writting the default value of CRM.
-        //
-        CRM->I2S0MCLKCRM = 0;
-        CRM->I2S0REFCLKCRM = 0;
+        switch ((am_hal_i2s_mclkout_sel_e)ui32Clocksel)
+        {
+            case AM_HAL_I2S_MCLKOUT_SEL_HFRC48:
+                return AM_HAL_CLKMGR_CLK_ID_HFRC;
 
-        bool bUseNcoClock = (extract_nco_mux(targetClk) == AM_HAL_I2S_CLK_NCO_ENABLE) ? true : false;
+            case AM_HAL_I2S_MCLKOUT_SEL_XTAL:
+                return AM_HAL_CLKMGR_CLK_ID_XTAL_HS;
+
+            case AM_HAL_I2S_MCLKOUT_SEL_PLLPOSTDIV:
+            case AM_HAL_I2S_MCLKOUT_SEL_PLLFOUT3:
+            case AM_HAL_I2S_MCLKOUT_SEL_PLLFOUT4:
+                return AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+
+            case AM_HAL_I2S_MCLKOUT_SEL_EXTREF:
+                return AM_HAL_CLKMGR_CLK_ID_EXTREF_CLK;
+
+            case AM_HAL_I2S_MCLKOUT_SEL_OFF:
+            default:
+                return AM_HAL_CLKMGR_CLK_ID_MAX;
+        }
+    }
+}
+
+//*****************************************************************************
+//
+//! @brief [Internal] Set I2S moudule clock
+//!
+//! @param ui32Module           - I2S instance index.
+//! @param eClocksel            - Clock selection in am_hal_i2s_clksel_e.
+//! @param ui32ClockDivideRatio - Clock divider ratio for the given clock.
+//!
+//! This function configures the I2S module clock, the frequency of moudle clock
+//! equals to the selected clock frequency divided by the clock divider ratio.
+//!
+//! @return status              - generic or interface specific status.
+//
+//*****************************************************************************
+static uint32_t
+i2s_clock_set(uint32_t ui32Module, am_hal_i2s_clksel_e eClocksel, uint32_t ui32ClockDivideRatio)
+{
+    uint32_t ui32Status;
+    am_hal_clkmgr_user_id_e eUserID = AM_HAL_CLKMGR_USER_ID_I2S0;
+    // Array to store the clock ID for each suceessful request.
+    static am_hal_clkmgr_clock_id_e eStoredClockId[AM_REG_I2S_NUM_MODULES] = {AM_HAL_CLKMGR_CLK_ID_MAX};
+
+    if (eClocksel != AM_HAL_I2S_CLKSEL_OFF)
+    {
+        bool bUseNcoClock = (EXTRACT_NCO_MUX(eClocksel) == AM_HAL_I2S_CLK_NCO_ENABLE) ? true : false;
+
+        //
+        // Request clock from the clock manager.
+        //
+        am_hal_clkmgr_clock_id_e eClockID = i2s_clock_id_get(eClocksel, false);
+        ui32Status = am_hal_clkmgr_clock_request(eClockID, eUserID);
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            return ui32Status;
+        }
 
         if (bUseNcoClock)
         {
@@ -165,60 +293,143 @@ i2s_clock_set(uint32_t ui32Module, am_hal_i2s_clksel_e targetClk, uint32_t clkDi
             I2Sn(0)->AMQCFG_b.MCLKSRC = 1;
 
             //
-            // Take CRM out of reset.
+            // Set and enable clock via CRM.
             //
-            CRM->I2S0REFCLKCRM_b.I2S0REFCLKCRMRSTN = 1;
+            ui32Status = am_hal_crm_clock_config_I2S0REFCLK((am_hal_crm_i2srefclk_clksel_e)EXTRACT_CRM_MUX(eClocksel), ui32ClockDivideRatio - 1);
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                am_hal_clkmgr_clock_release(eClockID, eUserID);
+                return ui32Status;
+            }
 
-            //
-            // Select clock source of I2S.
-            //
-            CRM->I2S0REFCLKCRM_b.I2S0REFCLKCLKSEL = extract_crm_mux(targetClk);
-
-            #warning "TODO: may need to add a member in am_hal_i2s_config_t to configure CLKDIV."
-            //
-            // Set clock divider.
-            //
-            CRM->I2S0REFCLKCRM_b.I2S0REFCLKCLKDIV = clkDivideRatio - 1;
-
-            //
-            // Enable CRM to output clock to I2S.
-            //
-            CRM->I2S0REFCLKCRM_b.I2S0REFCLKCLKEN = 1;
+            ui32Status = am_hal_crm_control_I2S0REFCLK_CLOCK_SET(true);
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                am_hal_clkmgr_clock_release(eClockID, eUserID);
+                return ui32Status;
+            }
         }
         else
         {
+            //
+            // Select MCLK as I2S clock source
+            //
             I2Sn(0)->AMQCFG_b.MCLKSRC = 0;
 
             //
-            // Take CRM out of reset.
+            // Set and enable clock via CRM.
             //
-            CRM->I2S0MCLKCRM_b.I2S0MCLKCRMRSTN = 1;
+            ui32Status = am_hal_crm_clock_config_I2S0MCLK((am_hal_crm_i2smclk_clksel_e)EXTRACT_CRM_MUX(eClocksel), ui32ClockDivideRatio - 1);
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                am_hal_clkmgr_clock_release(eClockID, eUserID);
+                return ui32Status;
+            }
 
-            //
-            // Select clock source of I2S.
-            //
-            CRM->I2S0MCLKCRM_b.I2S0MCLKCLKSEL = extract_crm_mux(targetClk);
-
-            #warning "TODO: may need to add a member in am_hal_i2s_config_t to configure CLKDIV."
-            //
-            // Set clock divider.
-            //
-            CRM->I2S0MCLKCRM_b.I2S0MCLKCLKDIV = clkDivideRatio - 1;
-
-            //
-            // Enable CRM to output clock to I2S.
-            //
-            CRM->I2S0MCLKCRM_b.I2S0MCLKCLKEN = 1;
+            ui32Status = am_hal_crm_control_I2S0MCLK_CLOCK_SET(true);
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                am_hal_clkmgr_clock_release(eClockID, eUserID);
+                return ui32Status;
+            }
         }
+
+        //
+        // Store the clock ID if everything is successful.
+        //
+        eStoredClockId[ui32Module] = eClockID;
     }
     else
     {
         //
-        // Reset CRM by writting the default value of CRM.
+        // Gate MCLK and NCO clock.
         //
-        CRM->I2S0MCLKCRM = 0;
-        CRM->I2S0REFCLKCRM = 0;
+        am_hal_crm_control_I2S0MCLK_CLOCK_SET(false);
+        am_hal_crm_control_I2S0REFCLK_CLOCK_SET(false);
+
+        //
+        // Release the clock if it was previously requested.
+        //
+        am_hal_clkmgr_clock_release(eStoredClockId[ui32Module], eUserID);
+        eStoredClockId[ui32Module] = AM_HAL_CLKMGR_CLK_ID_MAX;
     }
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
+//! @brief [Internal] Set I2S MCLKOUT
+//!
+//! @param ui32Module           - I2S instance index.
+//! @param eClocksel            - Clock selection in am_hal_i2s_mclkout_sel_e.
+//! @param ui32ClockDivideRatio - Clock divider ratio for the given clock.
+//!
+//! This function configures the I2S MCLKOUT, the frequency of MCLKOUT equals
+//! to the selected clock frequency divided by the clock divider ratio.
+//! The MCLKOUT clock is an independent signal and does not cross the I2S module.
+//! It is used to drive external devices like a codec.
+//!
+//! @return status              - generic or interface specific status.
+//
+//*****************************************************************************
+static uint32_t
+i2s_mclkout_set(uint32_t ui32Module, am_hal_i2s_mclkout_sel_e eClocksel, uint32_t ui32ClockDivideRatio)
+{
+    uint32_t ui32Status;
+    am_hal_clkmgr_user_id_e eUserID = AM_HAL_CLKMGR_USER_ID_I2S0;
+    // Array to store the clock ID for each suceessful request.
+    static am_hal_clkmgr_clock_id_e eStoredClockId[AM_REG_I2S_NUM_MODULES] = {AM_HAL_CLKMGR_CLK_ID_MAX};
+
+    if (eClocksel != AM_HAL_I2S_MCLKOUT_SEL_OFF)
+    {
+        //
+        // Request clock from the clock manager.
+        //
+        am_hal_clkmgr_clock_id_e eClockID = i2s_clock_id_get(eClocksel, true);
+        ui32Status = am_hal_clkmgr_clock_request(eClockID, eUserID);
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            return ui32Status;
+        }
+
+        //
+        // Set and enable MCLKOUT via CRM.
+        //
+        ui32Status = am_hal_crm_clock_config_I2S0MCLKOUT((am_hal_crm_i2smclkout_clksel_e)EXTRACT_CRM_MUX(eClocksel), ui32ClockDivideRatio - 1);
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            am_hal_clkmgr_clock_release(eClockID, eUserID);
+            return ui32Status;
+        }
+
+        ui32Status = am_hal_crm_control_I2S0MCLKOUT_CLOCK_SET(true);
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            am_hal_clkmgr_clock_release(eClockID, eUserID);
+            return ui32Status;
+        }
+
+        //
+        // Store the clock ID if everything is successful.
+        //
+        eStoredClockId[ui32Module] = eClockID;
+    }
+    else
+    {
+        //
+        // Gate MCLKOUT.
+        //
+        am_hal_crm_control_I2S0MCLKOUT_CLOCK_SET(false);
+
+        //
+        // Release the clock if it was previously requested.
+        //
+        am_hal_clkmgr_clock_release(eStoredClockId[ui32Module], eUserID);
+        eStoredClockId[ui32Module] = AM_HAL_CLKMGR_CLK_ID_MAX;
+    }
+
+    return AM_HAL_STATUS_SUCCESS;
 }
 
 //*****************************************************************************
@@ -237,7 +448,7 @@ am_hal_i2s_initialize(uint32_t ui32Module, void **ppHandle)
     //
     // Validate the module number
     //
-    if ( ui32Module >= AM_REG_I2S_NUM_MODULES )
+    if (ui32Module >= AM_REG_I2S_NUM_MODULES)
     {
         return AM_HAL_STATUS_OUT_OF_RANGE;
     }
@@ -260,6 +471,8 @@ am_hal_i2s_initialize(uint32_t ui32Module, void **ppHandle)
     // Initialize the handle.
     //
     g_I2Shandles[ui32Module].ui32Module = ui32Module;
+    g_I2Shandles[ui32Module].bInternalMclkRequired = false;
+    g_I2Shandles[ui32Module].bModuleEnabledBeforePowerdown = false;
     //
     // Return the handle.
     //
@@ -278,17 +491,22 @@ am_hal_i2s_initialize(uint32_t ui32Module, void **ppHandle)
 uint32_t
 am_hal_i2s_deinitialize(void *pHandle)
 {
-    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *)pHandle;
     //
     // Check the handle.
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *)pHandle;
+
     //
     // Reset the handle.
     //
     pState->prefix.s.bInit = false;
     pState->prefix.s.magic = 0;
     pState->ui32Module = 0;
+    pState->bInternalMclkRequired = false;
+    pState->bModuleEnabledBeforePowerdown = false;
+
     //
     // Return the status.
     //
@@ -303,15 +521,13 @@ am_hal_i2s_deinitialize(void *pHandle)
 //*****************************************************************************
 uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArgs)
 {
-    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t*)pHandle;
-    uint32_t ui32Module = pState->ui32Module;
-
-#ifndef AM_HAL_DISABLE_API_VALIDATION
     //
-    // Validate the parameters
+    // Check the handle.
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
-#endif // AM_HAL_DISABLE_API_VALIDATION
+
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t*)pHandle;
+    uint32_t ui32Module = pState->ui32Module;
 
     switch (eReq)
     {
@@ -336,6 +552,52 @@ uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArg
         case AM_HAL_I2S_REQ_WRITE_TXLOWERLIMIT:
             I2Sn(ui32Module)->TXLOWERLIMIT = *((uint32_t*)pArgs);
             break;
+
+        case AM_HAL_I2S_REQ_SET_CH_NUM_FOR_MONO:
+            if (pArgs == NULL)
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+
+            // Only 1 or 2 channels are allowed for mono mode.
+            uint32_t ui32ChannelNumbersForMono;
+
+            ui32ChannelNumbersForMono = *((uint32_t*)pArgs);
+            if ((ui32ChannelNumbersForMono != 1) && (ui32ChannelNumbersForMono != 2))
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+
+            am_hal_i2s_data_format_t* pI2SData;
+            am_hal_i2s_io_signal_t* pIoConfig;
+            uint32_t ui32FramePeriod;
+
+            pI2SData = &(pState->sDataFormat);
+            pIoConfig = &(pState->sIoConfig);
+            ui32FramePeriod = ui32ChannelNumbersForMono * ui32I2sWordLength[pI2SData->eChannelLenPhase1];
+
+            if ((pI2SData->ePhase == AM_HAL_I2S_DATA_PHASE_SINGLE) && (pI2SData->ui32ChannelNumbersPhase1 == 1))
+            {
+                I2Sn(ui32Module)->I2SIOCFG_b.FPER = ui32FramePeriod - 1;
+                if (pIoConfig->sFsyncPulseCfg.eFsyncPulseType == AM_HAL_I2S_FSYNC_PULSE_HALF_FRAME_PERIOD)
+                {
+                    I2Sn(ui32Module)->I2SIOCFG_b.FWID = ui32FramePeriod / 2 - 1;
+                }
+                else if (pIoConfig->sFsyncPulseCfg.eFsyncPulseType == AM_HAL_I2S_FSYNC_PULSE_CUSTOM)
+                {
+                    if (pIoConfig->sFsyncPulseCfg.ui32FsyncPulseWidth >= ui32FramePeriod)
+                    {
+                        return AM_HAL_STATUS_INVALID_ARG;
+                    }
+                }
+            }
+            else
+            {
+                return AM_HAL_STATUS_INVALID_OPERATION;
+            }
+
+            break;
+
         case AM_HAL_I2S_REQ_MAX:
             return AM_HAL_STATUS_INVALID_ARG;
     }
@@ -351,8 +613,12 @@ uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArg
 uint32_t
 am_hal_i2s_configure(void *pHandle, am_hal_i2s_config_t *psConfig)
 {
-    uint32_t status = AM_HAL_STATUS_SUCCESS;
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
 
+    uint32_t status = AM_HAL_STATUS_SUCCESS;
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t*)pHandle;
     uint32_t ui32Module = pState->ui32Module;
 
@@ -360,12 +626,11 @@ am_hal_i2s_configure(void *pHandle, am_hal_i2s_config_t *psConfig)
     //
     // Validate the parameters
     //
-    if ((pHandle == NULL) || (psConfig == NULL) || (pState->ui32Module >= AM_REG_I2S_NUM_MODULES))
+    if ((psConfig == NULL) || (psConfig->eData == NULL) || (psConfig->eIO == NULL))
     {
         return AM_HAL_STATUS_INVALID_ARG;
     }
 
-    AM_HAL_I2S_CHK_HANDLE(pHandle);
     //
     // Configure not allowed in Enabled state
     //
@@ -406,14 +671,32 @@ am_hal_i2s_configure(void *pHandle, am_hal_i2s_config_t *psConfig)
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
+    //
+    // Store data format information from the application.
+    //
+    pState->sDataFormat.ePhase                   = pI2SData->ePhase;
+    pState->sDataFormat.ui32ChannelNumbersPhase1 = pI2SData->ui32ChannelNumbersPhase1;
+    pState->sDataFormat.ui32ChannelNumbersPhase2 = pI2SData->ui32ChannelNumbersPhase2;
+    pState->sDataFormat.eChannelLenPhase1        = pI2SData->eChannelLenPhase1;
+    pState->sDataFormat.eChannelLenPhase2        = pI2SData->eChannelLenPhase2;
+    pState->sDataFormat.eDataDelay               = pI2SData->eDataDelay;
+    pState->sDataFormat.eSampleLenPhase1         = pI2SData->eSampleLenPhase1;
+    pState->sDataFormat.eSampleLenPhase2         = pI2SData->eSampleLenPhase2;
+    pState->sDataFormat.eDataJust                = pI2SData->eDataJust;
+
+    //
+    // Store IO configuration from the application.
+    //
+    pState->sIoConfig.sFsyncPulseCfg.eFsyncPulseType = pI2SIOCfg->sFsyncPulseCfg.eFsyncPulseType;
+    pState->sIoConfig.sFsyncPulseCfg.ui32FsyncPulseWidth = pI2SIOCfg->sFsyncPulseCfg.ui32FsyncPulseWidth;
+
     uint32_t ui32FramePeriod = 0;
     uint32_t ui32FsyncPulseWidth = 0;
 
     //
     // Reset the serial receiver or transmitter by asserting bits RXRST and/or TXRST in the I2SCTL register
     //
-    I2Sn(ui32Module)->I2SCTL_b.RXRST = 1;
-    I2Sn(ui32Module)->I2SCTL_b.TXRST = 1;
+    I2Sn(ui32Module)->I2SCTL = _VAL2FLD(I2S0_I2SCTL_RXRST, 1) | _VAL2FLD(I2S0_I2SCTL_TXRST, 1);
     am_hal_delay_us(200);
 
     //
@@ -424,12 +707,11 @@ am_hal_i2s_configure(void *pHandle, am_hal_i2s_config_t *psConfig)
     if (pI2SData->ePhase == AM_HAL_I2S_DATA_PHASE_SINGLE)
     {
         //
-        // In mono mode, frame period (in units of sclk) is twice the word width.
-        // Refer to Programmer's Guide for details.
+        // In mono mode, frame period (in units of sclk) can be set to once or twice of the word width.
         //
         if (pI2SData->ui32ChannelNumbersPhase1 == 1)
         {
-            ui32FramePeriod = 2 * ui32I2sWordLength[pI2SData->eChannelLenPhase1];
+            ui32FramePeriod = AM_HAL_I2S_CH_NUM_FOR_MONO * ui32I2sWordLength[pI2SData->eChannelLenPhase1];
         }
         else
         {
@@ -499,44 +781,60 @@ am_hal_i2s_configure(void *pHandle, am_hal_i2s_config_t *psConfig)
     //
     // Clock related settings.
     //
-    pState->eClockSel = psConfig->eClock;
-    pState->ui32ClockDivideRatio = psConfig->ui32ClockDivideRatio;
+    pState->bInternalMclkRequired = (psConfig->eMode == AM_HAL_I2S_IO_MODE_MASTER) ? true : false;
 
-    bool bUseNcoClock = (extract_nco_mux(psConfig->eClock) == AM_HAL_I2S_CLK_NCO_ENABLE) ? true : false;
-    if (bUseNcoClock)
+    if (pState->bInternalMclkRequired)
     {
         //
-        // Extract the integer part of the divisor.
+        // Not a vaild clock source.
         //
-        uint32_t ui32I = (uint32_t)(psConfig->f64NcoDiv);
-        //
-        // Extract the fractional part of the divisor, multiply 2^32 and round the result.
-        //
-        uint64_t ui64Q = (uint64_t)((psConfig->f64NcoDiv - (double)ui32I) * 0x100000000ULL + 0.5);
-        //
-        // If the fractional part is saturated, add one to the integer part.
-        //
-        if (ui64Q == 0x100000000ULL)
-        {
-            ui32I = ui32I + 1;
-            ui64Q = 0;
-        }
-        //
-        // nco_ref_clk frequency must be at least 4x the desired nco_mclk frequency.
-        //
-        if (ui32I < 4)
+        if (psConfig->eClock == AM_HAL_I2S_CLKSEL_OFF)
         {
             return AM_HAL_STATUS_INVALID_ARG;
         }
 
-        I2Sn(ui32Module)->INTDIV  = ui32I;
-        I2Sn(ui32Module)->FRACDIV = (uint32_t)ui64Q;
+        pState->eClockSel = psConfig->eClock;
+        pState->ui32ClockDivideRatio = (psConfig->eDiv3 == 0) ? (psConfig->ui32ClockDivideRatio) : (psConfig->ui32ClockDivideRatio * 3);
+
+        bool bUseNcoClock = (EXTRACT_NCO_MUX(psConfig->eClock) == AM_HAL_I2S_CLK_NCO_ENABLE) ? true : false;
+        if (bUseNcoClock)
+        {
+            //
+            // Extract the integer part of the divisor.
+            //
+            uint32_t ui32I = (uint32_t)(psConfig->f64NcoDiv);
+            //
+            // Extract the fractional part of the divisor, multiply 2^32 and round the result.
+            //
+            uint64_t ui64Q = (uint64_t)((psConfig->f64NcoDiv - (double)ui32I) * 0x100000000ULL + 0.5);
+            //
+            // If the fractional part is saturated, add one to the integer part.
+            //
+            if (ui64Q == 0x100000000ULL)
+            {
+                ui32I = ui32I + 1;
+                ui64Q = 0;
+            }
+            //
+            // nco_ref_clk frequency must be at least 4x the desired nco_mclk frequency.
+            //
+            if (ui32I < 4)
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+
+            I2Sn(ui32Module)->INTDIV  = ui32I;
+            I2Sn(ui32Module)->FRACDIV = (uint32_t)ui64Q;
+        }
+
+    }
+    else
+    {
+        pState->eClockSel = AM_HAL_I2S_CLKSEL_OFF;
     }
 
-    //
-    // Internal DIV3 divider, only work for non-NCO clock.
-    //
-    I2Sn(ui32Module)->CLKCFG_b.DIV3 = (psConfig->eDiv3 == 0) ? 0 : 1;
+    pState->eMclkout = psConfig->eMclkout;
+    pState->ui32MclkoutDiv = psConfig->ui32MclkoutDiv;
 
     //
     // RXTX DMA limit: FIFO 50 percent full
@@ -558,13 +856,15 @@ am_hal_i2s_configure(void *pHandle, am_hal_i2s_config_t *psConfig)
 uint32_t
 am_hal_i2s_dma_transfer_start(void *pHandle,  am_hal_i2s_config_t *pConfig)
 {
-    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
-    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
-    uint32_t ui32Module = pState->ui32Module;
     //
     // Check the handle.
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
+
     //
     // Poll Transmit FIFO Status register to
     // prevent the Transmit FIFO from becoming empty.
@@ -582,21 +882,18 @@ am_hal_i2s_dma_transfer_start(void *pHandle,  am_hal_i2s_config_t *pConfig)
     if ( pConfig->eXfer == AM_HAL_I2S_XFER_RX )
     {
         I2Sn(ui32Module)->DMACFG_b.RXDMAEN = 0x1;
-        I2Sn(ui32Module)->I2SCTL_b.RXRST   = 0x0;
-        I2Sn(ui32Module)->I2SCTL_b.RXEN    = 0x1;
+        I2Sn(ui32Module)->I2SCTL = _VAL2FLD(I2S0_I2SCTL_RXEN, 1);
     }
     else if ( pConfig->eXfer == AM_HAL_I2S_XFER_TX )
     {
         I2Sn(ui32Module)->DMACFG_b.TXDMAEN = 0x1;
-        I2Sn(ui32Module)->I2SCTL_b.TXRST   = 0x0;
-        I2Sn(ui32Module)->I2SCTL_b.TXEN    = 0x1;
+        I2Sn(ui32Module)->I2SCTL = _VAL2FLD(I2S0_I2SCTL_TXEN, 1);
     }
     else if ( pConfig->eXfer == AM_HAL_I2S_XFER_RXTX )
     {
         I2Sn(ui32Module)->DMACFG_b.RXDMAEN = 0x1;
         I2Sn(ui32Module)->DMACFG_b.TXDMAEN = 0x1;
-        I2Sn(ui32Module)->I2SCTL           = I2S0_I2SCTL_TXEN_Msk |
-                                             I2S0_I2SCTL_RXEN_Msk;
+        I2Sn(ui32Module)->I2SCTL = _VAL2FLD(I2S0_I2SCTL_RXEN, 1) | _VAL2FLD(I2S0_I2SCTL_TXEN, 1);
     }
 
     #ifdef USE_I2S_TWO_STAGE_DMA
@@ -636,6 +933,11 @@ am_hal_i2s_dma_transfer_start(void *pHandle,  am_hal_i2s_config_t *pConfig)
 uint32_t
 am_hal_i2s_dma_transfer_continue(void *pHandle, am_hal_i2s_config_t* psConfig, am_hal_i2s_transfer_t *pTransferCfg)
 {
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
     uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
@@ -717,14 +1019,17 @@ am_hal_i2s_power_control(void *pHandle,
                          am_hal_sysctrl_power_state_e ePowerState,
                          bool bRetainState)
 {
-    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
-    uint32_t ui32Module = pState->ui32Module;
-
-    am_hal_pwrctrl_periph_e eI2SPowerModule = ((am_hal_pwrctrl_periph_e)(AM_HAL_PWRCTRL_PERIPH_I2S0 + ui32Module));
     //
     // Check the handle.
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    uint32_t ui32Status;
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
+
+    am_hal_pwrctrl_periph_e eI2SPowerModule = ((am_hal_pwrctrl_periph_e)(AM_HAL_PWRCTRL_PERIPH_I2S0 + ui32Module));
+
     //
     // Decode the requested power state and update I2S operation accordingly.
     //
@@ -741,18 +1046,20 @@ am_hal_i2s_power_control(void *pHandle,
             {
                 return AM_HAL_STATUS_INVALID_OPERATION;
             }
-// #### INTERNAL BEGIN ####
-#ifdef HFRC2_ON_WA
-            //
-            // HFRC2 ON request.
-            //
-            am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_HFRC2_ON_REQ, false);
-#endif // HFRC2_ON_WA
-// #### INTERNAL END ####
+
             //
             // Enable power control.
             //
             am_hal_pwrctrl_periph_enable(eI2SPowerModule);
+
+            //
+            // Enable APB clock.
+            //
+            ui32Status = am_hal_crm_control_I2S0_CLOCK_SET(true);
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                return ui32Status;
+            }
 
             if (bRetainState)
             {
@@ -772,6 +1079,16 @@ am_hal_i2s_power_control(void *pHandle,
                 I2Sn(ui32Module)->INTDIV       = pState->sRegState.regINTDIV;
                 I2Sn(ui32Module)->FRACDIV      = pState->sRegState.regFRACDIV;
 
+                if (pState->bModuleEnabledBeforePowerdown)
+                {
+                    ui32Status = am_hal_i2s_enable(pHandle);
+                    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+                    {
+                        am_hal_pwrctrl_periph_disable(eI2SPowerModule);
+                        return ui32Status;
+                    }
+                }
+
                 pState->sRegState.bValid = false;
             }
             break;
@@ -785,7 +1102,7 @@ am_hal_i2s_power_control(void *pHandle,
                 //
                 // Save I2S Registers
                 //
-                pState->sRegState.regI2SCTL       = I2Sn(ui32Module)->I2SCTL;
+                pState->sRegState.regI2SCTL       = I2Sn(ui32Module)->I2SCTL & (I2S0_I2SCTL_RXEN_Msk | I2S0_I2SCTL_TXEN_Msk);
                 pState->sRegState.regI2SDATACFG   = I2Sn(ui32Module)->I2SDATACFG;
                 pState->sRegState.regI2SIOCFG     = I2Sn(ui32Module)->I2SIOCFG;
                 pState->sRegState.regAMQCFG       = I2Sn(ui32Module)->AMQCFG;
@@ -800,18 +1117,26 @@ am_hal_i2s_power_control(void *pHandle,
 
                 pState->sRegState.bValid = true;
             }
+
+            if (pState->prefix.s.bEnable == true)
+            {
+                //
+                // Record enabled state and disable I2S.
+                //
+                pState->bModuleEnabledBeforePowerdown = true;
+                am_hal_i2s_disable(pHandle);
+            }
+
+            //
+            // Disable APB clock.
+            //
+            am_hal_crm_control_I2S0_CLOCK_SET(false);
+
             //
             // Disable power control.
             //
             am_hal_pwrctrl_periph_disable(eI2SPowerModule);
-// #### INTERNAL BEGIN ####
-#ifdef HFRC2_ON_WA
-            //
-            // HFRC2 OFF request.
-            //
-            am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_HFRC2_OFF_REQ, false);
-#endif // HFRC2_ON_WA
-// #### INTERNAL END ####
+
             break;
 
         default:
@@ -825,18 +1150,40 @@ am_hal_i2s_power_control(void *pHandle,
 
 //*****************************************************************************
 //
+// Interrupt enable.
+//
+//*****************************************************************************
+uint32_t
+am_hal_i2s_interrupt_enable(void *pHandle, uint32_t ui32IntMask)
+{
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
+
+    I2Sn(ui32Module)->INTEN |= ui32IntMask;
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
 // Interrupt disable.
 //
 //*****************************************************************************
 uint32_t
 am_hal_i2s_interrupt_disable(void *pHandle, uint32_t ui32IntMask)
 {
-    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
-    uint32_t ui32Module = pState->ui32Module;
     //
     // Check the handle.
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
 
     I2Sn(ui32Module)->INTEN &= ~ui32IntMask;
 
@@ -851,12 +1198,13 @@ am_hal_i2s_interrupt_disable(void *pHandle, uint32_t ui32IntMask)
 uint32_t
 am_hal_i2s_interrupt_clear(void *pHandle, uint32_t ui32IntMask)
 {
-    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
-    uint32_t ui32Module = pState->ui32Module;
     //
     // Check the handle.
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
 
     I2Sn(ui32Module)->INTCLR = ui32IntMask;
     *(volatile uint32_t*)(&I2Sn(ui32Module)->INTSTAT);
@@ -871,12 +1219,14 @@ am_hal_i2s_interrupt_clear(void *pHandle, uint32_t ui32IntMask)
 uint32_t
 am_hal_i2s_interrupt_status_get(void *pHandle, uint32_t *pui32Status, bool bEnabledOnly)
 {
-    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
-    uint32_t ui32Module = pState->ui32Module;
     //
     // Check the handle.
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
+    uint32_t ui32Module = pState->ui32Module;
+
     //
     // If requested, only return the interrupts that are enabled.
     //
@@ -925,6 +1275,11 @@ am_hal_i2s_dma_status_get(void *pHandle, uint32_t *pui32Status, am_hal_i2s_xfer_
 //*****************************************************************************
 uint32_t am_hal_i2s_interrupt_service(void *pHandle, uint32_t ui32IntMask, am_hal_i2s_config_t* psConfig)
 {
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
     uint32_t ui32Module = ((am_hal_i2s_state_t*)pHandle)->ui32Module;
 
@@ -1079,12 +1434,14 @@ uint32_t am_hal_i2s_ipb_interrupt_service(void *pHandle)
 uint32_t
 am_hal_i2s_dma_configure(void *pHandle, am_hal_i2s_config_t* psConfig, am_hal_i2s_transfer_t *pTransferCfg)
 {
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
 
-#ifndef AM_HAL_DISABLE_API_VALIDATION
-    AM_HAL_I2S_CHK_HANDLE(pHandle);
-#endif // AM_HAL_DISABLE_API_VALIDATION
     //
     // Save the buffers.
     //
@@ -1188,6 +1545,11 @@ am_hal_i2s_dma_configure(void *pHandle, am_hal_i2s_config_t* psConfig, am_hal_i2
 uint32_t
 am_hal_i2s_dma_get_buffer(void *pHandle, am_hal_i2s_xfer_dir_e xfer)
 {
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
     uint32_t ui32BufferPtr;
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
 
@@ -1238,29 +1600,68 @@ am_hal_i2s_dma_get_buffer(void *pHandle, am_hal_i2s_xfer_dir_e xfer)
 uint32_t
 am_hal_i2s_enable(void *pHandle)
 {
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
+    uint32_t ui32Status;
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
+    am_hal_clkmgr_user_id_e userID = AM_HAL_CLKMGR_USER_ID_I2S0;
 
-#ifndef AM_HAL_DISABLE_API_VALIDATION
-    AM_HAL_I2S_CHK_HANDLE(pHandle);
-#endif // AM_HAL_DISABLE_API_VALIDATION
-
-    if (pState->prefix.s.bEnable)
+    if (pState->prefix.s.bEnable == true)
     {
         return AM_HAL_STATUS_SUCCESS;
     }
 
-    i2s_clock_set(ui32Module, pState->eClockSel, pState->ui32ClockDivideRatio);
+    //
+    // Request HFRC for DMA operations.
+    //
+    ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC, userID);
+    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+    {
+        return ui32Status;
+    }
 
     //
-    // MCLKEN can only control clocks from the non-NCO CLKGEN.
+    // Set MCLKOUT.
     //
-    I2Sn(ui32Module)->CLKCFG_b.MCLKEN = 1;
+    ui32Status = i2s_mclkout_set(ui32Module, pState->eMclkout, pState->ui32MclkoutDiv);
+    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+    {
+        return ui32Status;
+    }
 
-    //
-    // REFCLKEN can only control clocks from the NCO CLKGEN.
-    //
-    I2Sn(ui32Module)->CLKCFG_b.REFCLKEN = 1;
+    if (pState->bInternalMclkRequired)
+    {
+        //
+        // Set MCLK.
+        //
+        ui32Status = i2s_clock_set(ui32Module, pState->eClockSel, pState->ui32ClockDivideRatio);
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            return ui32Status;
+        }
+
+        //
+        // MCLKEN can only control clocks from the non-NCO CLKGEN.
+        //
+        I2Sn(ui32Module)->CLKCFG_b.MCLKEN = 1;
+
+        //
+        // REFCLKEN can only control clocks from the NCO CLKGEN.
+        //
+        I2Sn(ui32Module)->CLKCFG_b.REFCLKEN = 1;
+    }
+    else
+    {
+        //
+        // If the internal MCLK isn't required, gate it.
+        //
+        I2Sn(ui32Module)->CLKCFG_b.MCLKEN = 0;
+        I2Sn(ui32Module)->CLKCFG_b.REFCLKEN = 0;
+    }
 
     pState->prefix.s.bEnable = true;
 
@@ -1275,29 +1676,41 @@ am_hal_i2s_enable(void *pHandle)
 uint32_t
 am_hal_i2s_disable(void *pHandle)
 {
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t*)pHandle;
     uint32_t ui32Module = pState->ui32Module;
+    am_hal_clkmgr_user_id_e userID = AM_HAL_CLKMGR_USER_ID_I2S0;
 
-#ifndef AM_HAL_DISABLE_API_VALIDATION
-    AM_HAL_I2S_CHK_HANDLE(pHandle);
-#endif // AM_HAL_DISABLE_API_VALIDATION
-
-    if (!pState->prefix.s.bEnable)
+    if (pState->prefix.s.bEnable == false)
     {
         return AM_HAL_STATUS_SUCCESS;
     }
 
-    //
-    // MCLKEN can only control clocks from the non-NCO CLKGEN.
-    //
-    I2Sn(ui32Module)->CLKCFG_b.MCLKEN = 0;
+    am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC, userID);
 
-    //
-    // REFCLKEN can only control clocks from the NCO CLKGEN.
-    //
-    I2Sn(ui32Module)->CLKCFG_b.REFCLKEN = 0;
+    if (pState->bInternalMclkRequired)
+    {
+        //
+        // MCLKEN can only control clocks from the non-NCO CLKGEN.
+        //
+        I2Sn(ui32Module)->CLKCFG_b.MCLKEN = 0;
 
-    i2s_clock_set(ui32Module, AM_HAL_I2S_CLKSEL_OFF, 1);
+        //
+        // REFCLKEN can only control clocks from the NCO CLKGEN.
+        //
+        I2Sn(ui32Module)->CLKCFG_b.REFCLKEN = 0;
+
+        //
+        // Set I2S clock source to CLK_OFF and release this clock.
+        //
+        i2s_clock_set(ui32Module, AM_HAL_I2S_CLKSEL_OFF, 1);
+    }
+
+    i2s_mclkout_set(ui32Module, AM_HAL_I2S_MCLKOUT_SEL_OFF, 1);
 
     pState->prefix.s.bEnable = false;
 
@@ -1312,6 +1725,11 @@ am_hal_i2s_disable(void *pHandle)
 uint32_t
 am_hal_i2s_dma_transfer_complete(void *pHandle)
 {
+    //
+    // Check the handle.
+    //
+    AM_HAL_I2S_CHK_HANDLE(pHandle);
+
     am_hal_i2s_state_t *pState = (am_hal_i2s_state_t *) pHandle;
     uint32_t ui32Module = pState->ui32Module;
     //

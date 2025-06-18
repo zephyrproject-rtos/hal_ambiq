@@ -12,15 +12,43 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
+#include "mcu/am_hal_crm_private.h"
 
 //*****************************************************************************
 //
@@ -44,6 +72,14 @@
 #define AM_HAL_ADC_CALIB_AMBIENT_DEFAULT            (1.02809F)
 #define AM_HAL_ADC_CALIB_ADC_OFFSET_DEFAULT         (-0.004281F)
 //! @}
+
+//*****************************************************************************
+//
+// Extract CRM clock source and clock divider ratio.
+//
+//*****************************************************************************
+#define EXTRACT_CRM_CLKSRC(x)   (((x) & AM_HAL_ADC_CRM_CLKSRC_MSK) >> AM_HAL_ADC_CRM_CLKSRC_POS)
+#define EXTRACT_CRM_CLKDIV(x)   (((x) & AM_HAL_ADC_CRM_CLKDIV_MSK) >> AM_HAL_ADC_CRM_CLKDIV_POS)
 
 // ****************************************************************************
 //
@@ -108,10 +144,14 @@ typedef struct
     am_hal_adc_register_state_t registerState;
 
     //
-    // ADC DMA buffer size in bytes
+    //! ADC DMA buffer size in bytes
     //
     uint32_t                    ui32BufferSizeBytes;
 
+    //
+    //! ADC clock source.
+    //
+    am_hal_adc_clksel_e         eClockSel;
 } am_hal_adc_state_t;
 
 //*****************************************************************************
@@ -195,6 +235,134 @@ am_hal_adc_state_t             g_ADCState[AM_REG_ADC_NUM_MODULES];
 uint32_t                       g_ADCSlotsConfigured;
 
 bool     g_bDoADCadjust   = false;
+
+//*****************************************************************************
+//
+//! @brief [Internal] Get the CLKMGR ID from the clock selection
+//!
+//! @param clksel   - Clock selection in am_hal_adc_clksel_e.
+//!
+//! @return clockId - Clock ID in clock manager.
+//
+//*****************************************************************************
+static am_hal_clkmgr_clock_id_e
+adc_clock_id_get(am_hal_adc_clksel_e clksel)
+{
+    switch (clksel)
+    {
+        case AM_HAL_ADC_CLKSEL_HFRC_48MHZ:
+        case AM_HAL_ADC_CLKSEL_HFRC_24MHZ:
+            return AM_HAL_CLKMGR_CLK_ID_HFRC;
+
+        case AM_HAL_ADC_CLKSEL_PLL_POSTDIV:
+            return AM_HAL_CLKMGR_CLK_ID_PLLPOSTDIV;
+
+        case AM_HAL_ADC_CLKSEL_OFF:
+        default:
+            return AM_HAL_CLKMGR_CLK_ID_MAX;
+    }
+}
+
+//*****************************************************************************
+//
+//! @brief [Internal] Set ADC CRM registers.
+//!
+//! @param ui32Module - ADC instance index.
+//! @param eClocksel  - Clock selection in am_hal_adc_clksel_e.
+//!
+//! @return status    - generic or interface specific status.
+//
+//*****************************************************************************
+static uint32_t
+adc_crm_set(uint32_t ui32Module, am_hal_adc_clksel_e eClocksel)
+{
+    am_hal_crm_adc_clksel_e eSource = EXTRACT_CRM_CLKSRC(eClocksel);
+    uint32_t ui32Ratio = EXTRACT_CRM_CLKDIV(eClocksel);
+
+    return am_hal_crm_clock_config_ADC(eSource, ui32Ratio);
+}
+
+//*****************************************************************************
+//
+//! @brief [Internal] Switch ADC module clock from one to another
+//!
+//! @param pADCState  - ADC state pointer.
+//! @param eClockFrom - Current clock selection in am_hal_adc_clksel_e.
+//! @param eClockTo   - Next clock selection in am_hal_adc_clksel_e.
+//!
+//! This function should always returns success if the dest clock is CLK_OFF.
+//!
+//! @return status    - Success or fail.
+//
+//*****************************************************************************
+static uint32_t
+adc_clock_switch(am_hal_adc_state_t *pADCState, am_hal_adc_clksel_e eClockFrom, am_hal_adc_clksel_e eClockTo)
+{
+    uint32_t ui32Status;
+    uint32_t ui32Module = pADCState->ui32Module;
+    am_hal_clkmgr_clock_id_e eClockIdFrom;
+    am_hal_clkmgr_clock_id_e eClockIdTo;
+
+    if (eClockFrom == eClockTo)
+    {
+        return AM_HAL_STATUS_SUCCESS;
+    }
+
+    eClockIdFrom = adc_clock_id_get(eClockFrom);
+    eClockIdTo   = adc_clock_id_get(eClockTo);
+
+    if (eClockIdFrom == eClockIdTo)
+    {
+        //
+        // Just set CRM, no need to report to the clock manager.
+        //
+        return adc_crm_set(ui32Module, eClockTo);
+    }
+    else
+    {
+        if (eClockIdTo != AM_HAL_CLKMGR_CLK_ID_MAX)
+        {
+            ui32Status = am_hal_clkmgr_clock_request(eClockIdTo, AM_HAL_CLKMGR_USER_ID_ADC);
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                return ui32Status;
+            }
+
+            ui32Status = adc_crm_set(ui32Module, eClockTo);
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                am_hal_clkmgr_clock_release(eClockIdTo, AM_HAL_CLKMGR_USER_ID_ADC);
+                return ui32Status;
+            }
+        }
+        else
+        {
+            if (eClockTo == AM_HAL_ADC_CLKSEL_OFF)
+            {
+                am_hal_crm_control_ADC_CLOCK_SET(false);
+            }
+        }
+
+        if (eClockIdFrom != AM_HAL_CLKMGR_CLK_ID_MAX)
+        {
+            if ((eClockIdFrom == AM_HAL_CLKMGR_CLK_ID_HFRC) && (pADCState->prefix.s.bEnable))
+            {
+                // Do nothing, HFRC is still needed by APBDMA.
+            }
+            else
+            {
+                am_hal_clkmgr_clock_release(eClockIdFrom, AM_HAL_CLKMGR_USER_ID_ADC);
+            }
+        }
+    }
+
+    //
+    // Record the new clock selection if everything is successful.
+    //
+    pADCState->eClockSel = eClockTo;
+
+    return AM_HAL_STATUS_SUCCESS;
+}
 
 //*****************************************************************************
 //
@@ -338,16 +506,6 @@ am_hal_adc_initialize(uint32_t ui32Module, void **ppHandle)
          (ui32Ret != AM_HAL_STATUS_SUCCESS) )
     {
         g_bDoADCadjust = false;
-// #### INTERNAL BEGIN ####
-#if 0
-        //
-        // Do a software trigger to make sure autocal is disabled
-        // Requires the ADC be powered up.
-        // Move this to am_hal_adc_power_control()
-        //
-        am_hal_adc_sw_trigger(&g_ADCState[ui32Module]);
-#endif
-// #### INTERNAL END ####
     }
     else
     {
@@ -391,12 +549,9 @@ am_hal_adc_deinitialize(void *pHandle)
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
-    if ( pADCState->prefix.s.bEnable )
-    {
-        status = am_hal_adc_disable(pHandle);
-    }
-
     pADCState->prefix.s.bInit = false;
+    pADCState->prefix.s.magic = 0;
+    pADCState->ui32Module = 0;
 
     //
     // Return the status.
@@ -421,7 +576,7 @@ uint32_t
 am_hal_adc_configure(void *pHandle,
                      am_hal_adc_config_t *psConfig)
 {
-    uint32_t            ui32Config;
+    uint32_t            ui32Config, ui32Status;
     am_hal_adc_state_t  *pADCState = (am_hal_adc_state_t *)pHandle;
     uint32_t            ui32Module = pADCState->ui32Module;
 
@@ -435,18 +590,16 @@ am_hal_adc_configure(void *pHandle,
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
-    ui32Config = 0;
-
     //
-    // Set the ADC clock source.
+    // Set ADC module clock first.
     //
-    if ( psConfig->eClock != AM_HAL_ADC_CLKSEL_HFRC_24MHZ )
+    ui32Status = adc_clock_switch(pADCState, pADCState->eClockSel, psConfig->eClock);
+    if (ui32Status != AM_HAL_STATUS_SUCCESS)
     {
-        return AM_HAL_STATUS_INVALID_ARG;
+        return ui32Status;
     }
 
-#warning:FIXME TODO: Need config ADC clock in CRM module
-    // ui32Config |= _VAL2FLD(ADC_CFG_CLKSEL, psConfig->eClock);
+    ui32Config = 0;
 
     //
     // Set the ADC periodic trigger source.
@@ -485,8 +638,9 @@ am_hal_adc_configure(void *pHandle,
 
     //
     // Set the configuration in the ADC peripheral.
+    // ADCEN bit can't be wrote along with TRIGSEL bits.
     //
-    ADCn(ui32Module)->CFG = ui32Config;
+    ADCn(ui32Module)->CFG = ui32Config & (~ADC_CFG_ADCEN_Msk);
 
     //
     // Return status.
@@ -693,6 +847,7 @@ am_hal_adc_irtt_enable(void *pHandle)
     // Enable the ADC.
     //
     ADCn(ui32Module)->INTTRIGTIMER_b.TIMEREN = ADC_INTTRIGTIMER_TIMEREN_EN;
+
     //
     // Return the status.
     //
@@ -1090,6 +1245,7 @@ am_hal_adc_control(void *pHandle,
 uint32_t
 am_hal_adc_enable(void *pHandle)
 {
+    uint32_t ui32Status;
     am_hal_adc_state_t  *pADCState = (am_hal_adc_state_t *)pHandle;
     uint32_t            ui32Module = pADCState->ui32Module;
 
@@ -1107,6 +1263,15 @@ am_hal_adc_enable(void *pHandle)
         return AM_HAL_STATUS_SUCCESS;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
+
+    //
+    // Request HFRC for APBDMA, it's okay to request it twice even if ADC module clock is using HFRC already.
+    //
+    ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_ADC);
+    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+    {
+        return ui32Status;
+    }
 
     //
     // Enable the ADC.
@@ -1151,6 +1316,15 @@ am_hal_adc_disable(void *pHandle)
         return AM_HAL_STATUS_INVALID_HANDLE;
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
+
+    //
+    // If HFRC is NOT used by module clock, release it for APBDMA.
+    //
+    am_hal_clkmgr_clock_id_e clockID = adc_clock_id_get(pADCState->eClockSel);
+    if (clockID != AM_HAL_CLKMGR_CLK_ID_HFRC)
+    {
+        am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_ADC);
+    }
 
     //
     // Before disabling the ADC, clear RPTEN per the register description, "When
@@ -1605,6 +1779,7 @@ am_hal_adc_power_control(void *pHandle,
                          am_hal_sysctrl_power_state_e ePowerState,
                          bool bRetainState)
 {
+    uint32_t ui32Status;
     am_hal_adc_state_t  *pADCState = (am_hal_adc_state_t *)pHandle;
     uint32_t            ui32Module = pADCState->ui32Module;
 
@@ -1634,12 +1809,17 @@ am_hal_adc_power_control(void *pHandle,
             //
             am_hal_pwrctrl_periph_enable(AM_HAL_PWRCTRL_PERIPH_ADC);
 
-// #### INTERNAL BEGIN ####
-// FALCSW-253 A decision was made to move the dummy trigger initialization
-//            to am_hal_adc_enable().
-// #### INTERNAL END ####
             if ( bRetainState )
             {
+                //
+                // Set ADC module clock first.
+                //
+                ui32Status = adc_clock_switch(pADCState, AM_HAL_ADC_CLKSEL_OFF, pADCState->eClockSel);
+                if (AM_HAL_STATUS_SUCCESS != ui32Status)
+                {
+                    return ui32Status;
+                }
+
                 ADCn(ui32Module)->SL0CFG        = pADCState->registerState.regSL0CFG;
                 ADCn(ui32Module)->SL1CFG        = pADCState->registerState.regSL1CFG;
                 ADCn(ui32Module)->SL2CFG        = pADCState->registerState.regSL2CFG;
@@ -1652,9 +1832,29 @@ am_hal_adc_power_control(void *pHandle,
                 ADCn(ui32Module)->WULIM         = pADCState->registerState.regWULIM;
                 ADCn(ui32Module)->WLLIM         = pADCState->registerState.regWLLIM;
                 ADCn(ui32Module)->INTEN         = 0x0;
-                ADCn(ui32Module)->CFG           = pADCState->registerState.regCFG;
+                //
+                // ADCEN bit can't be wrote along with TRIGSEL bits, so restore the CFG register with two APB writes.
+                //
+                ADCn(ui32Module)->CFG           = pADCState->registerState.regCFG & (~ADC_CFG_ADCEN_Msk);
+                ADCn(ui32Module)->CFG_b.ADCEN   = _FLD2VAL(ADC_CFG_ADCEN, pADCState->registerState.regCFG);
                 ADCn(ui32Module)->INTEN         = pADCState->registerState.regINTEN;
                 pADCState->registerState.bValid = false;
+            }
+            else
+            {
+                //
+                // Set ADC module clock to HFRC 24MHz by default.
+                //
+                ui32Status = adc_clock_switch(pADCState, AM_HAL_ADC_CLKSEL_OFF, AM_HAL_ADC_CLKSEL_HFRC_24MHZ);
+                if (AM_HAL_STATUS_SUCCESS != ui32Status)
+                {
+                    return ui32Status;
+                }
+
+                //
+                // Record the clock selection.
+                //
+                pADCState->eClockSel = AM_HAL_ADC_CLKSEL_HFRC_24MHZ;
             }
 
             break;
@@ -1679,6 +1879,11 @@ am_hal_adc_power_control(void *pHandle,
 
                 pADCState->registerState.bValid     = true;
             }
+
+            //
+            // Gate ADC moudle clock.
+            //
+            adc_clock_switch(pADCState, pADCState->eClockSel, AM_HAL_ADC_CLKSEL_OFF);
 
             //
             // Disable the ADC power domain.

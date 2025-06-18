@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_MSPI_H
@@ -130,10 +157,6 @@ extern "C"
 //*****************************************************************************
 typedef enum
 {
-// #### INTERNAL BEGIN ####
-    // Error in DMA Transition due to known issue in Apollo4 Rev B (TODO - Add Errata reference here).
-    // Edit: For revC and T-Bird, ERR063 is no longer an issue. This error should be removed.
-// #### INTERNAL END ####
   AM_HAL_MSPI_FIFO_FULL_CONDITION = AM_HAL_STATUS_MODULE_SPECIFIC_START
 } am_hal_mspi_err_e;
 
@@ -191,6 +214,8 @@ typedef enum
     AM_HAL_MSPI_FLASH_DUAL_CE1,
     AM_HAL_MSPI_FLASH_QUAD_CE0,
     AM_HAL_MSPI_FLASH_QUAD_CE1,
+    AM_HAL_MSPI_FLASH_QUAD_DDR_CE0,
+    AM_HAL_MSPI_FLASH_QUAD_DDR_CE1,
     AM_HAL_MSPI_FLASH_OCTAL_CE0,
     AM_HAL_MSPI_FLASH_OCTAL_CE1,
     AM_HAL_MSPI_FLASH_OCTAL_DDR_CE0,
@@ -356,10 +381,6 @@ typedef struct
     bool            bTxNeg;
     bool            bRxNeg;
     bool            bRxCap;
-    // #### INTERNAL BEGIN ####
-    // Not used for timing scan, hide it from release for now
-    bool            bTxDataDelay;
-    // #### INTERNAL END ####
     uint8_t         ui8TxDQSDelay;
     uint8_t         ui8RxDQSDelay;
     uint8_t         ui8Turnaround;
@@ -486,16 +507,6 @@ typedef enum
     AM_HAL_MSPI_REQ_XIPACK,
     // Set CE Latency. Pass am_hal_mspi_ce_latency_e * as pConfig.
     AM_HAL_MSPI_REQ_CE_LATENCY,
-    // New(125MHz) DDR mode Disable
-    AM_HAL_MSPI_REQ_NEW_DDR_DIS,
-    // New(125MHz) DDR mode Enable
-    AM_HAL_MSPI_REQ_NEW_DDR_EN,
-// #### INTERNAL BEGIN ####
-    // Disable CORECLKX2
-    AM_HAL_MSPI_REQ_CORECLKX2_DIS,
-    // Enable CORECLKX2
-    AM_HAL_MSPI_REQ_CORECLKX2_EN,
-// #### INTERNAL END ####
     // DDR Disable
     AM_HAL_MSPI_REQ_DDR_DIS,
     // DDR Enable
@@ -562,6 +573,10 @@ typedef enum
     AM_HAL_MSPI_REQ_NAND_FLASH_SENDADDR_EN,
     // Set MSPI CPU read combining scheme
     AM_HAL_MSPI_REQ_CPU_READ_COMBINE,
+    // Set scrambling config
+    AM_HAL_MSPI_REQ_SCRAMBLE_CONFIG,
+    // Set write latency and turnaround
+    AM_HAL_MSPI_REQ_SET_DATA_LATENCY,
 
     AM_HAL_MSPI_REQ_MAX
 }
@@ -625,9 +640,6 @@ typedef enum
 //
 typedef struct
 {
-// #### INTERNAL BEGIN ####
-    // FIXME: No descripttion.
-// #### INTERNAL END ####
     //
     uint32_t                    ui32CEBreak;
 
@@ -643,9 +655,6 @@ typedef struct
     //! Byte enable always on for all lanes
     bool                        bBEOn;
 
-// #### INTERNAL BEGIN ####
-    // FIXME: No descripttion.
-// #### INTERNAL END ####
     //
     //bool                        bAFIFOLVL;
 
@@ -725,9 +734,6 @@ typedef struct
     //! Emulate DDR mode.
     bool                        bEmulateDDR;
 
-    //! New(125MHz) DDR mode.
-    bool                        bNewDDR;
-
     //! CE latency.
     am_hal_mspi_ce_latency_e    eCeLatency;
 
@@ -774,9 +780,6 @@ typedef struct
     //! Enable Write Latency Counter
     bool                        bEnWRLatency;
 
-// #### INTERNAL BEGIN ####
-// FALCSW-426 7/29/22 Deprecate MSPI CONT bit. (See also A3DS-25.)
-// #### INTERNAL END ####
     //! Continuation (The MSPI CONT feature is deprecated for Apollo4.)
     bool                        bContinue;
 

@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -35,6 +62,7 @@ const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_tristate          = AM_HAL_GPIO_PI
 const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_opendrain         = AM_HAL_GPIO_PINCFG_OPENDRAIN;
 const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_disabled          = AM_HAL_GPIO_PINCFG_DISABLED;
 const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_pulledup_disabled = AM_HAL_GPIO_PINCFG_PULLEDUP_DISABLED;
+const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_pulleddn_disabled = AM_HAL_GPIO_PINCFG_PULLEDDN_DISABLED;
 const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_output_with_read  = AM_HAL_GPIO_PINCFG_OUTPUT_WITH_READ;
 //! @}
 
@@ -45,17 +73,6 @@ const am_hal_gpio_pincfg_t am_hal_gpio_pincfg_output_with_read  = AM_HAL_GPIO_PI
 //*****************************************************************************
 #define AM_HAL_GPIO_CONFIGn(n) (((uint32_t *)(&GPIO))[n])
 
-// #### INTERNAL BEGIN ####
-#if 0   // Not necessary
-//*****************************************************************************
-//
-//! Static function prototypes.
-//
-//*****************************************************************************
-static uint32_t gpio_funcsel_find(uint32_t ui32GpioNum, uint32_t ui32FunctionEnum,
-                                  uint32_t *ui32Fsel);
-#endif
-// #### INTERNAL END ####
 //*****************************************************************************
 //
 //! @name Array of function pointers for handling GPIO interrupts.
@@ -111,30 +128,6 @@ gpio_funcsel_find(uint32_t ui32GpioNum, uint32_t ui32FunctionEnum,
     return ui32ReturnValue;
 }
 
-// #### INTERNAL BEGIN ####
-#if 0
-//
-// This function will return exactly one bit set in the given mask array.
-//
-static uint32_t
-gpionum2Msk(uint32_t ui32Gpionum, am_hal_gpio_mask_t *pGpioIntMask, bool bInit)
-{
-#ifndef AM_HAL_DISABLE_API_VALIDATION
-    if ( ui32Gpionum >= AM_HAL_GPIO_MAX_PADS )
-    {
-        return AM_HAL_STATUS_OUT_OF_RANGE;
-    }
-#endif
-
-    if ( bInit )
-    {
-        AM_HAL_GPIO_PMASK_INIT2ZERO(pGpioIntMask);
-    }
-    pGpioIntMask->U.Msk[ui32Gpionum / 32] = 1 << (ui32Gpionum % 32);
-    return AM_HAL_STATUS_SUCCESS;
-} // gpionum2Msk()
-#endif
-// #### INTERNAL END ####
 
 //
 // This function computes common GPIO interrupt register offsets.
@@ -144,14 +137,6 @@ gpionum_intreg_index_get(uint32_t ui32Gpionum,
                          uint32_t *pui32RegIdx,
                          uint32_t *pui32Msk)
 {
-// #### INTERNAL BEGIN ####
-#if 0//ndef AM_HAL_DISABLE_API_VALIDATION   // Calling function already does this
-    if ( ui32Gpionum >= AM_HAL_GPIO_MAX_PADS )
-    {
-        return AM_HAL_STATUS_OUT_OF_RANGE;
-    }
-#endif
-// #### INTERNAL END ####
 
     *pui32RegIdx = ui32Gpionum / 32;
     *pui32Msk = 1 << (ui32Gpionum & 0x1F);
@@ -316,19 +301,6 @@ am_hal_gpio_pinconfig(uint32_t ui32GpioNum, const am_hal_gpio_pincfg_t sGpioCfg)
 
     AM_CRITICAL_END
 
-// #### INTERNAL BEGIN ####
-// This check is not particularly necessary, so don't include it for now.
-#if 0 //ndef AM_HAL_DISABLE_API_VALIDATION
-    am_hal_gpio_pincfg_t sCfgVal;
-
-    sCfgVal.GP.cfg = pui32Config[ui32GpioNum];
-    if ( sCfgVal.GP.cfg_b.eDriveStrength !=
-         sGpioCfg.GP.cfg_b.eDriveStrength )
-    {
-        return AM_HAL_STATUS_FAIL;
-    }
-#endif // AM_HAL_DISABLE_API_VALIDATION
-// #### INTERNAL END ####
 
     return AM_HAL_STATUS_SUCCESS;
 
@@ -720,9 +692,6 @@ am_hal_gpio_interrupt_clear(am_hal_gpio_int_channel_e eChannel,
         GPIO->MCUN1INT3CLR = pGpioIntMask->U.Msk[3];
         AM_CRITICAL_END
     }
-// #### INTERNAL BEGIN ####
-    #warning Fix me, possible workaround code here!!
-// #### INTERNAL END ####
     *(volatile uint32_t*)(&GPIO->MCUN1INT3STAT);
     //
     // Return the status.
@@ -874,7 +843,7 @@ am_hal_gpio_interrupt_register(am_hal_gpio_int_channel_e eChannel,
 // A typical call sequence to the service routine might look like:
 //
 // am_hal_gpio_interrupt_irq_status_get(GPIO1_405F_IRQn, true, &ui32IntStatus);
-// am_hal_gpio_interrupt_service(GPIO1_405F_IRQn, ui32IntStatus, 0);
+// am_hal_gpio_interrupt_service(GPIO1_405F_IRQn, ui32IntStatus);
 //
 //
 //*****************************************************************************

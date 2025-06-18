@@ -12,15 +12,49 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
 #include <stdint.h>
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
+#include "../am_hal_clkmgr_private.h"
+
+//*****************************************************************************
+//
+// Defines
+//
+//*****************************************************************************
 
 //*****************************************************************************
 //
@@ -30,24 +64,58 @@
 
 extern void buck_ldo_update_override(bool bEnable);
 
+bool g_bFrcBuckAct  = false;
+static bool g_bAppFrcBuckAct = false;
+
 //*****************************************************************************
 //
-// Place the core into sleep or deepsleep.
+//! @brief Control the buck state in deepsleep
+//!
+//! @param bFrcBuckAct - True for forcing buck active in deepsleep
+//!                    - False for not forcing buck active in deepsleep
+//!
+//! If you want to manually force the buck stay active in deepsleep mode,
+//! am_hal_sysctrl_force_buck_active_in_deepsleep must
+//! be called for setting g_bAppFrcBuckAct to true before
+//! calling am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP).
+//! If anyone of spotmgr and
+//! am_hal_sysctrl_force_buck_active_in_deepsleep forced buck stay active, buck
+//! will stay active in deepsleep.
 //
-// This function puts the MCU to sleep or deepsleep depending on bSleepDeep.
+//*****************************************************************************
+void
+am_hal_sysctrl_force_buck_active_in_deepsleep(bool bFrcBuckAct)
+{
+    g_bAppFrcBuckAct = bFrcBuckAct;
+}
+
 //
-// Valid values for bSleepDeep are:
+// Instrumentation hook for collecting the Register Settings values such as PWRCTRL, MCUCTRL and CLKGEN
+//
+__attribute__((weak)) void am_hal_PRE_SLEEP_PROCESSING(void){}
+
+//*****************************************************************************
+//
+// Place the core into sleep, deepsleep or deepersleep.
+//
+// This function puts the MCU to sleep, deepsleep or deepersleep depending on eSleepType.
+//
+// Valid values for eSleepType are:
 //     AM_HAL_SYSCTRL_SLEEP_NORMAL
 //     AM_HAL_SYSCTRL_SLEEP_DEEP
+//     AM_HAL_SYSCTRL_SLEEP_DEEPER
 //
 //*****************************************************************************
 
 void
-am_hal_sysctrl_sleep(bool bSleepDeep)
+am_hal_sysctrl_sleep(am_hal_sysctrl_sleep_type_e eSleepType)
 {
-    bool bBuckIntoLPinDS = false, bSimobuckAct = false, bRecoverVRCTRL = false;
-    uint32_t ui32VRCTRLCache = 0;
+    bool bSimobuckAct = false;
     am_hal_pwrctrl_pwrmodctl_cpdlp_t sActCpdlpConfig;
+    bool bReportedDeepSleep = false;
+    bool bBuckIntoLPinDS = false;
+    uint32_t  ui32CpdlpConfig = 0;
+    am_hal_spotmgr_cpu_state_e eCpuSt;
 
     //
     // Disable interrupts and save the previous interrupt state.
@@ -58,6 +126,12 @@ am_hal_sysctrl_sleep(bool bSleepDeep)
     // Get the current CPDLPSTATE configuration in active mode
     //
     am_hal_pwrctrl_pwrmodctl_cpdlp_get(&sActCpdlpConfig);
+    //
+    // Prepare the data for restoring CPDLPSTATE configuration after waking up
+    //
+    ui32CpdlpConfig |= (sActCpdlpConfig.eRlpConfig << PWRMODCTL_CPDLPSTATE_RLPSTATE_Pos);
+    ui32CpdlpConfig |= (sActCpdlpConfig.eElpConfig << PWRMODCTL_CPDLPSTATE_ELPSTATE_Pos);
+    ui32CpdlpConfig |= (sActCpdlpConfig.eClpConfig << PWRMODCTL_CPDLPSTATE_CLPSTATE_Pos);
 
     //
     // Get current mode.
@@ -68,13 +142,18 @@ am_hal_sysctrl_sleep(bool bSleepDeep)
     // If the user selected DEEPSLEEP and OTP & ROM are off, attempt to enter
     // DEEP SLEEP.
     // CPU cannot go to deepsleep if either OTP or ROM is still powered on
-    // #### INTERNAL BEGIN ####
-    // CAB-926
-    // #### INTERNAL END ####
     //
-    if ((bSleepDeep == AM_HAL_SYSCTRL_SLEEP_DEEP)
-        && (!PWRCTRL->DEVPWRSTATUS_b.PWRSTOTP && !PWRCTRL->MEMPWRSTATUS_b.PWRSTROM))
+    if ((eSleepType >= AM_HAL_SYSCTRL_SLEEP_DEEP)
+        && (!PWRCTRL->DEVPWRSTATUS_b.PWRSTOTP))
     {
+        if (eSleepType >= AM_HAL_SYSCTRL_SLEEP_DEEPER)
+        {
+            PWRCTRL->CPUPWRCTRL_b.DEEPERSLEEPEN = 1;
+        }
+        else
+        {
+            PWRCTRL->CPUPWRCTRL_b.DEEPERSLEEPEN = 0;
+        }
         //
         // Set the CPDLPSTATE configuration in deepsleep mode
         //
@@ -84,7 +163,46 @@ am_hal_sysctrl_sleep(bool bSleepDeep)
             .eElpConfig = AM_HAL_PWRCTRL_ELP_RET,
             .eClpConfig = AM_HAL_PWRCTRL_CLP_RET
         };
+        //
+        // If ELP is OFF in active state, keep it OFF.
+        //
+        if (sActCpdlpConfig.eElpConfig == AM_HAL_PWRCTRL_ELP_OFF)
+        {
+            sDSCpdlpConfig.eElpConfig = AM_HAL_PWRCTRL_ELP_OFF;
+        }
         am_hal_pwrctrl_pwrmodctl_cpdlp_config(sDSCpdlpConfig);
+
+#if NO_TEMPSENSE_IN_DEEPSLEEP
+        am_hal_spotmgr_tempco_suspend();
+#endif
+        //
+        // Report CPU state change
+        //
+        eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_SLEEP_DEEP;
+        am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_CPU_STATE, false, (void *) &eCpuSt);
+        //
+        // Prepare the data for reporting CPU status after waking up.
+        //
+        if (PWRCTRL->MCUPERFREQ_b.MCUPERFREQ == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1)
+        {
+            eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_HP1;
+        }
+        else if (PWRCTRL->MCUPERFREQ_b.MCUPERFREQ == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2)
+        {
+            eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_HP2;
+        }
+        else
+        {
+            eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_LP;
+        }
+
+        bReportedDeepSleep = true;
+
+        //
+        // Prepare clock manager for deepsleep
+        //
+        am_hal_clkmgr_private_deepsleep_enter();
+
         //
         // Check if SIMOBUCK needs to stay in Active mode in DeepSleep
         //
@@ -93,87 +211,35 @@ am_hal_sysctrl_sleep(bool bSleepDeep)
             //
             // Check if SIMOBUCK would go into LP mode in DeepSleep
             //
-            if ( !(PWRCTRL->DEVPWRSTATUS &
-                    (PWRCTRL_DEVPWRSTATUS_PWRSTDBG_Msk      |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTUSBPHY_Msk   |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTUSB_Msk      |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTSDIO1_Msk    |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTSDIO0_Msk    |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTCRYPTO_Msk   |
-                  /*PWRCTRL_DEVPWRSTATUS_PWRSTDISPPHY_Msk  |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTDISP_Msk     |*/
-                    PWRCTRL_DEVPWRSTATUS_PWRSTGFX_Msk      |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTMSPI2_Msk    |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTMSPI1_Msk    |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTMSPI0_Msk    |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTADC_Msk      |
-                  /*PWRCTRL_DEVPWRSTATUS_PWRSTUART3_Msk    |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTUART2_Msk    |*/
-                    PWRCTRL_DEVPWRSTATUS_PWRSTUART1_Msk    |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTUART0_Msk    |
-                  /*PWRCTRL_DEVPWRSTATUS_PWRSTIOM7_Msk     |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOM6_Msk     |*/
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOM5_Msk     |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOM4_Msk     |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOM3_Msk     |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOM2_Msk     |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOM1_Msk     |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOM0_Msk     |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOSFD0_Msk   |
-                    PWRCTRL_DEVPWRSTATUS_PWRSTIOSFD1_Msk   |
-                 /* PWRCTRL_DEVPWRSTATUS_PWRSTIOS0_Msk     |*/
-                    PWRCTRL_DEVPWRSTATUS_PWRSTOTP_Msk ))      &&
-                !(PWRCTRL->MEMPWRSTATUS &
-                  PWRCTRL_MEMPWRSTATUS_PWRSTROM_Msk ))
+            if (g_bIsTrimver1OrNewer)
             {
-                bBuckIntoLPinDS = true;
-
-                //
-                // Remove overrides to allow buck to go in LP mode
-                //
-                buck_ldo_update_override(false);
-            }
-        }
-
-        //
-        // Check and confirm Simobuck/LDO is forced active if PLL is enabled
-        //
-        // #### INTERNAL BEGIN ####
-        // Note: We are implementing forced Simobuck/LDO active handling that
-        // is decoupled with LDO-IN-PARALLEL feature since LDO-IN-PARALLEL is
-        // planned to be removed. Hence, buck-ldo override mechanism above
-        // is not utilized.
-        // #### INTERNAL END ####
-        if ( MCUCTRL->PLLCTL0_b.SYSPLLPDB == MCUCTRL_PLLCTL0_SYSPLLPDB_ENABLE )
-        {
-            //
-            // If neither of Buck nor MemLDO is forced active, force power
-            // active accordingly.
-            //
-            bool bBuckForced  = MCUCTRL->VRCTRL_b.SIMOBUCKOVER && MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE;
-            bool bMemLdoForced   = MCUCTRL->VRCTRL_b.MEMLDOOVER && MCUCTRL->VRCTRL_b.MEMLDOACTIVE;
-            if ( !bBuckForced && !bMemLdoForced )
-            {
-                ui32VRCTRLCache = MCUCTRL->VRCTRL;
-                bRecoverVRCTRL = true;
-
-                if ( bSimobuckAct )
+                if (!g_bAppFrcBuckAct && !g_bFrcBuckAct)
                 {
-                    MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE = 1;
-                    MCUCTRL->VRCTRL_b.SIMOBUCKOVER = 1;
-                }
-                else
-                {
-                    MCUCTRL->VRCTRL_b.MEMLDOACTIVE = 1;
-                    MCUCTRL->VRCTRL_b.MEMLDOOVER = 1;
+                    bBuckIntoLPinDS = true;
+
+                    //
+                    // Remove overrides to allow buck to go in LP mode
+                    //
+                    buck_ldo_update_override(false);
+
+#if AM_HAL_PWRCTRL_SIMOLP_AUTOSWITCH
+                    am_hal_spotmgr_simobuck_lp_autosw_enable();
+#endif
                 }
             }
         }
-
         //
         // Prepare the core for deepsleep (write 1 to the DEEPSLEEP bit).
         //
         SCB->SCR |= _VAL2FLD(SCB_SCR_SLEEPDEEP, 1);
+        //
+        // Clear the following bits before entering deepsleep.
+        // This is required to reduce the deepsleep power consumption.
+        //
+        MCUCTRL->VREFGEN2_b.TVRGCHSENRESDIV = 0;
+        MCUCTRL->VREFGEN3_b.TVRGCLVHSENRESDIV = 0;
+        MCUCTRL->VREFGEN4_b.TVRGFHSENRESDIV = 0;
+        MCUCTRL->VREFGEN5_b.TVRGSHSENRESDIV = 0;
     }
     else
     {
@@ -193,6 +259,13 @@ am_hal_sysctrl_sleep(bool bSleepDeep)
             sNSCpdlpConfig.eElpConfig = AM_HAL_PWRCTRL_ELP_ON_CLK_OFF; // or can leave at 0x0 as we will turn the clocks off at the source
             sNSCpdlpConfig.eClpConfig = AM_HAL_PWRCTRL_CLP_ON_CLK_OFF; // or can leave at 0x0 as we will turn the clocks off at the source
         }
+        //
+        // If ELP is OFF or RET in active state, keep it OFF or RET.
+        //
+        if ((sActCpdlpConfig.eElpConfig == AM_HAL_PWRCTRL_ELP_OFF) || (sActCpdlpConfig.eElpConfig == AM_HAL_PWRCTRL_ELP_RET))
+        {
+            sNSCpdlpConfig.eElpConfig = sActCpdlpConfig.eElpConfig;
+        }
         am_hal_pwrctrl_pwrmodctl_cpdlp_config(sNSCpdlpConfig);
 
         //
@@ -207,6 +280,12 @@ am_hal_sysctrl_sleep(bool bSleepDeep)
     am_hal_sysctrl_sysbus_write_flush();
 
     //
+    // Weak am_hal_PRE_SLEEP_PROCESSING function to be overwritten in the application. Used by pwrctrl_state_transition_trim_regdump_test_cases
+    // to collect the Register Settings for PWRCTRL, MCUCTRL and CLKGEN before going into deepsleep
+    //
+    am_hal_PRE_SLEEP_PROCESSING();
+
+    //
     // Execute the sleep instruction.
     //
     __WFI();
@@ -215,27 +294,48 @@ am_hal_sysctrl_sleep(bool bSleepDeep)
     // Upon wake, execute the Instruction Sync Barrier instruction.
     //
     __ISB();
-
-    if ( bRecoverVRCTRL )
+    //
+    // Set the bits back to 1 immediately after exiting deepsleep
+    //
+    if (bReportedDeepSleep)
     {
-        //
-        // Recover VRCTRL settings if it has been changed before sleep.
-        //
-        MCUCTRL->VRCTRL = ui32VRCTRLCache;
+        MCUCTRL->VREFGEN2_b.TVRGCHSENRESDIV = 1;
+        MCUCTRL->VREFGEN3_b.TVRGCLVHSENRESDIV = 1;
+        MCUCTRL->VREFGEN4_b.TVRGFHSENRESDIV = 1;
+        MCUCTRL->VREFGEN5_b.TVRGSHSENRESDIV = 1;
     }
+    //
+    // Report CPU state change
+    //
+    if (bReportedDeepSleep)
+    {
+        am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_CPU_STATE, false, (void *) &eCpuSt);
 
+        //
+        // Recover clock manager after deepsleep
+        //
+        am_hal_clkmgr_private_deepsleep_exit();
+    }
     if ( bBuckIntoLPinDS )
     {
         //
         // Re-enable overrides
         //
-        buck_ldo_update_override(true);
+        MCUCTRL->VRCTRL_b.SIMOBUCKOVER   = true;
+#if AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
+        MCUCTRL->VRCTRL_b.CORELDOOVER    = true;
+        MCUCTRL->VRCTRL_b.MEMLDOOVER     = true;
+#endif // AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
     }
+#if AM_HAL_PWRCTRL_SIMOLP_AUTOSWITCH
+    am_hal_spotmgr_simobuck_lp_autosw_disable();
+#endif
 
     //
     // Restore the CPDLPSTATE
+    // am_hal_pwrctrl_pwrmodctl_cpdlp_config(sActCpdlpConfig);
     //
-    am_hal_pwrctrl_pwrmodctl_cpdlp_config(sActCpdlpConfig);
+    PWRMODCTL->CPDLPSTATE = ui32CpdlpConfig;
 
     //
     // Restore the interrupt state.

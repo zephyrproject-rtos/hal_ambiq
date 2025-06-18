@@ -16,9 +16,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_GLOBAL_H
@@ -41,7 +68,7 @@ extern "C"
 //! Device definitions
 //
 //*****************************************************************************
-#define AM_HAL_DEVICE_NAME      "Apollo5b"
+#define AM_HAL_DEVICE_NAME      "Apollo510L"
 
 //*****************************************************************************
 //
@@ -76,11 +103,6 @@ extern "C"
 //
 //*****************************************************************************
 #define STATIC_ASSERT(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
-// #### INTERNAL BEGIN ####
-// Another solution.
-//#define STATIC_ASSERT(condition) typedef char pstatic_assert##__LINE__[ (condition) ? 1 : -1];
-//STATIC_ASSERT(sizeof(struct trim_regs_s) == (21 * 4))
-// #### INTERNAL END ####
 
 //*****************************************************************************
 //
@@ -257,10 +279,6 @@ typedef union
 //*****************************************************************************
 extern const    uint8_t  g_ui8HALcompiler[];
 extern const    am_hal_version_t g_ui32HALversion;
-#ifdef APOLLO5_FPGA
-extern uint32_t g_ui32FPGAfreqMHz;
-extern void am_hal_global_FPGAfreqSet(uint32_t ui32FPGAfreqMhz);
-#endif // APOLLO5_FPGA
 
 #if (defined (__ARMCC_VERSION)) && (__ARMCC_VERSION < 6000000)
 __asm void
@@ -268,7 +286,7 @@ am_hal_triple_read( uint32_t ui32TimerAddr, uint32_t ui32Data[]);
 #elif (defined (__ARMCC_VERSION)) && (__ARMCC_VERSION >= 6000000)
 void
 am_hal_triple_read(uint32_t ui32TimerAddr, uint32_t ui32Data[]);
-#elif defined(__GNUC_STDC_INLINE__)
+#elif defined(__GNUC__)
 __attribute__((naked))
 void
 am_hal_triple_read(uint32_t ui32TimerAddr, uint32_t ui32Data[]);
@@ -278,6 +296,28 @@ am_hal_triple_read( uint32_t ui32TimerAddr, uint32_t ui32Data[]);
 #else
 #error Compiler is unknown, please contact Ambiq support team
 #endif
+
+//*****************************************************************************
+//
+//! Timer ISR for HAL internal use
+//
+//*****************************************************************************
+//! Timer instances for HAL internal use, If timer number < 10, it is a must to insert
+//! a 0 to the left to ensure 2-digit width.
+#define AM_HAL_INTERNAL_TIMER_NUM_A 15
+#define AM_HAL_INTERNAL_TIMER_NUM_B 14
+
+//
+//! Take over the interrupt handler for whichever timer we're using.
+//
+#define hal_internal_timer_isr                                                   \
+    am_timer_isr_macro_1(AM_HAL_INTERNAL_TIMER_NUM_A)
+#define am_timer_isr_macro_1(n)                                                  \
+    am_timer_isr_macro_2(n)
+#define am_timer_isr_macro_2(n)                                                  \
+    am_timer ## n ## _isr
+
+extern void hal_internal_timer_isr(void);
 
 #ifdef __cplusplus
 }

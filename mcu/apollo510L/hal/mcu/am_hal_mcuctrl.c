@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -38,7 +65,7 @@ static const uint16_t
 g_am_hal_mcuctrl_sku_ram_size[AM_HAL_MCUCTRL_SKU_SSRAM_SIZE_N][3] =
 {
     {0, 256, 1024},    //! 0x0:  0KB ITCM + 256KB DTCM + 1024KB SSRAM
-    {0, 256, 768},     //! 0x1:  0KB ITCM + 256KB DTCM +  768KB SSRAM
+    {0, 256, 1792},     //! 0x1: 0KB ITCM + 256KB DTCM + 1792KB SSRAM
 };
 
 //
@@ -49,16 +76,7 @@ g_am_hal_mcuctrl_sku_mram_size[AM_HAL_MCUCTRL_SKU_MRAM_SIZE_N] =
 {
      1024,
      2048,
-     3072,
-     4096
 };
-
-// ****************************************************************************
-// MCUCTRL XTALHSCAP Globals for Cooper Device
-// Refer to App Note Apollo4 Blue 32MHz Crystal Calibration
-// ****************************************************************************
-uint32_t g_ui32xtalhscap2trim = XTALHSCAP2TRIM_DEFAULT;
-uint32_t g_ui32xtalhscaptrim = XTALHSCAPTRIM_DEFAULT;
 
 // ****************************************************************************
 //
@@ -188,31 +206,35 @@ am_hal_mcuctrl_control(am_hal_mcuctrl_control_e eControl, void *pArgs)
         case AM_HAL_MCUCTRL_CONTROL_EXTCLK32K_ENABLE:
             //
             // Configure the bits in XTALCTRL that enable external 32KHz clock.
+            // This API defaults to enabling EXTCLK32K in XTAL mode.
+            // To initialize as EXT clock mode, pArgs shall be pointer to a
+            // boolean variable containing value "true".
             //
-// #### INTERNAL BEGIN ####
-#if 1   // Replace multiple bitfield accesses with an equivalent, single register write.
-// #### INTERNAL END ####
             ui32Reg  = MCUCTRL->XTALCTRL;
             ui32Reg &= ~(MCUCTRL_XTALCTRL_XTALPDNB_Msk                      |
                          MCUCTRL_XTALCTRL_XTALCOMPPDNB_Msk                  |
                          MCUCTRL_XTALCTRL_XTALCOMPBYPASS_Msk                |
                          MCUCTRL_XTALCTRL_XTALCOREDISFB_Msk                 |
                          MCUCTRL_XTALCTRL_XTALSWE_Msk);
-            ui32Reg |= _VAL2FLD(MCUCTRL_XTALCTRL_XTALPDNB,       MCUCTRL_XTALCTRL_XTALPDNB_PWRUPCORE)       |
-                       _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPPDNB,   MCUCTRL_XTALCTRL_XTALCOMPPDNB_PWRUPCOMP)   |
-                       _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPBYPASS, MCUCTRL_XTALCTRL_XTALCOMPBYPASS_USECOMP)   |
-                       _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOREDISFB,  MCUCTRL_XTALCTRL_XTALCOREDISFB_EN)         |
-                       _VAL2FLD(MCUCTRL_XTALCTRL_XTALSWE,        MCUCTRL_XTALCTRL_XTALSWE_OVERRIDE_EN);
+
+            //
+            if ( (pArgs != NULL) && (*((bool *)pArgs) == true) )
+            {
+                ui32Reg |= _VAL2FLD(MCUCTRL_XTALCTRL_XTALPDNB,       MCUCTRL_XTALCTRL_XTALPDNB_PWRDNCORE)       |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPPDNB,   MCUCTRL_XTALCTRL_XTALCOMPPDNB_PWRDNCOMP)   |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPBYPASS, MCUCTRL_XTALCTRL_XTALCOMPBYPASS_BYPCOMP)   |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOREDISFB,  MCUCTRL_XTALCTRL_XTALCOREDISFB_EN)         |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALSWE,        MCUCTRL_XTALCTRL_XTALSWE_OVERRIDE_EN);
+            }
+            else
+            {
+                ui32Reg |= _VAL2FLD(MCUCTRL_XTALCTRL_XTALPDNB,       MCUCTRL_XTALCTRL_XTALPDNB_PWRUPCORE)       |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPPDNB,   MCUCTRL_XTALCTRL_XTALCOMPPDNB_PWRUPCOMP)   |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPBYPASS, MCUCTRL_XTALCTRL_XTALCOMPBYPASS_USECOMP)   |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOREDISFB,  MCUCTRL_XTALCTRL_XTALCOREDISFB_EN)         |
+                           _VAL2FLD(MCUCTRL_XTALCTRL_XTALSWE,        MCUCTRL_XTALCTRL_XTALSWE_OVERRIDE_EN);
+            }
             MCUCTRL->XTALCTRL = ui32Reg;
-// #### INTERNAL BEGIN ####
-#else
-            MCUCTRL->XTALCTRL_b.XTALPDNB = MCUCTRL_XTALCTRL_XTALPDNB_PWRUPCORE;
-            MCUCTRL->XTALCTRL_b.XTALCOMPPDNB = MCUCTRL_XTALCTRL_XTALCOMPPDNB_PWRUPCOMP;
-            MCUCTRL->XTALCTRL_b.XTALCOMPBYPASS = MCUCTRL_XTALCTRL_XTALCOMPBYPASS_BYPCOMP;
-            MCUCTRL->XTALCTRL_b.XTALCOREDISFB = MCUCTRL_XTALCTRL_XTALCOREDISFB_DIS;
-            MCUCTRL->XTALCTRL_b.XTALSWE = MCUCTRL_XTALCTRL_XTALSWE_OVERRIDE_EN;
-#endif
-// #### INTERNAL END ####
             break;
 
         case AM_HAL_MCUCTRL_CONTROL_EXTCLK32K_DISABLE:
@@ -220,176 +242,12 @@ am_hal_mcuctrl_control(am_hal_mcuctrl_control_e eControl, void *pArgs)
             // Configure the bits in XTALCTRL that disable external 32KHz
             // clock, thus re-configuring for the crystal.
             //
-// #### INTERNAL BEGIN ####
-#if 1   // Replace multiple bitfield accesses with an equivalent, single register write.
-// #### INTERNAL END ####
             ui32Reg  = MCUCTRL->XTALCTRL;
-            ui32Reg &= ~(MCUCTRL_XTALCTRL_XTALPDNB_Msk                      |
-                         MCUCTRL_XTALCTRL_XTALCOMPPDNB_Msk                  |
-                         MCUCTRL_XTALCTRL_XTALCOMPBYPASS_Msk                |
-                         MCUCTRL_XTALCTRL_XTALCOREDISFB_Msk                 |
+            ui32Reg &= ~(MCUCTRL_XTALCTRL_XTALCOREDISFB_Msk                 |
                          MCUCTRL_XTALCTRL_XTALSWE_Msk);
-            ui32Reg |= _VAL2FLD(MCUCTRL_XTALCTRL_XTALPDNB,       MCUCTRL_XTALCTRL_XTALPDNB_PWRUPCORE)       |
-                       _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPPDNB,   MCUCTRL_XTALCTRL_XTALCOMPPDNB_PWRUPCOMP)   |
-                       _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOMPBYPASS, MCUCTRL_XTALCTRL_XTALCOMPBYPASS_USECOMP)   |
-                       _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOREDISFB,  MCUCTRL_XTALCTRL_XTALCOREDISFB_EN)         |
+            ui32Reg |= _VAL2FLD(MCUCTRL_XTALCTRL_XTALCOREDISFB,  MCUCTRL_XTALCTRL_XTALCOREDISFB_EN)         |
                        _VAL2FLD(MCUCTRL_XTALCTRL_XTALSWE,        MCUCTRL_XTALCTRL_XTALSWE_OVERRIDE_DIS);
             MCUCTRL->XTALCTRL = ui32Reg;
-// #### INTERNAL BEGIN ####
-#else
-            MCUCTRL->XTALCTRL_b.XTALPDNB = MCUCTRL_XTALCTRL_XTALPDNB_PWRUPCORE;
-            MCUCTRL->XTALCTRL_b.XTALCOMPPDNB = MCUCTRL_XTALCTRL_XTALCOMPPDNB_PWRUPCOMP;
-            MCUCTRL->XTALCTRL_b.XTALCOMPBYPASS = MCUCTRL_XTALCTRL_XTALCOMPBYPASS_USECOMP;
-            MCUCTRL->XTALCTRL_b.XTALCOREDISFB = MCUCTRL_XTALCTRL_XTALCOREDISFB_EN;
-            MCUCTRL->XTALCTRL_b.XTALSWE = MCUCTRL_XTALCTRL_XTALSWE_OVERRIDE_DIS;
-#endif
-// #### INTERNAL END ####
-            break;
-
-        case AM_HAL_MCUCTRL_CONTROL_EXTCLK32M_KICK_START:
-// #### INTERNAL BEGIN ####
-#if 0 // This reg was removed from drop8
-// Set the default trim code for CAP1/CAP2, it impacts frequency accuracy and should be retrimmed
-            ui32Reg = _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSCAP2TRIM, g_ui32xtalhscap2trim)    |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSCAPTRIM, g_ui32xtalhscaptrim)      |
-// Set the transconductance of crystal to maximum, it accelerate the startup sequence
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSDRIVETRIM, 3)                      |
-// Choose the power of clock driver to be the cleanest one
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSDRIVERSTRENGTH, 0)                 |
-// Tune the bias generator
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASCOMP2TRIM, 3)                 |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASCOMPTRIM, 15)                 |
-// Set the bias of crystal to maximum
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASTRIM, 127)                    |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSRSTRIM, 0)                         |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSSPARE, 0);
-            MCUCTRL->XTALHSTRIMS = ui32Reg;
-#endif
-// #### INTERNAL END ####
-            ui32Reg  = MCUCTRL->XTALHSCTRL;
-            ui32Reg &= ~(MCUCTRL_XTALHSCTRL_XTALHSCOMPPDNB_Msk              |
-                         MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE_Msk          |
-                         MCUCTRL_XTALHSCTRL_XTALHSPADOUTEN_Msk);
-// Enable the option to output clock on PAD GPIO46 connecting to Cooper crystal input
-            ui32Reg |= _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSCOMPPDNB, 1)       |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE, 0)   |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPADOUTEN, 1);
-            MCUCTRL->XTALHSCTRL = ui32Reg;
-            //
-            // Turn on xtalhs_pdnb & xtalhs_injection_enable
-            //
-
-            // Turn on crystal oscillator
-            MCUCTRL->XTALHSCTRL_b.XTALHSPDNB = 1;
-            // inject HFRC clock to accelerate the startup sequence
-            MCUCTRL->XTALHSCTRL_b.XTALHSINJECTIONENABLE = 1;
-
-            //
-            // Turn on xtalhs_ibst_enable
-            //
-            // Maximize the bias current to accelerate the startup sequence
-            MCUCTRL->XTALHSCTRL_b.XTALHSIBSTENABLE = 1;
-
-            //
-            // Turn off xtalhs_injection_enable
-            //
-            // Wait 5us to make the setting above effective
-            am_hal_delay_us(5);
-            // Turn off the clock injection
-            MCUCTRL->XTALHSCTRL_b.XTALHSINJECTIONENABLE = 0;
-
-            // Apply external source
-            if ( (pArgs) && (*((bool *)pArgs) == true) )
-            {
-                ui32Reg = MCUCTRL->XTALHSCTRL;
-                ui32Reg &=  ~(MCUCTRL_XTALHSCTRL_XTALHSPDNB_Msk                 |
-                              MCUCTRL_XTALHSCTRL_XTALHSIBSTENABLE_Msk           |
-                              MCUCTRL_XTALHSCTRL_XTALHSEXTERNALCLOCK_Msk);
-                ui32Reg |=  _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPDNB, 0)          |
-                            _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSIBSTENABLE, 0)    |
-                            _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSEXTERNALCLOCK, 1);
-                MCUCTRL->XTALHSCTRL = ui32Reg;
-            }
-
-            break;
-
-        case AM_HAL_MCUCTRL_CONTROL_EXTCLK32M_NORMAL:
-// #### INTERNAL BEGIN ####
-#if 0 // This reg was removed from drop8
-            ui32Reg = _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSCAP2TRIM, g_ui32xtalhscap2trim)    |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSCAPTRIM, g_ui32xtalhscaptrim)      |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSDRIVETRIM, 3)                      |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSDRIVERSTRENGTH, 0)                 |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASCOMP2TRIM, 3)                 |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASCOMPTRIM, 15)                 |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASTRIM, 127)                    |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSRSTRIM, 0)                         |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSSPARE, 0);
-            MCUCTRL->XTALHSTRIMS = ui32Reg;
-#endif
-// #### INTERNAL END ####
-            ui32Reg  = MCUCTRL->XTALHSCTRL;
-            ui32Reg &= ~(MCUCTRL_XTALHSCTRL_XTALHSCOMPPDNB_Msk                  |
-                         MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE_Msk              |
-                         MCUCTRL_XTALHSCTRL_XTALHSPADOUTEN_Msk);
-            ui32Reg |= _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSCOMPPDNB, 1)           |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE, 1)       |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPADOUTEN, 1);
-            MCUCTRL->XTALHSCTRL = ui32Reg;
-            //
-            // Turn on xtalhs_pdnb
-            //
-            MCUCTRL->XTALHSCTRL_b.XTALHSPDNB = 1;
-            // Apply external source
-            ui32Reg = MCUCTRL->XTALHSCTRL;
-            // Apply external source
-            if ( (pArgs) && (*((bool *)pArgs) == true) )
-            {
-                ui32Reg &=  ~(MCUCTRL_XTALHSCTRL_XTALHSPDNB_Msk                 |
-                              MCUCTRL_XTALHSCTRL_XTALHSEXTERNALCLOCK_Msk);
-                ui32Reg |=  _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPDNB, 0)          |
-                            _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSEXTERNALCLOCK, 1);
-            }
-            else
-            {
-                ui32Reg &=  ~(MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE_Msk         |
-                              MCUCTRL_XTALHSCTRL_XTALHSIBSTENABLE_Msk);
-                ui32Reg |=  _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE, 0)  |
-                            _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSIBSTENABLE, 1);
-            }
-
-            MCUCTRL->XTALHSCTRL = ui32Reg;
-            break;
-
-        case AM_HAL_MCUCTRL_CONTROL_EXTCLK32M_DISABLE:
-// #### INTERNAL BEGIN ####
-#if 0 // This reg was removed from drop8
-            ui32Reg = _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSCAP2TRIM, g_ui32xtalhscap2trim)    |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSCAPTRIM, g_ui32xtalhscaptrim)      |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSDRIVETRIM, 0)                      |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSDRIVERSTRENGTH, 7)                 |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASCOMP2TRIM, 3)                 |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASCOMPTRIM, 8)                  |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSIBIASTRIM, 24)                     |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSRSTRIM, 0)                         |
-                      _VAL2FLD(MCUCTRL_XTALHSTRIMS_XTALHSSPARE, 0);
-            MCUCTRL->XTALHSTRIMS = ui32Reg;
-#endif
-// #### INTERNAL END ####
-            ui32Reg  = MCUCTRL->XTALHSCTRL;
-            ui32Reg &= ~(MCUCTRL_XTALHSCTRL_XTALHSPDNB_Msk                  |
-                         MCUCTRL_XTALHSCTRL_XTALHSEXTERNALCLOCK_Msk         |
-                         MCUCTRL_XTALHSCTRL_XTALHSCOMPPDNB_Msk              |
-                         MCUCTRL_XTALHSCTRL_XTALHSIBSTENABLE_Msk            |
-                         MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE_Msk          |
-                         MCUCTRL_XTALHSCTRL_XTALHSPADOUTEN_Msk);
-            ui32Reg |= _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPDNB, 0)           |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSEXTERNALCLOCK, 0)  |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSCOMPPDNB, 1)       |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSIBSTENABLE, 0)     |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPDNPNIMPROVE, 0)   |
-                       _VAL2FLD(MCUCTRL_XTALHSCTRL_XTALHSPADOUTEN, 1);
-            MCUCTRL->XTALHSCTRL = ui32Reg;
             break;
 
         default:
@@ -402,6 +260,30 @@ am_hal_mcuctrl_control(am_hal_mcuctrl_control_e eControl, void *pArgs)
     return AM_HAL_STATUS_SUCCESS;
 
 } // am_hal_mcuctrl_control()
+
+
+uint32_t
+am_hal_mcuctrl_extclk32k_status_get(am_hal_mcuctrl_ext32k_status_e *peStatus)
+{
+    if (MCUCTRL->XTALCTRL_b.XTALSWE)
+    {
+        if ( MCUCTRL->XTALCTRL_b.XTALCOMPBYPASS )
+        {
+            *peStatus = AM_HAL_MCUCTRL_EXT32K_STATUS_EXT_CLK;
+        }
+        else
+        {
+            *peStatus = AM_HAL_MCUCTRL_EXT32K_STATUS_XTAL;
+        }
+    }
+    else
+    {
+        *peStatus = AM_HAL_MCUCTRL_EXT32K_STATUS_OFF;
+    }
+
+
+    return AM_HAL_STATUS_SUCCESS;
+}
 
 // ****************************************************************************
 //
@@ -431,9 +313,6 @@ am_hal_mcuctrl_status_get(am_hal_mcuctrl_status_t *psStatus)
 
     ui32Status = MCUCTRL->BOOTLOADER;
 
-// ##### INTERNAL BEGIN #####
-    // TODO: FIXME - These are with a Vanilla part.  Need to set for DM LCS part.
-// ##### INTERNAL END #####
     psStatus->bSecBootOnColdRst =
         (_FLD2VAL(MCUCTRL_BOOTLOADER_SECBOOT, ui32Status) != MCUCTRL_BOOTLOADER_SECBOOT_ERROR);
     psStatus->bSecBootOnWarmRst =
@@ -442,6 +321,59 @@ am_hal_mcuctrl_status_get(am_hal_mcuctrl_status_t *psStatus)
     return AM_HAL_STATUS_SUCCESS;
 
 } // am_hal_mcuctrl_status_get()
+
+// ****************************************************************************
+//
+//  trim_version_get()
+//  Get TRIM version which is stored in INFO1.
+//
+// ****************************************************************************
+static uint32_t
+trim_version_get(am_hal_mcuctrl_feature_t *psFeature)
+{
+    uint32_t ui32Ret, ui32TrimVer;
+
+    //
+    // Get trim information from the Apollo510L device.
+    // For Apollo510L, this data is stored in INFO1 and is typically encoded
+    // specifically for different silicon versions.
+    //
+    ui32Ret = am_hal_info1_read(AM_HAL_INFO_INFOSPACE_CURRENT_INFO1,
+                                AM_REG_OTP_INFO1_TRIM_REV_O / 4,
+                                1,
+                                &ui32TrimVer);
+
+    psFeature->ui32trimver = 0x0;   // Initialize the trim data
+    if ( ui32Ret == AM_HAL_STATUS_SUCCESS )
+    {
+        if (ui32TrimVer <= 254)
+        {
+            psFeature->trimver_b.ui8TrimVerMaj = 1;
+            psFeature->trimver_b.ui8TrimVerMin = (uint8_t)ui32TrimVer;
+            psFeature->trimver_b.bTrimVerPCM   = 1;
+            psFeature->trimver_b.bTrimVerValid = 1;
+        }
+        else
+        {
+            //
+            // Default to non-PCM numbered device.
+            //
+            psFeature->trimver_b.ui8TrimVerMaj = 0;
+            psFeature->trimver_b.ui8TrimVerMin = (uint8_t)ui32TrimVer;
+            psFeature->trimver_b.bTrimVerPCM   = 0;
+            psFeature->trimver_b.bTrimVerValid = 1;
+        }
+    }
+    else
+    {
+        psFeature->trimver_b.ui8TrimVerMaj = 0;
+        psFeature->trimver_b.ui8TrimVerMin = (uint8_t)ui32TrimVer;
+        psFeature->trimver_b.bTrimVerPCM   = 0;
+        psFeature->trimver_b.bTrimVerValid = 0;
+    }
+
+    return ui32Ret;
+} // trim_version_get()
 
 // ****************************************************************************
 //
@@ -473,15 +405,7 @@ am_hal_mcuctrl_info_get(am_hal_mcuctrl_infoget_e eInfoGet, void *pInfo)
                     break;
                 case 1:
                     psFeature->eDTCMSize        = AM_HAL_MCUCTRL_DTCM_256K;
-                    psFeature->eSharedSRAMSize  = AM_HAL_MCUCTRL_SSRAM_2M;
-                    break;
-                case 2:
-                    psFeature->eDTCMSize        = AM_HAL_MCUCTRL_DTCM_512K;
-                    psFeature->eSharedSRAMSize  = AM_HAL_MCUCTRL_SSRAM_2M;
-                    break;
-                case 3:
-                    psFeature->eDTCMSize        = AM_HAL_MCUCTRL_DTCM_512K;
-                    psFeature->eSharedSRAMSize  = AM_HAL_MCUCTRL_SSRAM_3M;
+                    psFeature->eSharedSRAMSize  = AM_HAL_MCUCTRL_SSRAM_1P75M;
                     break;
             }
             //
@@ -501,6 +425,7 @@ am_hal_mcuctrl_info_get(am_hal_mcuctrl_infoget_e eInfoGet, void *pInfo)
             psFeature->bRadioBLE        = (MCUCTRL->SKU_b.SKURADIOBLE > 0);
             psFeature->bCM4DEBUG        = (MCUCTRL->SKU_b.SKUCM4DEBUG > 0);
 
+            trim_version_get(psFeature);
             break;
 
         case AM_HAL_MCUCTRL_INFO_DEVICEID:
@@ -521,7 +446,7 @@ am_hal_mcuctrl_info_get(am_hal_mcuctrl_infoget_e eInfoGet, void *pInfo)
 //*****************************************************************************
 //
 // am_hal_mcuctrl_finecnt_get()
-// Read Radio Fine Counter with 0.5µs precision
+// Read Radio Fine Counter with 0.5us precision
 //
 //*****************************************************************************
 uint32_t
@@ -536,7 +461,7 @@ am_hal_mcuctrl_finecnt_get(void)
 //*****************************************************************************
 //
 // am_hal_mcuctrl_clkncnt_get()
-// Read Radio CLKN Counter with a 312.5μs precision
+// Read Radio CLKN Counter with a 312.5us precision
 //
 //*****************************************************************************
 uint32_t
@@ -547,6 +472,31 @@ am_hal_mcuctrl_clkncnt_get(void)
     ui32CurrVal = MCUCTRL->RADIOCLKNCNT;
     return ui32CurrVal;
 } // am_hal_mcuctrl_clkncnt_get()
+
+//*****************************************************************************
+//
+// am_hal_mcuctrl_usb_phy_ldo0p9_enable()
+// USB PHY LDO (0.9V) Switch Control
+//
+//*****************************************************************************
+void
+am_hal_mcuctrl_usb_phy_ldo0p9_enable(bool bEnable)
+{
+    if ( bEnable )
+    {
+        // Disable the pulldown to disable USB LDO active discharge.
+        MCUCTRL->USBLDOCTRL |= MCUCTRL_USBLDOCTRL_USBLDOPULLDNDIS_Msk;
+        // Enable USB LDO.
+        MCUCTRL->USBLDOCTRL |= MCUCTRL_USBLDOCTRL_USBLDOPDNB_Msk ;
+    }
+    else
+    {
+        //Disable USB LDO.
+        MCUCTRL->USBLDOCTRL &= ~MCUCTRL_USBLDOCTRL_USBLDOPDNB_Msk;
+        //Enable the pulldown to enable USB LDO active discharge.
+        MCUCTRL->USBLDOCTRL &= ~MCUCTRL_USBLDOCTRL_USBLDOPULLDNDIS_Msk;
+    }
+}
 
 //*****************************************************************************
 //
@@ -567,6 +517,28 @@ am_hal_mcuctrl_i3c_phy_pulldown_enable(bool bEnable)
     }
 } // am_hal_mcuctrl_i3c_phy_pulldown_enable
 
+// ****************************************************************************
+//
+//  am_hal_mcuctrl_subsys_codebase_set()
+//  Radio subsystem code base address from 0x400000 to 0x5FFFFF(2MB),16Bytes align
+// ****************************************************************************
+uint32_t
+am_hal_mcuctrl_rss_codebase_set(uint32_t ui32Codebase_addr)
+{
+    //Check 16Bytes align
+    if ( ui32Codebase_addr & 0xF )
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+    else if ( (ui32Codebase_addr < 0x400000) || (ui32Codebase_addr > 0x5FFFFF) )
+    {
+        return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
+
+    MCUCTRL->CM4CODEBASE = ui32Codebase_addr;
+
+    return AM_HAL_STATUS_SUCCESS;
+}
 //*****************************************************************************
 //
 // End Doxygen group.

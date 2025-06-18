@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -152,12 +179,6 @@ am_hal_rtc_config(const am_hal_rtc_config_t *psConfig)
         case AM_HAL_RTC_OSC_XT:
             ui32Oscillator = CLKGEN_OCTRL_RTCOSEL_XT_512Hz;
             break;
-// #### INTERNAL BEGIN ####
-
-        case AM_HAL_RTC_OSC_LFRC:
-            ui32Oscillator = CLKGEN_OCTRL_RTCOSEL_LFRC_512Hz;
-            break;
-// #### INTERNAL END ####
 
         default:
             return AM_HAL_STATUS_INVALID_ARG;
@@ -171,12 +192,6 @@ am_hal_rtc_config(const am_hal_rtc_config_t *psConfig)
         CLKGEN->OCTRL_b.RTCOSEL = ui32Oscillator;
     }
 
-// #### INTERNAL BEGIN ####
-// Deprecated for Rev B1 silicon.
-//    RTC->RTCCTL_b.HR1224 = (psConfig->b12Hour ?
-//                            RTC_RTCCTL_HR1224_12HR :
-//                            RTC_RTCCTL_HR1224_24HR);
-// #### INTERNAL END ####
     return AM_HAL_STATUS_SUCCESS;
 }
 
@@ -216,6 +231,30 @@ am_hal_rtc_osc_disable(void)
     return AM_HAL_STATUS_SUCCESS;
 }
 
+void
+am_hal_rtc_counter_clear(void)
+{
+    //
+    // Enable writing to the counters.
+    //
+    RTC->RTCCTL_b.WRTC = RTC_RTCCTL_WRTC_EN;
+
+    //
+    // Write the RTCLOW register.
+    //
+    RTC->CTRLOW = 0x0;
+
+    //
+    // Write the RTCUP register.
+    //
+    RTC->CTRUP = 0x0;
+
+    //
+    // Disable writing to the counters.
+    //
+    RTC->RTCCTL_b.WRTC = RTC_RTCCTL_WRTC_DIS;
+}
+
 //*****************************************************************************
 //
 // Set the Real Time Clock counter registers.
@@ -252,13 +291,6 @@ am_hal_rtc_time_set(am_hal_rtc_time_t *pTime)
     // Write the RTCUP register.
     //
     RTC->CTRUP =
-// #### INTERNAL BEGIN ####
-    // ERR028 - Century Bit toggles when CEB == 1
-    //          and ui32Year == 99 and hence
-    //          cannot handle ui32Year rollover
-    //          from 99 -> 00
-        //_VAL2FLD(RTC_CTRUP_CEB,     (pTime->ui32CenturyEnable))          |
-// #### INTERNAL END ####
         _VAL2FLD(RTC_CTRUP_CB,      (pTime->ui32CenturyBit))                |
         _VAL2FLD(RTC_CTRUP_CTRWKDY, (pTime->ui32Weekday))                |
         _VAL2FLD(RTC_CTRUP_CTRYR,   dec_to_bcd((pTime->ui32Year)))       |
@@ -273,69 +305,6 @@ am_hal_rtc_time_set(am_hal_rtc_time_t *pTime)
     return AM_HAL_STATUS_SUCCESS;
 }
 
-// #### INTERNAL BEGIN ####
-//
-// RTC CDC issue w/a, details in COR-128
-//
-// #### INTERNAL END ####
-//*****************************************************************************
-//
-// Poll the RTC source clock's edge and wait before register read
-//
-//*****************************************************************************
-static inline void
-poll_rtc_clksrc_edge_and_wait()
-{
-    uint32_t ui32PreTimerCnt = 0;
-
-#if RTC_CDC_WA_USE_APP_STMR
-    //
-    // capture the clock edge
-    //
-    ui32PreTimerCnt = am_hal_stimer_counter_get();
-    while (ui32PreTimerCnt == am_hal_stimer_counter_get());
-#else
-    //
-    // Setup the timer with same clock source as RTL (LFRC or XT) with the highest frequency option
-    //
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->CTRL0_b.TMR0EN = 0;
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->CTRL0 = _VAL2FLD(TIMER_CTRL0_TMR0CLK, \
-                                              CLKGEN->OCTRL & CLKGEN_OCTRL_RTCOSEL_Msk ?  \
-                                              TIMER_CTRL0_TMR0CLK_LFRC : TIMER_CTRL0_TMR0CLK_XT)        |
-                                      _VAL2FLD(TIMER_CTRL0_TMR0FN,      AM_HAL_TIMER_FN_EDGE)           |
-                                      _VAL2FLD(TIMER_CTRL0_TMR0POL1,    false)                          |
-                                      _VAL2FLD(TIMER_CTRL0_TMR0POL0,    false)                          |
-                                      _VAL2FLD(TIMER_CTRL0_TMR0TMODE,   AM_HAL_TIMER_TRIGGER_DIS)       |
-                                      _VAL2FLD(TIMER_CTRL0_TMR0LMT,     0)                              |
-                                      _VAL2FLD(TIMER_CTRL0_TMR0EN, 0);
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->TMR0CMP0 = 0xFFFFFFFF;
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->TMR0CMP1 = 0xFFFFFFFF;
-
-    //
-    // Toggle the clear bit (required by the hardware), and then enable the timer.
-    //
-    TIMER->GLOBEN |= 1 <<  AM_HAL_INTERNAL_TIMER_NUM_B;
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->CTRL0_b.TMR0CLR = 1;
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->CTRL0_b.TMR0CLR = 0;
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->CTRL0_b.TMR0EN = 1;
-
-    //
-    // capture the clock edge
-    //
-    ui32PreTimerCnt = TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->TIMER0;
-    while (ui32PreTimerCnt == TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->TIMER0);
-
-    //
-    // Disable the timer
-    //
-    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_B)->CTRL0_b.TMR0EN = 0;
-#endif
-
-    //
-    // A safe delay for RTC reg read
-    //
-    am_hal_delay_us(RTC_CDC_WA_DELAY_US);
-}
 
 //*****************************************************************************
 //
@@ -348,26 +317,34 @@ uint32_t
 am_hal_rtc_time_get(am_hal_rtc_time_t *pTime)
 {
     uint32_t ui32RTCLow, ui32RTCUp, ui32Value;
-
-    // #### INTERNAL BEGIN ####
-    //
-    // RTC CDC issue w/a inside the critical section, details in COR-138
-    //
-    // #### INTERNAL END ####
-    AM_CRITICAL_BEGIN
-
-    //
-    // poll the RTC clock source edge and wait before read the registers
-    //
-    poll_rtc_clksrc_edge_and_wait();
+    uint32_t ui32RTCLowVals[3], ui32RTCUpVals[3];
 
     //
     // Read the upper and lower RTC registers.
     //
-    ui32RTCLow = RTC->CTRLOW;
-    ui32RTCUp  = RTC->CTRUP;
 
-    AM_CRITICAL_END
+    //
+    // Read the register into ui32RTCLowVals[], ui32RTCUpVals[].
+    //
+    am_hal_triple_read((uint32_t)&RTC->CTRLOW, ui32RTCLowVals);
+    am_hal_triple_read((uint32_t)&RTC->CTRUP, ui32RTCUpVals);
+
+    //
+    // Now determine which of the three values is the correct value.
+    // If the first 2 match, then the values are both correct and we're done.
+    // Otherwise, the third value is taken to be the correct value.
+    //
+    if ( ui32RTCLowVals[0] == ui32RTCLowVals[1] )
+    {
+        ui32RTCLow = ui32RTCLowVals[0];
+        ui32RTCUp  = ui32RTCUpVals[0];
+    }
+    else
+    {
+        ui32RTCLow = ui32RTCLowVals[2];
+        ui32RTCUp  = ui32RTCUpVals[2];
+    }
+
 
     //
     // Check for errors. If we didn't successfully read the time, return with
@@ -398,13 +375,6 @@ am_hal_rtc_time_get(am_hal_rtc_time_t *pTime)
     //
     // Break out the upper word.
     //
-// #### INTERNAL BEGIN ####
-    // ERR028 - Century Bit toggles when CEB == 1
-    //          and ui32Year == 99 and hence
-    //          cannot handle ui32Year rollover
-    //          from 99 -> 00
-    //pTime->ui32CenturyEnable = _FLD2VAL(RTC_CTRUP_CEB, ui32RTCUp);
-// #### INTERNAL END ####
 
     pTime->ui32CenturyBit      = _FLD2VAL(RTC_CTRUP_CB, ui32RTCUp);
 
@@ -420,37 +390,6 @@ am_hal_rtc_time_get(am_hal_rtc_time_t *pTime)
     ui32Value               = _FLD2VAL(RTC_CTRUP_CTRDATE, ui32RTCUp);
     pTime->ui32DayOfMonth   = bcd_to_dec(ui32Value);
 
-// #### INTERNAL BEGIN ####
-#if 0
-    //
-    // On the FPGA, it seems the RTC is always running on XTAL, which in itself
-    // is running at a much higher rate than 32768 Hz.
-    // Compensate for FPGA clock speeds.
-    //
-#define RTC_MULT    13      // Multiply RTC values by 6.5x
-#define RTC_DIV     2       //  "
-
-    uint32_t uHund, uSec, uMin, uHr;
-
-    uHund = ((pTime->ui32Hundredths  * RTC_MULT) / RTC_DIV) % 100;
-    uSec  = (((pTime->ui32Second     * RTC_MULT) / RTC_DIV) % 60) +
-            (((pTime->ui32Hundredths * RTC_MULT) / RTC_DIV) / 100);
-    uMin  = (((pTime->ui32Minute     * RTC_MULT) / RTC_DIV) % 60) +
-            (((pTime->ui32Second     * RTC_MULT) / RTC_DIV) / 60);
-    uHr   = (((pTime->ui32Hour       * RTC_MULT) / RTC_DIV) % 24) +
-            (((pTime->ui32Minute     * RTC_MULT) / RTC_DIV) / 60);
-
-    //
-    // For this temporary workaround, we're not going to go any further than
-    // hours.  We'll ignore DayofMonth and so on.
-    //
-    pTime->ui32Hundredths = uHund;
-    pTime->ui32Second     = uSec;
-    pTime->ui32Second     = uSec;
-    pTime->ui32Minute     = uMin;
-    pTime->ui32Hour       = uHr;
-#endif // APOLLO5_FPGA
-// #### INTERNAL END ####
     //
     // Was there a read error?
     //
@@ -464,10 +403,6 @@ am_hal_rtc_time_get(am_hal_rtc_time_t *pTime)
     }
 }
 
-// #### INTERNAL BEGIN ####
-// am_hal_rtc_osc_select and am_hal_rtc_alarm_interval_set
-// were simply brought over from Apollo3p
-// #### INTERNAL END ####
 //*****************************************************************************
 //
 // Selects the clock source for the RTC.
@@ -670,13 +605,6 @@ am_hal_rtc_alarm_get(am_hal_rtc_time_t *pTime,
         //
         pTime->ui32CenturyBit = 0;
         pTime->ui32ReadError = 0;
-// #### INTERNAL BEGIN ####
-    // ERR028 - Century Bit toggles when CEB == 1
-    //          and ui32Year == 99 and hence
-    //          cannot handle ui32Year rollover
-    //          from 99 -> 00
-        //pTime->ui32CenturyEnable = 0;
-// #### INTERNAL END ####
 
         ui32Value = ((ui32ALMUp & RTC_ALMUP_ALMWKDY_Msk) >> RTC_ALMUP_ALMWKDY_Pos);
         pTime->ui32Weekday = bcd_to_dec(ui32Value);

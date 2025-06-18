@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_TIMER_H
@@ -25,9 +52,6 @@ extern "C"
 {
 #endif
 
-// #### INTERNAL BEGIN ####
-// FIXME - Should the Number of Timers be defined elsewhere?
-// #### INTERNAL END ####
 #undef AM_REG_NUM_TIMERS
 #define AM_REG_NUM_TIMERS       16
 
@@ -39,7 +63,7 @@ extern "C"
 #define AM_HAL_TIMER_OFFSET (&TIMER->CTRL1 - &TIMER->CTRL0)
 #define TIMERn(n)   ((TIMER_Type*)(TIMER_BASE + (n * 4 * AM_HAL_TIMER_OFFSET)))
 #define AM_HAL_TIMER_GLOBEN_DEFAULT     0x0000FFFF
-#define AM_HAL_TIMER_MASK(timer, compare) (compare << (2 * timer))
+#define AM_HAL_TIMER_MASK(timer, compare) ((uint32_t)(compare << (2 * timer)))
 
 //*****************************************************************************
 //
@@ -106,7 +130,7 @@ typedef enum
     AM_HAL_TIMER_CLOCK_TMR13_OUT0   = TIMER_CTRL0_TMR0CLK_TMR130,
     AM_HAL_TIMER_CLOCK_TMR13_OUT1   = TIMER_CTRL0_TMR0CLK_TMR131,
     AM_HAL_TIMER_CLOCK_TMR14_OUT0   = TIMER_CTRL0_TMR0CLK_TMR140,
-    AM_HAL_TIMER_CLOCK_TMR14_OUT1   = TIMER_CTRL0_TMR0CLK_TMR140,
+    AM_HAL_TIMER_CLOCK_TMR14_OUT1   = TIMER_CTRL0_TMR0CLK_TMR141,
     AM_HAL_TIMER_CLOCK_TMR15_OUT0   = TIMER_CTRL0_TMR0CLK_TMR150,
     AM_HAL_TIMER_CLOCK_TMR15_OUT1   = TIMER_CTRL0_TMR0CLK_TMR151,
     AM_HAL_TIMER_CLOCK_GPIO0        = TIMER_CTRL0_TMR0CLK_GPIO0,
@@ -219,20 +243,11 @@ am_hal_timer_clock_e;
 //*****************************************************************************
 typedef enum
 {
-// #### INTERNAL BEGIN ####
-//  AM_HAL_TIMER_FN_CONTINUOUS      = TIMER_CTRL0_TMR0FN_CONTINUOUS,
-// #### INTERNAL END ####
     AM_HAL_TIMER_FN_EDGE            = TIMER_CTRL0_TMR0FN_EDGE,
     AM_HAL_TIMER_FN_UPCOUNT         = TIMER_CTRL0_TMR0FN_UPCOUNT,
     AM_HAL_TIMER_FN_PWM             = TIMER_CTRL0_TMR0FN_PWM,
-// #### INTERNAL BEGIN ####
-//  AM_HAL_TIMER_FN_DOWNCOUNT       = TIMER_CTRL0_TMR0FN_DOWNCOUNT,
-// #### INTERNAL END ####
     AM_HAL_TIMER_FN_SINGLEPATTERN   = TIMER_CTRL0_TMR0FN_SINGLEPATTERN,
     AM_HAL_TIMER_FN_REPEATPATTERN   = TIMER_CTRL0_TMR0FN_REPEATPATTERN,
-// #### INTERNAL BEGIN ####
-//  AM_HAL_TIMER_FN_EVENTTIMER      = TIMER_CTRL0_TMR0FN_EVENTTIMER,
-// #### INTERNAL END ####
 }
 am_hal_timer_function_e;
 

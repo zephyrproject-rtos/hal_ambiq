@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_ADC_H
@@ -22,7 +49,7 @@
 
 //*****************************************************************************
 //
-//! @brief CMSIS-style macro for handling a variable IOM module number.
+//! @brief CMSIS-style macro for handling a variable ADC module number.
 //
 //*****************************************************************************
 #define ADCn(n) ((ADC_Type*)(ADC_BASE + (n * (ADC_BASE - ADC_BASE))))
@@ -69,6 +96,17 @@
 // ****************************************************************************
 #define AM_HAL_ADC_MAX_SLOTS            8
 
+
+// ****************************************************************************
+//
+//! @brief Macros to extract clock source and clock divider ratio from am_hal_adc_clksel_e.
+//
+// ****************************************************************************
+#define AM_HAL_ADC_CRM_CLKSRC_POS   (0)
+#define AM_HAL_ADC_CRM_CLKSRC_MSK   (0x000000FF)
+#define AM_HAL_ADC_CRM_CLKDIV_POS   (8)
+#define AM_HAL_ADC_CRM_CLKDIV_MSK   (0x0000FF00)
+
 // ****************************************************************************
 //
 //! @brief Minimum value for TRKCYC for the general purpose ADC.
@@ -79,32 +117,8 @@
 
 // ****************************************************************************
 //
-//! @brief Default slope (in degK / V) of the Apollo4 temperature sensor.
+//! @brief Default slope (in degK / V) of the temperature sensor.
 //
-// #### INTERNAL BEGIN ####
-// The temperature sensor's voltage vs temperature graph is approximately
-// linear between -273.15C (0K) and 85C (358.15K), even across PVT.
-// For computing temperature we therefore use a constant slope.
-//
-// Validation has determined that the slope for the Apollo4 temperature sensor
-// generally exhibits only very slight deviations when characterized over PVT.
-// Given that fact, temperature computations can be simplified to the
-// following equation:
-//      T = m * V + (T1 - (m * V1)) where
-// m = The constant slope value specified in degK / V.
-// V = Vmeas - Voff
-//  Vmeas = The measured voltage (as based on the ADC code)
-//  Voff  = Calibration offset (stored in volts)
-// V1 = Calibration voltage (stored in volts)
-// T1 = Calibration temperature
-//
-// This equation can be rearranged as:
-//      T = m * Vmeas + T1 - m(V1 + Voff)
-// Note that the 2nd and 3rd terms can be computed one time and saved such that
-// for each subsequent sample only 2 computations are needed:
-// 1) m * Vmeas, and 2) add the saved term.
-// See also FALCSW-298.
-// #### INTERNAL END ####
 // ****************************************************************************
 #define AM_HAL_ADC_TEMPSENSOR_SLOPE     290.0F
 
@@ -116,10 +130,20 @@
 // ****************************************************************************
 typedef enum
 {
-    AM_HAL_ADC_CLKSEL_HFRC        = 0,
-    AM_HAL_ADC_CLKSEL_HFRC_48MHZ  = 0,
-    AM_HAL_ADC_CLKSEL_HFRC_48MHZ1 = 1,
-    AM_HAL_ADC_CLKSEL_HFRC_24MHZ  = 2
+    //! HFRC 48MHz, the actual frequency will change if HFADJ is enabled.
+    AM_HAL_ADC_CLKSEL_HFRC_48MHZ  = ((CRM_ADCCRM_ADCCLKSEL_HFRC_48MHz << AM_HAL_ADC_CRM_CLKSRC_POS) | \
+                                                                   (0 << AM_HAL_ADC_CRM_CLKDIV_POS)),
+
+    //! HFRC 24MHz, the actual frequency will change if HFADJ is enabled.
+    AM_HAL_ADC_CLKSEL_HFRC_24MHZ  = ((CRM_ADCCRM_ADCCLKSEL_HFRC_48MHz << AM_HAL_ADC_CRM_CLKSRC_POS) | \
+                                                                   (1 << AM_HAL_ADC_CRM_CLKDIV_POS)),
+
+    //! PLL, POSTDIV.
+    AM_HAL_ADC_CLKSEL_PLL_POSTDIV = ((CRM_ADCCRM_ADCCLKSEL_PLLPOSTDIV << AM_HAL_ADC_CRM_CLKSRC_POS) | \
+                                                                   (0 << AM_HAL_ADC_CRM_CLKDIV_POS)),
+
+    //! A virtual clock for internal use only, shouldn't be set by applications.
+    AM_HAL_ADC_CLKSEL_OFF,
 } am_hal_adc_clksel_e;
 
 // ****************************************************************************
@@ -161,17 +185,6 @@ typedef enum
     AM_HAL_ADC_TRIGSEL_VCOMP,
     AM_HAL_ADC_TRIGSEL_SOFTWARE = 7
 } am_hal_adc_trigsel_e;
-
-//
-// ADC reference selection.
-//
-//typedef enum
-//{
-//    AM_HAL_ADC_REFSEL_INT_2P0,
-//    AM_HAL_ADC_REFSEL_INT_1P5,
-//    AM_HAL_ADC_REFSEL_EXT_2P0,
-//    AM_HAL_ADC_REFSEL_EXT_1P5
-//} am_hal_adc_refsel_e;
 
 // ****************************************************************************
 //
@@ -362,16 +375,6 @@ typedef struct
 //
 //! @struct am_hal_adc_config_t
 //! @brief Configuration structure for the ADC.
-//!
-//!     eClock = One of the following:
-//!         AM_HAL_ADC_CLKSEL_HFRC
-//!         AM_HAL_ADC_CLKSEL_HFRC_48MHZ
-//!         AM_HAL_ADC_CLKSEL_HFRC_48MHZ
-//!     Notes:
-//!     - AM_HAL_ADC_CLKSEL_HFRC, AM_HAL_ADC_CLKSEL_HFRC_48MHZ, and
-//!       AM_HAL_ADC_CLKSEL_HFRC_48MHZ1 all result in effectively
-//!       the same 48MHz clock source.
-//!     - See the Programmer's Guide for any implications of using
 //
 //*****************************************************************************
 typedef struct
@@ -388,10 +391,6 @@ typedef struct
     //! Select the ADC trigger source.
     am_hal_adc_trigsel_e          eTrigger;
 
-// #### INTERNAL BEGIN ####
-    //! Select the ADC reference voltage.
-//    am_hal_adc_refsel_e           eReference;
-// #### INTERNAL END ####
     //! Whether to disable clocks between samples.
     am_hal_adc_clkmode_e          eClockMode;
 
@@ -599,6 +598,11 @@ extern "C"
 //! @note A return of AM_HAL_STATUS_SUCCESS does not infer that the
 //! temperature calibrations are valid. The caller must check the bMeasured
 //! structure element in order to determine that.
+//!
+//! @note IMPORTANT - This function requires access to INFO0 and/or INFO1 data.
+//! Therefore, if either INFO0 or INFO1 is in OTP, OTP must be powered up prior
+//! to calling this function. For more information, see the description for
+//! am_hal_info0_read().
 //
 //*****************************************************************************
 extern uint32_t am_hal_adc_initialize(uint32_t ui32Module, void **ppHandle);
@@ -826,17 +830,6 @@ extern uint32_t am_hal_adc_interrupt_status(void *pHandle,
 //
 //*****************************************************************************
 extern uint32_t am_hal_adc_interrupt_clear(void *pHandle, uint32_t ui32IntMask);
-// #### INTERNAL BEGIN ####
-//*****************************************************************************
-//
-//! @brief Get number of entries currently in the FIFO.
-//
-//*****************************************************************************
-#if 0
-#define am_hal_adc_fifo_count_get()
-    AM_HAL_ADC_FIFO_COUNT(ADC->FIFO)
-#endif
-// #### INTERNAL END ####
 
 //*****************************************************************************
 //

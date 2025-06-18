@@ -12,22 +12,51 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #include "am_mcu_apollo.h"
 
 #define CRYPTO_CC_IS_IDLE()     while (CRYPTO->HOSTCCISIDLE_b.HOSTCCISIDLE == 0)
 
+//
 // Raw offset for 3b value corresponding to DCU value 1
-uint32_t gStartOff    = 0; // DCU value 1 corresponds to b[2:0]
-uint64_t gDcuMask     = AM_HAL_DCURAW_MASK;
-uint64_t gDcuEnable   = AM_HAL_DCURAW_ENABLE;
-uint64_t gDcuDisable  = AM_HAL_DCURAW_DISABLE;
-volatile uint32_t *gpDcuEnable = &CRYPTO->HOSTDCUEN2;
-volatile uint32_t *gpDcuLock   = &CRYPTO->HOSTDCULOCK2;
+//
+uint32_t gStartOff              = 0;    // DCU value 1 corresponds to b[2:0]
+uint64_t gDcuMask               = AM_HAL_DCURAW_MASK;
+uint64_t gDcuEnable             = AM_HAL_DCURAW_ENABLE;
+uint64_t gDcuDisable            = AM_HAL_DCURAW_DISABLE;
+volatile uint32_t *gpDcuEnable  = &CRYPTO->HOSTDCUEN2;
+volatile uint32_t *gpDcuLock    = &CRYPTO->HOSTDCULOCK2;
 
 typedef union
 {
@@ -92,8 +121,8 @@ get_ui32_dcu_mask(uint64_t ui64DcuMask, uint8_t threeBitVal)
 //! @return Returns AM_HAL_STATUS_SUCCESS on success
 //
 //*****************************************************************************
-static
-uint32_t am_hal_dcu_raw_lock_status_get(uint64_t *pui64Val)
+static uint32_t
+am_hal_dcu_raw_lock_status_get(uint64_t *pui64Val)
 {
     am_hal_64b_dcu_t value;
     value.u32[0] = AM_REGVAL(gpDcuLock);
@@ -113,7 +142,8 @@ uint32_t am_hal_dcu_raw_lock_status_get(uint64_t *pui64Val)
 //! @return Returns AM_HAL_STATUS_SUCCESS on success
 //
 //*****************************************************************************
-uint32_t am_hal_dcu_lock_status_get(uint32_t *pui32Val)
+uint32_t
+am_hal_dcu_lock_status_get(uint32_t *pui32Val)
 {
     uint64_t ui64Lock;
     uint32_t ui32Status;
@@ -125,7 +155,7 @@ uint32_t am_hal_dcu_lock_status_get(uint32_t *pui32Val)
     ui32Status = am_hal_dcu_raw_lock_status_get(&ui64Lock);
     *pui32Val = get_ui32_dcu_mask(ui64Lock, AM_HAL_DCURAWVAL_MASK);
     return ui32Status;
-}
+} // am_hal_dcu_lock_status_get()
 
 //*****************************************************************************
 //
@@ -138,42 +168,9 @@ uint32_t am_hal_dcu_lock_status_get(uint32_t *pui32Val)
 //! @return Returns AM_HAL_STATUS_SUCCESS on success
 //
 //*****************************************************************************
-static
-uint32_t am_hal_dcu_raw_lock(uint64_t ui64Mask)
+static uint32_t
+am_hal_dcu_raw_lock(uint64_t ui64Mask)
 {
-// #### INTERNAL BEGIN ####
-    //
-    // Prior to the following change, the GCC 10.3.1 compiler was issuing a
-    // "may be used uninitialized in this function" warning. The warning came
-    // about from the inlining of copy_words() in this function. After inlining,
-    // the compiler apparently was looking at the copy_words() pSrc argument as
-    // an uninitialized local variable and thus issuing the warning.
-    //
-    // Two methods were devised to eliminate the warning. One was used as the
-    // final solution (with approval between Ron and Christian).
-    // Here is the 2nd, which still uses copy_words().
-    // Store the 64-bit value into its word components in a local array.
-    // Then the ptr to that array can be safely passed to copy_words().
-    //uint32_t ui32tmp[2];
-    //ui32tmp[0] = (uint32_t)(ui64Mask >> 0);
-    //ui32tmp[1] = (uint32_t)(ui64Mask >> 32);
-    //copy_words((uint32_t *)gpDcuLock, ui32tmp, sizeof(uint64_t) / 4);
-// #### INTERNAL END ####
-// #### INTERNAL BEGIN ####
-    // Finally, in order to double-check the correct word order of the uint64_t,
-    // the following code was added to hello_world and the debugger used to
-    // verify actual memory placement.
-    //uint32_t ui32tmp[2];                        // Global variable
-    //uint64_t ui64value = 0x123456789abcdef0;    // Global variable
-    // This demonstrates how the 64-bit data is saved in memory.
-    // After running the following code from the debugger, dump both ui32tmp
-    // and ui64value in bytes or words, they should look identical in memory.
-    //am_util_stdio_printf("ui64value = 0x%08x%08x\n", (uint32_t)(ui64value >> 32), (uint32_t)(ui64value >> 0);
-    //ui32tmp[0] = (uint32_t)(ui64value >> 0);
-    //ui32tmp[1] = (uint32_t)(ui64value >> 32);
-    //am_util_stdio_printf("ui64value = 0x%08x%08x\n", ui32tmp[1], ui32tmp[0]  );
-    //am_util_stdio_printf("ui64 test done.\n\n");
-// #### INTERNAL END ####
     //
     // copy_words((uint32_t *)gpDcuLock, (uint32_t *)&ui64Mask, sizeof(uint64_t) / 4);
     //
@@ -199,7 +196,8 @@ uint32_t am_hal_dcu_raw_lock(uint64_t ui64Mask)
 //! @return Returns AM_HAL_STATUS_SUCCESS on success
 //
 //*****************************************************************************
-uint32_t am_hal_dcu_lock(uint32_t ui32Mask)
+uint32_t
+am_hal_dcu_lock(uint32_t ui32Mask)
 {
     uint64_t ui64Lock;
     if ((PWRCTRL->DEVPWRSTATUS_b.PWRSTCRYPTO == 0) || (CRYPTO->HOSTCCISIDLE_b.HOSTCCISIDLE == 0))
@@ -209,7 +207,7 @@ uint32_t am_hal_dcu_lock(uint32_t ui32Mask)
     }
     ui64Lock = get_raw_dcu_mask(ui32Mask, AM_HAL_DCURAWVAL_MASK);
     return am_hal_dcu_raw_lock(ui64Lock);
-}
+} // am_hal_dcu_lock()
 
 //*****************************************************************************
 //
@@ -222,15 +220,15 @@ uint32_t am_hal_dcu_lock(uint32_t ui32Mask)
 //! @return Returns AM_HAL_STATUS_SUCCESS on success
 //
 //*****************************************************************************
-static
-uint32_t am_hal_dcu_raw_get(uint64_t *pui64Val)
+static uint32_t
+am_hal_dcu_raw_get(uint64_t *pui64Val)
 {
     am_hal_64b_dcu_t value;
     value.u32[0] = AM_REGVAL(gpDcuEnable);
     value.u32[1] = AM_REGVAL(gpDcuEnable + 1);
     *pui64Val = value.u64;
     return AM_HAL_STATUS_SUCCESS;
-}
+} // am_hal_dcu_raw_get()
 
 //*****************************************************************************
 //
@@ -243,7 +241,8 @@ uint32_t am_hal_dcu_raw_get(uint64_t *pui64Val)
 //! @return Returns AM_HAL_STATUS_SUCCESS on success
 //
 //*****************************************************************************
-uint32_t am_hal_dcu_get(uint32_t *pui32Val)
+uint32_t
+am_hal_dcu_get(uint32_t *pui32Val)
 {
     uint64_t ui64Enable;
     uint32_t ui32Status;
@@ -255,7 +254,7 @@ uint32_t am_hal_dcu_get(uint32_t *pui32Val)
     ui32Status = am_hal_dcu_raw_get(&ui64Enable);
     *pui32Val = get_ui32_dcu_mask(ui64Enable, AM_HAL_DCURAWVAL_ENABLE);
     return ui32Status;
-}
+} // am_hal_dcu_get()
 
 //*****************************************************************************
 //
@@ -269,8 +268,8 @@ uint32_t am_hal_dcu_get(uint32_t *pui32Val)
 //! @return Returns AM_HAL_STATUS_SUCCESS on success
 //
 //*****************************************************************************
-static
-uint32_t am_hal_dcu_raw_update(bool bEnable, uint64_t ui64Mask)
+static uint32_t
+am_hal_dcu_raw_update(bool bEnable, uint64_t ui64Mask)
 {
     am_hal_64b_dcu_t dcuVal;
     am_hal_64b_dcu_t dcuLock;
@@ -294,7 +293,7 @@ uint32_t am_hal_dcu_raw_update(bool bEnable, uint64_t ui64Mask)
     AM_REGVAL(gpDcuEnable + 1) = dcuVal.u32[1];
     CRYPTO_CC_IS_IDLE();
     return AM_HAL_STATUS_SUCCESS;
-}
+} // am_hal_dcu_raw_update()
 
 //*****************************************************************************
 //
@@ -303,7 +302,8 @@ uint32_t am_hal_dcu_raw_update(bool bEnable, uint64_t ui64Mask)
 // This will update the DCU Enable settings, if not locked
 //
 //*****************************************************************************
-uint32_t am_hal_dcu_update(bool bEnable, uint32_t ui32Mask)
+uint32_t
+am_hal_dcu_update(bool bEnable, uint32_t ui32Mask)
 {
     uint64_t ui64Mask;
     if ((PWRCTRL->DEVPWRSTATUS_b.PWRSTCRYPTO == 0) || (CRYPTO->HOSTCCISIDLE_b.HOSTCCISIDLE == 0))
@@ -313,7 +313,7 @@ uint32_t am_hal_dcu_update(bool bEnable, uint32_t ui32Mask)
     }
     ui64Mask = get_raw_dcu_mask(ui32Mask, AM_HAL_DCURAWVAL_MASK);
     return am_hal_dcu_raw_update(bEnable, ui64Mask);
-}
+} // am_hal_dcu_update()
 
 //*****************************************************************************
 //
@@ -323,43 +323,57 @@ uint32_t am_hal_dcu_update(bool bEnable, uint32_t ui32Mask)
 // This can only further lock things if the corresponding DCU Enable was open
 //
 //*****************************************************************************
-uint32_t am_hal_dcu_mcuctrl_override(uint32_t ui32Mask)
+uint32_t
+am_hal_dcu_mcuctrl_override(uint32_t ui32Mask)
 {
     MCUCTRL->DEBUGGER = ui32Mask;
     return AM_HAL_STATUS_SUCCESS;
-}
+} // am_hal_dcu_mcuctrl_override()
 
-// #### INTERNAL BEGIN ####
 //*****************************************************************************
 //
-// Update DCU Scope
-//
-// This will update the DCU scope for further operations
+// DCU SWO Enable - Enable SWO
 //
 //*****************************************************************************
-uint32_t am_hal_dcu_set_scope(bool bAmbiq)
+uint32_t
+am_hal_dcu_swo_enable(void)
 {
-    if (bAmbiq)
+    //
+    // Make sure that SWO is enabled
+    //
     {
-        gpDcuEnable = &CRYPTO->HOSTDCUEN0;
-        gpDcuLock   = &CRYPTO->HOSTDCULOCK0;
-        gDcuMask    = AM_HAL_DCURAW_MASK_AMBIQ;
-        gDcuEnable  = AM_HAL_DCURAW_ENABLE_AMBIQ;
-        gDcuDisable = AM_HAL_DCURAW_DISABLE_AMBIQ;
-        gStartOff   = 3; // DCU value 1 corresponds to b[5:3]
+        if ( (PWRCTRL->DEVPWRSTATUS_b.PWRSTCRYPTO == 1) &&
+             (CRYPTO->HOSTCCISIDLE_b.HOSTCCISIDLE == 1) )
+        {
+            uint32_t ui32dcuVal = 0;
+
+            am_hal_dcu_get(&ui32dcuVal);
+
+            //
+            // Enable SWO
+            //
+            if ( ((ui32dcuVal & AM_HAL_DCU_SWO) != AM_HAL_DCU_SWO) &&
+                 (am_hal_dcu_update(true, AM_HAL_DCU_SWO) != AM_HAL_STATUS_SUCCESS) )
+            {
+                //
+                // Cannot enable SWO
+                //
+                return AM_HAL_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            //
+            // If DCU is not accessible, we cannot determine if ITM can be safely enabled.
+            //
+            return AM_HAL_STATUS_FAIL;
+        }
     }
-    else
-    {
-        gpDcuEnable = &CRYPTO->HOSTDCUEN2;
-        gpDcuLock   = &CRYPTO->HOSTDCULOCK2;
-        gDcuMask    = AM_HAL_DCURAW_MASK;
-        gDcuEnable  = AM_HAL_DCURAW_ENABLE;
-        gDcuDisable = AM_HAL_DCURAW_DISABLE;
-        gStartOff   = 0;
-    }
+
     return AM_HAL_STATUS_SUCCESS;
-}
-// #### INTERNAL END ####
+
+} // am_hal_dcu_swo_enable()
+
 
 //*****************************************************************************
 //

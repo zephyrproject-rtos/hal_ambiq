@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_SYSCTRL_H
@@ -31,8 +58,12 @@ extern "C"
 //! @{
 //
 //*****************************************************************************
-#define AM_HAL_SYSCTRL_SLEEP_DEEP       true
-#define AM_HAL_SYSCTRL_SLEEP_NORMAL     false
+typedef enum
+{
+  AM_HAL_SYSCTRL_SLEEP_NORMAL = 0,
+  AM_HAL_SYSCTRL_SLEEP_DEEP,
+  AM_HAL_SYSCTRL_SLEEP_DEEPER
+} am_hal_sysctrl_sleep_type_e;
 //! @}
 
 //*****************************************************************************
@@ -70,24 +101,51 @@ typedef enum
 
 //*****************************************************************************
 //
+// Global Variables
+//
+//*****************************************************************************
+extern bool g_bFrcBuckAct;
+
+//*****************************************************************************
+//
 // External function definitions
 //
 //*****************************************************************************
 //*****************************************************************************
 //
-//! @brief Place the core into sleep or deepsleep.
+//! @brief Place the core into sleep, deepsleep or deepersleep.
 //!
-//! @param bSleepDeep - False for Normal or True Deep sleep.
+//! @param eSleepType - Normal or Deep, Deeper sleep.
 //!
-//! This function puts the MCU to sleep or deepsleep depending on bSleepDeep.
+//! This function puts the MCU to sleep, deepsleep or deepersleep depending on eSleepType.
 //!
-//! Valid values for bSleepDeep are:
+//! Valid values for eSleepType are:
 //!
 //!     AM_HAL_SYSCTRL_SLEEP_NORMAL
 //!     AM_HAL_SYSCTRL_SLEEP_DEEP
+//!     AM_HAL_SYSCTRL_SLEEP_DEEPER
 //
 //*****************************************************************************
-extern void am_hal_sysctrl_sleep(bool bSleepDeep);
+extern void am_hal_sysctrl_sleep(am_hal_sysctrl_sleep_type_e eSleepType);
+
+//*****************************************************************************
+//
+//! @brief Control the buck state in deepsleep
+//!
+//! @param bFrcBuckAct - True for forcing buck active in deepsleep
+//!                    - False for not forcing buck active in deepsleep
+//!
+//! If you want to manually force the buck stay active in deepsleep mode,
+//! am_hal_sysctrl_force_buck_active_in_deepsleep must
+//! be called for setting g_bAppFrcBuckAct to true before
+//! calling am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP).
+//! If anyone of spotmgr and
+//! am_hal_sysctrl_force_buck_active_in_deepsleep forced buck stay active, buck
+//! will stay active in deepsleep.
+//
+//*****************************************************************************
+extern void am_hal_sysctrl_force_buck_active_in_deepsleep(bool bFrcBuckAct);
+
 #ifdef __cplusplus
 }
 #endif

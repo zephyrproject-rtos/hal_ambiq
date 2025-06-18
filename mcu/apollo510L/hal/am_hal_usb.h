@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -24,6 +51,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define USBn(n) ((USB_Type*)(USB_BASE + (n * (USB_BASE - USB_BASE))))
+
+//
+//! USB PHY Clock frequency
+//
+#define AM_HAL_USB_PHY_CLK_FREQ_HZ (24000000)
 
 //*****************************************************************************
 //
@@ -158,6 +192,7 @@ typedef enum
     AM_HAL_USB_DMA_PRI_HIGH = 1
 } am_hal_usb_dma_pri_e;
 
+
 //*****************************************************************************
 //
 //! @brief Enum for the USB PHY reference clock source
@@ -168,12 +203,13 @@ typedef enum
 //*****************************************************************************
 typedef enum
 {
-    AM_HAL_USB_PHY_REF_CLK_SRC_HFRC_48M    = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_HFRC48,
-    AM_HAL_USB_PHY_REF_CLK_SRC_RF_XTAL_48M = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_RF_XTAL_48MHz,
-    AM_HAL_USB_PHY_REF_CLK_SRC_SYSPLL      = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_PLLPOSTDIV,
-    AM_HAL_USB_PHY_REF_CLK_SRC_EXTREF_CLK  = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_EXTREF_CLK,
-    AM_HAL_USB_PHY_REF_CLK_SRC_DEFAULT     = AM_HAL_USB_PHY_REF_CLK_SRC_EXTREF_CLK + 1,
-} am_hal_usb_phy_ref_clk_src_e;
+    AM_HAL_USB_PHYCLKSRC_HFRC_48M    = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_HFRC48,
+    AM_HAL_USB_PHYCLKSRC_RF_XTAL_48M = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_RF_XTAL_48MHz,
+    AM_HAL_USB_PHYCLKSRC_PLLPOSTDIV  = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_PLLPOSTDIV,
+    AM_HAL_USB_PHYCLKSRC_PLLFOUT2    = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_PLLFOUT2,
+    AM_HAL_USB_PHYCLKSRC_EXTREF_CLK  = CRM_USBREFCLKCRM_USBREFCLKCLKSEL_EXTREF_CLK,
+    AM_HAL_USB_PHYCLKSRC_DEFAULT     = AM_HAL_USB_PHYCLKSRC_EXTREF_CLK + 1,
+} am_hal_usb_phyclksrc_e;
 
 //*****************************************************************************
 //
@@ -186,11 +222,125 @@ typedef enum
 //*****************************************************************************
 typedef enum
 {
-    AM_HAL_USB_PHY_REF_CLK_DIV_1 = 0,
-    AM_HAL_USB_PHY_REF_CLK_DIV_2 = 1,
-    AM_HAL_USB_PHY_REF_CLK_DIV_3 = 2,
-    AM_HAL_USB_PHY_REF_CLK_DIV_4 = 3,
-} am_hal_usb_phy_ref_clk_div_e;
+    AM_HAL_USB_PHYCLKSRC_DIV_1 = 0,
+    AM_HAL_USB_PHYCLKSRC_DIV_2 = 1,
+    AM_HAL_USB_PHYCLKSRC_DIV_3 = 2,
+    AM_HAL_USB_PHYCLKSRC_DIV_4 = 3,
+} am_hal_usb_phyclksrc_div_e;
+
+//*****************************************************************************
+//
+//! @brief Enum for selection of preemphasis enabled state
+//!
+//! This enum consists of combinations of USB bus states that can have
+//! preemphasis enabled.
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_SOF_EOP   = 0x1,     // 0b001,
+    AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_CHIRP     = 0x2,     // 0b010,
+    AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_NON_CHIRP = 0x5,     // 0b101,
+    AM_HAL_USB_PHY_PREEMP_ENABLE_STATE_ALWAYS    = 0x7,     // 0b111,
+} am_hal_usb_phy_preempt_enable_state_e;
+
+//*****************************************************************************
+//
+//! @brief Enum for On-Die-Termination Resistance tuning of D+/D- lines.
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_USB_PHY_R_ODT_VAL_15 = 0x1F,    // 0b11111,  // Smallest HS ODT value,
+                                                        // Highest FS driver strength,
+                                                        // Fastest FS slew rate.
+    AM_HAL_USB_PHY_R_ODT_VAL_14 = 0x1E,    // 0b11110,
+    AM_HAL_USB_PHY_R_ODT_VAL_13 = 0x1D,    // 0b11101,
+    AM_HAL_USB_PHY_R_ODT_VAL_12 = 0x1C,    // 0b11100,
+    AM_HAL_USB_PHY_R_ODT_VAL_11 = 0x1B,    // 0b11011,
+    AM_HAL_USB_PHY_R_ODT_VAL_10 = 0x1A,    // 0b11010,
+    AM_HAL_USB_PHY_R_ODT_VAL_9  = 0x19,    // 0b11001,
+    AM_HAL_USB_PHY_R_ODT_VAL_8  = 0x18,    // 0b11000,
+    AM_HAL_USB_PHY_R_ODT_VAL_7  = 0x17,    // 0b10111,
+    AM_HAL_USB_PHY_R_ODT_VAL_6  = 0x16,    // 0b10110,
+    AM_HAL_USB_PHY_R_ODT_VAL_5  = 0x15,    // 0b10101,
+    AM_HAL_USB_PHY_R_ODT_VAL_4  = 0x14,    // 0b10100,
+    AM_HAL_USB_PHY_R_ODT_VAL_3  = 0x13,    // 0b10011,
+    AM_HAL_USB_PHY_R_ODT_VAL_2  = 0x12,    // 0b10010,
+    AM_HAL_USB_PHY_R_ODT_VAL_1  = 0x11,    // 0b10001,
+    AM_HAL_USB_PHY_R_ODT_VAL_0  = 0x10,    // 0b10000,  // Biggest HS ODT value,
+                                                        // Lowest FS driver strength,
+                                                        // Slowest FS slew rate.
+} am_hal_usb_phy_rodt_tuning_val_e;
+
+//*****************************************************************************
+//
+//! @brief Enum for USB HS Eye height tuning
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P4000V = 0,
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P4750V = 1,
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P3500V = 2,
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P5000V = 3,
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P4125V = 4,
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P4250V = 5,
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P4375V = 6,
+    AM_HAL_USB_PHY_HS_EYE_HEIGHT_TUNE_0P4500V = 7
+} am_hal_usb_phy_hs_eye_height_tuning_e;
+
+//*****************************************************************************
+//
+//! @brief Enum for USB HS Squelch trigger point Tuning
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1125V   = 0,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1500V_1 = 1,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P0875V   = 2,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1625V   = 3,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1000V   = 4,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1375V   = 5,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P0750V   = 6,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1500V_2 = 7,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1250V   = 8,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1625V_2 = 9,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1000V_2 = 10,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1750V   = 11,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1500V   = 12,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1875V   = 13,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P1250V_2 = 14,
+    AM_HAL_USB_PHY_HS_SQUELCH_TUNE_0P2000V   = 15,
+} am_hal_usb_phy_hs_squelch_tuning_e;
+
+//*****************************************************************************
+//
+//! @brief Union type to pass USB PHY electrical tuning parameter
+//
+//*****************************************************************************
+typedef union
+{
+    uint32_t ui32Val;
+    am_hal_usb_phy_preempt_enable_state_e ePreempEnState;
+    am_hal_usb_phy_rodt_tuning_val_e eRodtTuning;
+    am_hal_usb_phy_hs_eye_height_tuning_e eHsEyeHeight;
+    am_hal_usb_phy_hs_squelch_tuning_e eHsSquelch;
+} am_hal_usb_phy_elec_tuning_param_val_t;
+
+//*****************************************************************************
+//
+//! @brief Enum for selection of USB PHY electrical tuning parameter to select
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_USB_PHY_ELEC_TUNING_PARAM_PREEMP_STATE,
+    AM_HAL_USB_PHY_ELEC_TUNING_PARAM_R_ODT,
+    AM_HAL_USB_PHY_ELEC_TUNING_PARAM_EYE_HEIGHT,
+    AM_HAL_USB_PHY_ELEC_TUNING_PARAM_SQUELCH,
+} am_hal_usb_phy_elec_tuning_param_id_e;
 
 //*****************************************************************************
 //
@@ -593,7 +743,26 @@ extern uint32_t am_hal_usb_set_dev_speed(void *pHandle, am_hal_usb_dev_speed_e e
 //! @return one of am_hal_status_e like AM_HAL_STATUS_SUCCESS
 //
 //*****************************************************************************
-extern uint32_t am_hal_usb_set_phy_clk_source(void *pHandle, am_hal_usb_phy_ref_clk_src_e eClkSrc, am_hal_usb_phy_ref_clk_div_e eClkDiv);
+extern uint32_t am_hal_usb_set_phy_clk_source(void *pHandle, am_hal_usb_phyclksrc_e eClkSrc, am_hal_usb_phyclksrc_div_e eClkDiv);
+
+//*****************************************************************************
+//
+//! @brief Set USB PHY electrical tuning parameters
+//!
+//! @param ui32Module - the index to the USB module
+//! @param eParam     - enum am_hal_usb_phy_elec_tuning_param_id_e that
+//!                     indicates USB PHY electrical tuning parameter to set
+//! @param psVal      - pointer to union am_hal_usb_phy_elec_tuning_param_val_t
+//!                     which contains the value for the tuning parameter.
+//!
+//! @note This API is expected to be called during BSP initialization, before
+//!       USB instance is initialized. Changes made after the instance
+//!       initialization will not take effect until a reinitialization.
+//!
+//! @return one of am_hal_status_e like AM_HAL_STATUS_SUCCESS
+//
+//*****************************************************************************
+extern uint32_t am_hal_usb_phy_electrical_tuning_set(uint32_t ui32Module, am_hal_usb_phy_elec_tuning_param_id_e eParam, am_hal_usb_phy_elec_tuning_param_val_t* psVal);
 
 //*****************************************************************************
 //
@@ -602,8 +771,8 @@ extern uint32_t am_hal_usb_set_phy_clk_source(void *pHandle, am_hal_usb_phy_ref_
 //! @param ui32Module - the index to the USB module
 //! @param ppHandle   - the handle of initialized USB instance
 //!
-//! This function should be called firstly before we use any other USB HAL driver
-//! functions.
+//! This function should be called first before we use any other USB HAL driver
+//! functions, except for am_hal_usb_phy_electrical_tuning_set()
 //!
 //! @return one of am_hal_status_e like AM_HAL_STATUS_SUCCESS
 //
@@ -882,6 +1051,31 @@ extern uint32_t am_hal_usb_intr_status_get(void *pHandle, uint32_t *ui32IntrUsbS
 extern void am_hal_usb_interrupt_service(void *pHandle, uint32_t ui32IntrUsbStatus, uint32_t ui32IntrInStatus, uint32_t ui32IntrOutStatus,
                                         uint32_t ui32IntrDMAStatus, uint32_t ui32IntrAutoDMAStatus);
 
+//****************************************************************************
+//
+//! @brief Macro to read and handle USB interrupts
+//!
+//! Application / USB stack can either call this macro, or implement its custom
+//! handling when usb isr is received
+//
+//****************************************************************************
+#define am_hal_usb_handle_isr(pHandle)                  \
+    {                                                   \
+        uint32_t int_status[5];                         \
+        am_hal_usb_intr_status_get(pHandle,             \
+                                    &int_status[0],     \
+                                    &int_status[1],     \
+                                    &int_status[2],     \
+                                    &int_status[3],     \
+                                    &int_status[4]);    \
+        am_hal_usb_interrupt_service(pHandle,           \
+                                     int_status[0],     \
+                                     int_status[1],     \
+                                     int_status[2],     \
+                                     int_status[3],     \
+                                     int_status[4]);    \
+    }
+
 //*****************************************************************************
 //
 //! @brief Set USB Xfer Mode
@@ -893,6 +1087,20 @@ extern void am_hal_usb_interrupt_service(void *pHandle, uint32_t ui32IntrUsbStat
 //
 //*****************************************************************************
 extern uint32_t am_hal_usb_set_xfer_mode(void *pHandle, am_hal_usb_xfer_mode_e eXferMode);
+
+//*****************************************************************************
+//
+//! @brief Set enable state for  Double Buffer for the Endpoint-Direction
+//!        combination
+//!
+//! @param pHandle - the handle of initialized USB instance
+//! @param epnum   - EP number for the setting
+//! @param dir     - Direction of the endpoint FIFO for the setting
+//! @param enable  - Whether to enable Double Buffer feature.
+//!
+//
+//*****************************************************************************
+extern uint32_t am_hal_usb_enable_ep_double_buffer(void *pHandle, uint8_t epnum, am_hal_usb_xfer_dir_e dir, bool enable);
 
 //*****************************************************************************
 //

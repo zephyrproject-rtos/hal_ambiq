@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -68,18 +95,6 @@ typedef struct
     uint32_t    ui32DMACFG1Val;
     // Need to disable the DMA to prepare for next reconfig
     // Need to have this following the DMAEN for CMDQ
-    // #### INTERNAL BEGIN ####
-#if 0
-    uint32_t    ui32DummyAddr1;
-    uint32_t    ui32DummyVal1;
-    uint32_t    ui32DummyAddr2;
-    uint32_t    ui32DummyVal2;
-#endif
-    // #### INTERNAL END ####
-    // #### INTERNAL BEGIN ####
-    // TODO - Test for fix in Apollo4.
-    // As otherwise we seem to be hitting CQ Pause condition - CORVETTE-882
-    // #### INTERNAL END ####
     uint32_t    ui32DMACFG2Addr;
     uint32_t    ui32DMACFG2Val;
     uint32_t    ui32SETCLRAddr;
@@ -153,9 +168,6 @@ typedef struct
     uint32_t    regCQENDIDX;
     uint32_t    regINTEN;
     uint32_t    regCQFLAGS;
-    // #### INTERNAL BEGIN ####
-    // TODO: May be no need to preserve these values, as they are constants anyways?
-    // #### INTERNAL END ####
     uint32_t    regDMABCOUNT;
     uint32_t    regDMATHRESH;
     uint32_t    regTHRESHOLD;
@@ -290,6 +302,8 @@ typedef struct
     am_hal_mspi_register_state_t  registerState;
 
     bool                          bCmdQInTCM;
+    am_hal_clkmgr_clock_id_e      eClockSrc;
+
     uint32_t                      ui32XIPOffMinDelay;
 } am_hal_mspi_state_t;
 
@@ -375,10 +389,6 @@ build_dma_cmdlist(am_hal_mspi_state_t *pMSPIState,
                 _VAL2FLD(MSPI0_CTRL_ENTURN, pPIOTrans->bTurnaround)                 |   // Set the turn-around if needed.
                 _VAL2FLD(MSPI0_CTRL_BIGENDIAN, pMSPIState->bBigEndian)              |   // Set the FIFO endian format.
                 _VAL2FLD(MSPI0_CTRL_HALFWORDREVERSE, pMSPIState->bHalfWordReverse)  |   // Set the reverse bytes in half-word format.
-// #### INTERNAL BEGIN ####
-// FALCSW-426 7/29/22 Deprecate MSPI CONT bit. (See also A3DS-25.)
-                // _VAL2FLD(MSPI0_CTRL_CONT, pPIOTrans->bContinue)             |   // Continuation transfer.
-// #### INTERNAL END ####
                 _VAL2FLD(MSPI0_CTRL_PIODEV, 0)                                      |   // Set the device number.
                 _VAL2FLD(MSPI0_CTRL_ENWLAT, pPIOTrans->bEnWRLatency)                |   // Enable write latency counter.
                 _VAL2FLD(MSPI0_CTRL_START, 1);                                          // Start the transfer.
@@ -439,24 +449,6 @@ build_dma_cmdlist(am_hal_mspi_state_t *pMSPIState,
                 _VAL2FLD(MSPI0_DMACFG_DMAPRI, pDMATrans->ui8Priority)           |
                 _VAL2FLD(MSPI0_DMACFG_DMADIR, pDMATrans->eDirection)            |
                 _VAL2FLD(MSPI0_DMACFG_DMAEN, 3);
-// #### INTERNAL BEGIN ####
-#if 0
-            //
-            // Remove two dummy transactions from MSPI CQ. Need to retest on Apollo4Plus silicon.
-            //
-            pDMAEntry->ui32DummyAddr1 = (uint32_t)&MSPIn(ui32Module)->CQSETCLEAR;
-            pDMAEntry->ui32DummyVal1 = 0;
-            pDMAEntry->ui32DummyAddr2 = (uint32_t)&MSPIn(ui32Module)->CQSETCLEAR;
-            pDMAEntry->ui32DummyVal2 = 0;
-
-            pDMAEntry->ui32DummyAddr3 = (uint32_t)&MSPIn(ui32Module)->CQSETCLEAR;
-            pDMAEntry->ui32DummyVal3 = 0;
-            pDMAEntry->ui32DummyAddr4 = (uint32_t)&MSPIn(ui32Module)->CQSETCLEAR;
-            pDMAEntry->ui32DummyVal4 = 0;
-            pDMAEntry->ui32DummyAddr5 = (uint32_t)&MSPIn(ui32Module)->CQSETCLEAR;
-            pDMAEntry->ui32DummyVal5 = 0;
-#endif
-// #### INTERNAL END ####
             pDMAEntry->ui32PAUSENAddr = pDMAEntry->ui32PAUSEN2Addr = (uint32_t)&MSPIn(ui32Module)->CQPAUSE;
             pDMAEntry->ui32PAUSEENVal = get_pause_val(pMSPIState, pDMATrans->ui32PauseCondition);
             pDMAEntry->ui32PAUSEEN2Val = AM_HAL_MSPI_PAUSE_DEFAULT;
@@ -804,6 +796,15 @@ mspi_cq_enable(void *pHandle)
 {
     am_hal_mspi_state_t *pMSPIState = (am_hal_mspi_state_t *)pHandle;
 
+    uint32_t ui32Status;
+
+    ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC,
+                                            (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+    if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+    {
+        return ui32Status;
+    }
+
     //
     // Enable the Command Queue operation
     //
@@ -876,13 +877,21 @@ mspi_cq_pause(am_hal_mspi_state_t *pMSPIState)
     return status;
 }
 
-static void
+static uint32_t
 program_dma(void *pHandle)
 {
     am_hal_mspi_state_t         *pMSPIState = (am_hal_mspi_state_t *)pHandle;
     uint32_t                    ui32Module = pMSPIState->ui32Module;
     uint32_t                    index = (pMSPIState->ui32LastHPIdxProcessed + 1) % pMSPIState->ui32MaxHPTransactions;
     am_hal_mspi_dma_entry_t     *pDMAEntry = &pMSPIState->pHPTransactions[index];
+    uint32_t                    ui32Status;
+
+    ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC,
+                                            (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+    if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+    {
+        return ui32Status;
+    }
 
     // Need to make sure we disable DMA before we can reprogram
     MSPIn(ui32Module)->DMACFG = _VAL2FLD(MSPI0_DMACFG_DMAEN, 0);
@@ -906,6 +915,8 @@ program_dma(void *pHandle)
     // set the DMACFG to start DMA.
     //
     MSPIn(ui32Module)->DMACFG = pDMAEntry->ui32DMACFG1Val;
+
+    return AM_HAL_STATUS_SUCCESS;
 }
 
 static uint32_t
@@ -945,7 +956,7 @@ sched_hiprio(am_hal_mspi_state_t *pMSPIState, uint32_t numTrans)
         //
         // Program the DMA
         //
-        program_dma(pMSPIState);
+        return program_dma(pMSPIState);
     }
     return ui32Status;
 }
@@ -1040,6 +1051,18 @@ mspi_device_configure(am_hal_mspi_state_t *pMSPIState)
         MSPIn(ui32Module)->DEV0CFG_b.SEPIO0       = 0;
         MSPIn(ui32Module)->DEV0XIP_b.XIPMIXED0    = MSPI0_CTRL1_PIOMIXED_NORMAL;
         MSPIn(ui32Module)->PADOUTEN = pMSPIState->bClkonD4 ? 0x8000001F : MSPI0_PADOUTEN_OUTEN_QUAD0;
+        break;
+      case AM_HAL_MSPI_FLASH_QUAD_DDR_CE0:
+        MSPIn(ui32Module)->DEV0CFG_b.DEVCFG0      = MSPI0_DEV0CFG_DEVCFG0_QUAD0;
+        MSPIn(ui32Module)->DEV0CFG_b.SEPIO0       = 0;
+        MSPIn(ui32Module)->DEV0XIP_b.XIPMIXED0    = MSPI0_CTRL1_PIOMIXED_NORMAL;
+        MSPIn(ui32Module)->PADOUTEN = pMSPIState->bClkonD4 ? 0x8000021F : 0x30F;
+        break;
+      case AM_HAL_MSPI_FLASH_QUAD_DDR_CE1:
+        MSPIn(ui32Module)->DEV0CFG_b.DEVCFG0      = MSPI0_DEV0CFG_DEVCFG0_QUAD1;
+        MSPIn(ui32Module)->DEV0CFG_b.SEPIO0       = 0;
+        MSPIn(ui32Module)->DEV0XIP_b.XIPMIXED0    = MSPI0_CTRL1_PIOMIXED_NORMAL;
+        MSPIn(ui32Module)->PADOUTEN = pMSPIState->bClkonD4 ? 0x8000021F : 0x30F;
         break;
       case AM_HAL_MSPI_FLASH_OCTAL_CE0:
         MSPIn(ui32Module)->DEV0CFG_b.DEVCFG0      = MSPI0_DEV0CFG_DEVCFG0_OCTAL0;
@@ -1197,6 +1220,8 @@ mspi_piomixed_configure(am_hal_mspi_state_t *pMSPIState)
       case AM_HAL_MSPI_FLASH_DUAL_CE1:
       case AM_HAL_MSPI_FLASH_QUAD_CE0:
       case AM_HAL_MSPI_FLASH_QUAD_CE1:
+      case AM_HAL_MSPI_FLASH_QUAD_DDR_CE0:
+      case AM_HAL_MSPI_FLASH_QUAD_DDR_CE1:
       case AM_HAL_MSPI_FLASH_OCTAL_CE0:
       case AM_HAL_MSPI_FLASH_OCTAL_CE1:
       case AM_HAL_MSPI_FLASH_OCTAL_DDR_CE0:
@@ -1276,9 +1301,6 @@ static void mspi_clkgen_ctrl(uint32_t ui32Module, bool bEnable, bool bConfig, am
         }
 
         CLKGEN->MSPIIOCLKCTRL |= (uint32_t)CLKGEN_MSPIIOCLKCTRL_MSPI0IOCLKEN_Msk << ui32Module * CLKGEN_MSPIIOCLKCTRL_MSPI1IOCLKEN_Pos;
-        // #### INTERNAL BEGIN ####
-        // CAYNSWS-896 workaround
-        // #### INTERNAL END ####
         am_hal_delay_us(10);
     }
     else
@@ -1323,6 +1345,148 @@ static void mspi_get_xip_off_min_delay(am_hal_mspi_state_t *pMSPIState)
             //
             break;
     }
+}
+
+static uint32_t mspi_device_config_check(uint32_t ui32Module,
+                                         am_hal_mspi_device_e eDeviceConfig)
+{
+    if ( ui32Module == 1 )
+    {
+        switch ( eDeviceConfig )
+        {
+            case AM_HAL_MSPI_FLASH_OCTAL_CE0:
+            case AM_HAL_MSPI_FLASH_OCTAL_CE1:
+            case AM_HAL_MSPI_FLASH_OCTAL_DDR_CE0:
+            case AM_HAL_MSPI_FLASH_OCTAL_DDR_CE1:
+            case AM_HAL_MSPI_FLASH_HEX_DDR_CE0:
+            case AM_HAL_MSPI_FLASH_HEX_DDR_CE1:
+            case AM_HAL_MSPI_FLASH_OCTAL_CE0_1_1_8:
+            case AM_HAL_MSPI_FLASH_OCTAL_CE1_1_1_8:
+            case AM_HAL_MSPI_FLASH_OCTAL_CE0_1_8_8:
+            case AM_HAL_MSPI_FLASH_OCTAL_CE1_1_8_8:
+                //
+                // MSPI1 only support quad mode or below
+                //
+                return AM_HAL_STATUS_OUT_OF_RANGE;
+            default:
+                break;
+        }
+    }
+    else if ( ui32Module == 2 )
+    {
+        switch ( eDeviceConfig )
+        {
+            case AM_HAL_MSPI_FLASH_HEX_DDR_CE0:
+            case AM_HAL_MSPI_FLASH_HEX_DDR_CE1:
+                //
+                // MSPI2 only support octal mode or below
+                //
+                return AM_HAL_STATUS_OUT_OF_RANGE;
+            default:
+                break;
+        }
+    }
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+static uint32_t mspi_clock_freq_check(uint32_t ui32Module,
+                                      am_hal_mspi_clock_e eClockFreq,
+                                      bool bDDR)
+{
+    if ( ui32Module == 1 )
+    {
+        switch ( eClockFreq )
+        {
+            case AM_HAL_MSPI_CLK_250MHZ:
+                //
+                // MSPI1 does not support these higher clock settings
+                //
+                return AM_HAL_STATUS_OUT_OF_RANGE;
+            case AM_HAL_MSPI_CLK_192MHZ:
+            case AM_HAL_MSPI_CLK_125MHZ:
+                if ( !bDDR )
+                {
+                    return AM_HAL_STATUS_OUT_OF_RANGE;
+                }
+            default:
+                break;
+        }
+    }
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+static const uint32_t mspi_ap_sizes[AM_HAL_MSPI_AP_SIZE_MAX + 1] = {
+    64*1024,
+    128*1024,
+    256*1024,
+    512*1024,
+    1024*1024,
+    2*1024*1024,
+    4*1024*1024,
+    8*1024*1024,
+    16*1024*1024,
+    32*1024*1024,
+    64*1024*1024,
+    128*1024*1024,
+    256*1024*1024,
+    512*1024*1024,
+};
+
+static inline uint32_t
+mspi_xip_config_check(uint32_t ui32Module, am_hal_mspi_xip_config_t *pXipConfig)
+{
+    uint32_t ui32Size = 0;
+
+    if ( pXipConfig->eAPSize <= AM_HAL_MSPI_AP_SIZE_MAX )
+    {
+        ui32Size = mspi_ap_sizes[pXipConfig->eAPSize];
+    }
+    else
+    {
+        return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
+
+    //
+    // Check that the Aperature address and size is in range.
+    //
+    switch ( ui32Module )
+    {
+        case 0:
+            if ((pXipConfig->ui32APBaseAddr < MSPI0_APERTURE_START_ADDR) ||
+                (pXipConfig->ui32APBaseAddr >= MSPI0_APERTURE_END_ADDR) ||
+                (ui32Size > MSPI0_APERTURE_END_ADDR - MSPI0_APERTURE_START_ADDR))
+            {
+                return AM_HAL_STATUS_OUT_OF_RANGE;
+            }
+            break;
+        case 1:
+            if ((pXipConfig->ui32APBaseAddr < MSPI1_APERTURE_START_ADDR) ||
+                (pXipConfig->ui32APBaseAddr >= MSPI1_APERTURE_END_ADDR) ||
+                (ui32Size > MSPI1_APERTURE_END_ADDR - MSPI1_APERTURE_START_ADDR))
+            {
+                return AM_HAL_STATUS_OUT_OF_RANGE;
+            }
+            break;
+        case 2:
+            if ((pXipConfig->ui32APBaseAddr < MSPI2_APERTURE_START_ADDR) ||
+                (pXipConfig->ui32APBaseAddr >= MSPI2_APERTURE_END_ADDR) ||
+                (ui32Size > MSPI2_APERTURE_END_ADDR - MSPI2_APERTURE_START_ADDR))
+            {
+                return AM_HAL_STATUS_OUT_OF_RANGE;
+            }
+            break;
+        default:
+            return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
+
+    //
+    // Check that the Aperature address and size is aligned.
+    //
+    if ( pXipConfig->ui32APBaseAddr % ui32Size )
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+    return AM_HAL_STATUS_SUCCESS;
 }
 
 //*****************************************************************************
@@ -1377,6 +1541,11 @@ am_hal_mspi_initialize(uint32_t ui32Module, void **ppHandle)
     g_MSPIState[ui32Module].eClockFreq  = AM_HAL_MSPI_CLK_INVALID;
 
     g_MSPIState[ui32Module].pTCB = NULL;
+
+    //
+    // Initialize as invalid clock source
+    //
+    g_MSPIState[ui32Module].eClockSrc = AM_HAL_CLKMGR_CLK_ID_MAX;
     //
     // Initialize minimum delay in micro-seconds
     //
@@ -1474,6 +1643,15 @@ am_hal_mspi_configure(void *pHandle,
             g_MSPIState[ui32Module].ui32MaxPending = AM_HAL_MSPI_MAX_CQ_ENTRIES;
         }
     }
+
+    //
+    // MSPI1 only support up to quad lines, no D4 is available
+    //
+    if (ui32Module == 1 && pConfig->bClkonD4)
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+
     g_MSPIState[ui32Module].bClkonD4 = pConfig->bClkonD4;
     g_MSPIState[ui32Module].bConfigured = true;
 
@@ -1511,55 +1689,65 @@ am_hal_mspi_device_configure(void *pHandle,
 
     ui32Module = pMSPIState->ui32Module;
 
+    uint32_t ui32Status = mspi_device_config_check(ui32Module, pConfig->eDeviceConfig);
+    if ( ui32Status )
+    {
+        return ui32Status;
+    }
 
+    ui32Status = mspi_clock_freq_check(ui32Module, pConfig->eClockFreq, pConfig->bEmulateDDR);
+    if ( ui32Status )
+    {
+        return ui32Status;
+    }
 
     //
     // Disable MSPI CLKGEN clkgate before proceeding
     //
     mspi_clkgen_ctrl(ui32Module, false, false, (am_hal_mspi_io_clock_sel_e)0);
 
-    if ( pConfig->bNewDDR )
     {
+        am_hal_clkmgr_clock_id_e eClockSrc;
+        uint32_t ui32Status;
 
-        //
-        // Set MSPI IO clock source.
-        //
         switch ( pConfig->eClockFreq )
         {
             case AM_HAL_MSPI_CLK_250MHZ:
-                eClockSel = AM_HAL_MSPI_IO_CLK_PLLVCO_250MHZ;
-                break;
             case AM_HAL_MSPI_CLK_125MHZ:
-                eClockSel = AM_HAL_MSPI_IO_CLK_PLLVCO_125MHZ;
-                break;
-            case AM_HAL_MSPI_CLK_192MHZ:
-                eClockSel = AM_HAL_MSPI_IO_CLK_HFRC_192MHZ;
-                break;
-            case AM_HAL_MSPI_CLK_96MHZ:
-                eClockSel = AM_HAL_MSPI_IO_CLK_HFRC_96MHZ;
-                break;
-            case AM_HAL_MSPI_CLK_48MHZ:
-                eClockSel = AM_HAL_MSPI_IO_CLK_HFRC_48MHZ;
-                break;
-            case AM_HAL_MSPI_CLK_24MHZ:
-                eClockSel = AM_HAL_MSPI_IO_CLK_HFRC_24MHZ;
+            case AM_HAL_MSPI_CLK_62P5MHZ:
+            case AM_HAL_MSPI_CLK_41P67MHZ:
+            case AM_HAL_MSPI_CLK_31P25MHZ:
+            case AM_HAL_MSPI_CLK_20P83MHZ:
+            case AM_HAL_MSPI_CLK_15P63MHZ:
+            case AM_HAL_MSPI_CLK_10P42MHZ:
+            case AM_HAL_MSPI_CLK_7P81MHZ:
+            case AM_HAL_MSPI_CLK_5P21MHZ:
+            case AM_HAL_MSPI_CLK_3P91MHZ:
+                eClockSrc = AM_HAL_CLKMGR_CLK_ID_PLLVCO;
                 break;
             default:
-                return AM_HAL_STATUS_OUT_OF_RANGE;
+                eClockSrc = AM_HAL_CLKMGR_CLK_ID_HFRC;
+                break;
         }
 
-        //
-        // Reconfig MSPI CLKGEN
-        //
-        mspi_clkgen_ctrl(ui32Module, true, true, eClockSel);
+        if ( pMSPIState->eClockSrc != eClockSrc )
+        {
+            ui32Status = am_hal_clkmgr_clock_release(pMSPIState->eClockSrc,
+                                                    (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+            if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+            {
+                return ui32Status;
+            }
 
-        //
-        // Need to disable SDR 250MHz mem interface.
-        //
-        MSPIn(ui32Module)->DEV0CFG1_b.CORECLKX2EN0 = 0;
-    }
-    else
-    {
+            ui32Status = am_hal_clkmgr_clock_request(eClockSrc,
+                                                    (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+            if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+            {
+                return ui32Status;
+            }
+        }
+
+        pMSPIState->eClockSrc = eClockSrc;
 
         //
         // Set MSPI IO clock source.
@@ -1604,7 +1792,8 @@ am_hal_mspi_device_configure(void *pHandle,
             default:
                 return AM_HAL_STATUS_OUT_OF_RANGE;
         }
-		//
+
+        //
         // Reconfig MSPI CLKGEN
         //
         mspi_clkgen_ctrl(ui32Module, true, true, eClockSel);
@@ -1645,7 +1834,7 @@ am_hal_mspi_device_configure(void *pHandle,
     //
     // Set the clock polarity and phase based on SPI mode.
     //
-    switch ( pConfig->eSpiMode)
+    switch ( pConfig->eSpiMode )
     {
         case AM_HAL_MSPI_SPI_MODE_0:                  // CPOL = 0; CPHA = 0
             ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CPOL0, 0)    |
@@ -1665,105 +1854,102 @@ am_hal_mspi_device_configure(void *pHandle,
             break;
     }
 
-    if ( !pConfig->bNewDDR )
+    //
+    // Set the clock divisor to get the desired MSPI clock frequency.
+    //
+    switch ( pConfig->eClockFreq )
     {
-        //
-        // Set the clock divisor to get the desired MSPI clock frequency.
-        //
-        switch ( pConfig->eClockFreq )
-        {
-            case AM_HAL_MSPI_CLK_250MHZ:
-            case AM_HAL_MSPI_CLK_192MHZ:
-            case AM_HAL_MSPI_CLK_125MHZ:
-            case AM_HAL_MSPI_CLK_96MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV1);
-                break;
-            case AM_HAL_MSPI_CLK_62P5MHZ:
-            case AM_HAL_MSPI_CLK_48MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV2);
-                break;
-            case AM_HAL_MSPI_CLK_41P67MHZ:
-            case AM_HAL_MSPI_CLK_32MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV3);
-                break;
-            case AM_HAL_MSPI_CLK_31P25MHZ:
-            case AM_HAL_MSPI_CLK_24MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV4);
-                break;
-            case AM_HAL_MSPI_CLK_20P83MHZ:
-            case AM_HAL_MSPI_CLK_16MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV6);
-                break;
-            case AM_HAL_MSPI_CLK_15P63MHZ:
-            case AM_HAL_MSPI_CLK_12MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV8);
-                break;
-            case AM_HAL_MSPI_CLK_10P42MHZ:
-            case AM_HAL_MSPI_CLK_8MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV12);
-                break;
-            case AM_HAL_MSPI_CLK_7P81MHZ:
-            case AM_HAL_MSPI_CLK_6MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV16);
-                break;
-            case AM_HAL_MSPI_CLK_5P21MHZ:
-            case AM_HAL_MSPI_CLK_4MHZ:
-            case AM_HAL_MSPI_CLK_2MHZ:
-            case AM_HAL_MSPI_CLK_1MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV24);
-                break;
-            case AM_HAL_MSPI_CLK_3P91MHZ:
-            case AM_HAL_MSPI_CLK_3MHZ:
-            case AM_HAL_MSPI_CLK_1P5MHZ:
-            case AM_HAL_MSPI_CLK_750KHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV32);
-                break;
-            default:
-                return AM_HAL_STATUS_OUT_OF_RANGE;
-        }
+        case AM_HAL_MSPI_CLK_250MHZ:
+        case AM_HAL_MSPI_CLK_192MHZ:
+        case AM_HAL_MSPI_CLK_125MHZ:
+        case AM_HAL_MSPI_CLK_96MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV1);
+            break;
+        case AM_HAL_MSPI_CLK_62P5MHZ:
+        case AM_HAL_MSPI_CLK_48MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV2);
+            break;
+        case AM_HAL_MSPI_CLK_41P67MHZ:
+        case AM_HAL_MSPI_CLK_32MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV3);
+            break;
+        case AM_HAL_MSPI_CLK_31P25MHZ:
+        case AM_HAL_MSPI_CLK_24MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV4);
+            break;
+        case AM_HAL_MSPI_CLK_20P83MHZ:
+        case AM_HAL_MSPI_CLK_16MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV6);
+            break;
+        case AM_HAL_MSPI_CLK_15P63MHZ:
+        case AM_HAL_MSPI_CLK_12MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV8);
+            break;
+        case AM_HAL_MSPI_CLK_10P42MHZ:
+        case AM_HAL_MSPI_CLK_8MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV12);
+            break;
+        case AM_HAL_MSPI_CLK_7P81MHZ:
+        case AM_HAL_MSPI_CLK_6MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV16);
+            break;
+        case AM_HAL_MSPI_CLK_5P21MHZ:
+        case AM_HAL_MSPI_CLK_4MHZ:
+        case AM_HAL_MSPI_CLK_2MHZ:
+        case AM_HAL_MSPI_CLK_1MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV24);
+            break;
+        case AM_HAL_MSPI_CLK_3P91MHZ:
+        case AM_HAL_MSPI_CLK_3MHZ:
+        case AM_HAL_MSPI_CLK_1P5MHZ:
+        case AM_HAL_MSPI_CLK_750KHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_CLKDIV0, MSPI0_DEV0CFG_CLKDIV0_CLKDIV32);
+            break;
+        default:
+            return AM_HAL_STATUS_OUT_OF_RANGE;
+    }
 
-        //
-        // Adjust the clock edge configuration depending upon the clock frequency.
-        //
-        switch ( pConfig->eClockFreq )
-        {
-            case AM_HAL_MSPI_CLK_250MHZ:
-            case AM_HAL_MSPI_CLK_192MHZ:
-            case AM_HAL_MSPI_CLK_125MHZ:
-            case AM_HAL_MSPI_CLK_96MHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_TXNEG0, 1) |
-                            _VAL2FLD(MSPI0_DEV0CFG_RXNEG0, 0) |
-                            _VAL2FLD(MSPI0_DEV0CFG_RXCAP0, 0);
-                break;
-            case AM_HAL_MSPI_CLK_62P5MHZ:
-            case AM_HAL_MSPI_CLK_48MHZ:
-            case AM_HAL_MSPI_CLK_41P67MHZ:
-            case AM_HAL_MSPI_CLK_32MHZ:
-            case AM_HAL_MSPI_CLK_31P25MHZ:
-            case AM_HAL_MSPI_CLK_24MHZ:
-            case AM_HAL_MSPI_CLK_20P83MHZ:
-            case AM_HAL_MSPI_CLK_16MHZ:
-            case AM_HAL_MSPI_CLK_15P63MHZ:
-            case AM_HAL_MSPI_CLK_12MHZ:
-            case AM_HAL_MSPI_CLK_10P42MHZ:
-            case AM_HAL_MSPI_CLK_8MHZ:
-            case AM_HAL_MSPI_CLK_7P81MHZ:
-            case AM_HAL_MSPI_CLK_6MHZ:
-            case AM_HAL_MSPI_CLK_5P21MHZ:
-            case AM_HAL_MSPI_CLK_4MHZ:
-            case AM_HAL_MSPI_CLK_3P91MHZ:
-            case AM_HAL_MSPI_CLK_3MHZ:
-            case AM_HAL_MSPI_CLK_2MHZ:
-            case AM_HAL_MSPI_CLK_1P5MHZ:
-            case AM_HAL_MSPI_CLK_1MHZ:
-            case AM_HAL_MSPI_CLK_750KHZ:
-                ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_TXNEG0, 0) |
-                            _VAL2FLD(MSPI0_DEV0CFG_RXNEG0, 0) |
-                            _VAL2FLD(MSPI0_DEV0CFG_RXCAP0, 0);
-                break;
-            default:
-                return AM_HAL_STATUS_OUT_OF_RANGE;
-        }
+    //
+    // Adjust the clock edge configuration depending upon the clock frequency.
+    //
+    switch ( pConfig->eClockFreq )
+    {
+        case AM_HAL_MSPI_CLK_250MHZ:
+        case AM_HAL_MSPI_CLK_192MHZ:
+        case AM_HAL_MSPI_CLK_125MHZ:
+        case AM_HAL_MSPI_CLK_96MHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_TXNEG0, 1) |
+                        _VAL2FLD(MSPI0_DEV0CFG_RXNEG0, 0) |
+                        _VAL2FLD(MSPI0_DEV0CFG_RXCAP0, 0);
+            break;
+        case AM_HAL_MSPI_CLK_62P5MHZ:
+        case AM_HAL_MSPI_CLK_48MHZ:
+        case AM_HAL_MSPI_CLK_41P67MHZ:
+        case AM_HAL_MSPI_CLK_32MHZ:
+        case AM_HAL_MSPI_CLK_31P25MHZ:
+        case AM_HAL_MSPI_CLK_24MHZ:
+        case AM_HAL_MSPI_CLK_20P83MHZ:
+        case AM_HAL_MSPI_CLK_16MHZ:
+        case AM_HAL_MSPI_CLK_15P63MHZ:
+        case AM_HAL_MSPI_CLK_12MHZ:
+        case AM_HAL_MSPI_CLK_10P42MHZ:
+        case AM_HAL_MSPI_CLK_8MHZ:
+        case AM_HAL_MSPI_CLK_7P81MHZ:
+        case AM_HAL_MSPI_CLK_6MHZ:
+        case AM_HAL_MSPI_CLK_5P21MHZ:
+        case AM_HAL_MSPI_CLK_4MHZ:
+        case AM_HAL_MSPI_CLK_3P91MHZ:
+        case AM_HAL_MSPI_CLK_3MHZ:
+        case AM_HAL_MSPI_CLK_2MHZ:
+        case AM_HAL_MSPI_CLK_1P5MHZ:
+        case AM_HAL_MSPI_CLK_1MHZ:
+        case AM_HAL_MSPI_CLK_750KHZ:
+            ui32Config |= _VAL2FLD(MSPI0_DEV0CFG_TXNEG0, 0) |
+                        _VAL2FLD(MSPI0_DEV0CFG_RXNEG0, 0) |
+                        _VAL2FLD(MSPI0_DEV0CFG_RXCAP0, 0);
+            break;
+        default:
+            return AM_HAL_STATUS_OUT_OF_RANGE;
     }
 
     //
@@ -1779,18 +1965,7 @@ am_hal_mspi_device_configure(void *pHandle,
     //
     // Set the DDR emulation bit.
     //
-    if ( pConfig->bNewDDR )
-    {
-        MSPIn(ui32Module)->DEV0DDR_b.EMULATEDDR0 = 1;
-        //
-        // Set new DDR enable bit.
-        //
-        MSPIn(ui32Module)->DEV0CFG1_b.DDREN0 = 1;
-    }
-    else
-    {
-        MSPIn(ui32Module)->DEV0DDR_b.EMULATEDDR0 = pConfig->bEmulateDDR ? 1 : 0;
-    }
+    MSPIn(ui32Module)->DEV0DDR_b.EMULATEDDR0 = pConfig->bEmulateDDR ? 1 : 0;
 
     //
     // Set CE latency.
@@ -1902,7 +2077,7 @@ am_hal_mspi_device_configure(void *pHandle,
     //
     MSPIn(ui32Module)->MSPICFG_b.IOMSEL = AM_HAL_MSPI_LINK_NONE;
 
-    if (pMSPIState->pTCB)
+    if ( pMSPIState->pTCB )
     {
         // set the DMABCOUNT
         MSPIn(ui32Module)->DMABCOUNT = AM_HAL_MSPI_DEFAULT_BURST_COUNT;
@@ -2008,7 +2183,7 @@ am_hal_mspi_enable(void *pHandle)
 
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
-    if (pMSPIState->pTCB)
+    if ( pMSPIState->pTCB )
     {
         pMSPIState->ui32LastIdxProcessed = 0;
         pMSPIState->ui32NumCQEntries = 0;
@@ -2067,7 +2242,7 @@ am_hal_mspi_disable(void *pHandle)
         return AM_HAL_STATUS_IN_USE;
     }
 
-    if (pMSPIState->pTCB)
+    if ( pMSPIState->pTCB )
     {
         //
         // Disable the Command Queue.
@@ -2309,34 +2484,6 @@ uint32_t am_hal_mspi_control(void *pHandle,
         }
         break;
 
-        case AM_HAL_MSPI_REQ_NEW_DDR_DIS:
-            //
-            // Disable New(125MHz) DDR mode.
-            //
-            MSPIn(ui32Module)->DEV0CFG1_b.DDREN0 = 0;
-            break;
-
-        case AM_HAL_MSPI_REQ_NEW_DDR_EN:
-            //
-            // Enable New(125MHz) DDR mode.
-            //
-            MSPIn(ui32Module)->DEV0CFG1_b.DDREN0 = 1;
-            break;
-// #### INTERNAL BEGIN ####
-        case AM_HAL_MSPI_REQ_CORECLKX2_DIS:
-            //
-            // Disable SDR 250MHz mem interface.
-            //
-            MSPIn(ui32Module)->DEV0CFG1_b.CORECLKX2EN0 = 0;
-            break;
-
-        case AM_HAL_MSPI_REQ_CORECLKX2_EN:
-            //
-            // Enable SDR 250MHz mem interface.
-            //
-            MSPIn(ui32Module)->DEV0CFG1_b.CORECLKX2EN0 = 1;
-            break;
-// #### INTERNAL END ####
         case AM_HAL_MSPI_REQ_DDR_DIS:
             //
             // Disable DDR.
@@ -2365,9 +2512,9 @@ uint32_t am_hal_mspi_control(void *pHandle,
             MSPIn(ui32Module)->DEV0DDR_b.ENABLEFINEDELAY0           = pDQS->bEnableFineDelay;
             MSPIn(ui32Module)->DEV0DDR_b.TXDQSDELAY0                = pDQS->ui8TxDQSDelay;
             MSPIn(ui32Module)->DEV0DDR_b.RXDQSDELAY0                = pDQS->ui8RxDQSDelay & (MSPI0_DEV0DDR_RXDQSDELAY0_Msk >> MSPI0_DEV0DDR_RXDQSDELAY0_Pos);
-            MSPIn(ui32Module)->DEV0DDRDLYEXT_b.RXDQS0PDLYEXT0       = pDQS->ui8RxDQSDelay / (MSPI0_DEV0DDR_RXDQSDELAY0_Msk >> MSPI0_DEV0DDR_RXDQSDELAY0_Pos);
+            MSPIn(ui32Module)->DEV0DDRDLYEXT_b.RXDQS0PDLYEXT0       = pDQS->ui8RxDQSDelay / ((MSPI0_DEV0DDR_RXDQSDELAY0_Msk >> MSPI0_DEV0DDR_RXDQSDELAY0_Pos) + 1);
             MSPIn(ui32Module)->DEV0DDR_b.RXDQSDELAYNEG0             = pDQS->ui8RxDQSDelayNeg & (MSPI0_DEV0DDR_RXDQSDELAYNEG0_Msk >> MSPI0_DEV0DDR_RXDQSDELAYNEG0_Pos);
-            MSPIn(ui32Module)->DEV0DDRDLYEXT_b.RXDQS0NDLYEXT0       = pDQS->ui8RxDQSDelayNeg / (MSPI0_DEV0DDR_RXDQSDELAYNEG0_Msk >> MSPI0_DEV0DDR_RXDQSDELAYNEG0_Pos);
+            MSPIn(ui32Module)->DEV0DDRDLYEXT_b.RXDQS0NDLYEXT0       = pDQS->ui8RxDQSDelayNeg / ((MSPI0_DEV0DDR_RXDQSDELAYNEG0_Msk >> MSPI0_DEV0DDR_RXDQSDELAYNEG0_Pos) + 1);
             MSPIn(ui32Module)->DEV0DDR_b.RXDQSDELAYNEGEN0           = pDQS->bRxDQSDelayNegEN;
             MSPIn(ui32Module)->DEV0DDR_b.RXDQSDELAYHI0              = pDQS->ui8RxDQSDelayHi;
             MSPIn(ui32Module)->DEV0DDR_b.RXDQSDELAYNEGHI0           = pDQS->ui8RxDQSDelayNegHi;
@@ -2407,10 +2554,6 @@ uint32_t am_hal_mspi_control(void *pHandle,
                 return AM_HAL_STATUS_INVALID_ARG;
             }
 #endif
-            // #### INTERNAL BEGIN ####
-            // Not used for timing scan, hide it from release for now
-            MSPIn(ui32Module)->DEV0CFG1_b.TXDATADELAY0               = pTimingScan->bTxDataDelay;
-            // #### INTERNAL END ####
             MSPIn(ui32Module)->DEV0CFG_b.TXNEG0                      = pTimingScan->bTxNeg;
             MSPIn(ui32Module)->DEV0CFG_b.RXNEG0                      = pTimingScan->bRxNeg;
             MSPIn(ui32Module)->DEV0CFG_b.RXCAP0                      = pTimingScan->bRxCap;
@@ -2418,7 +2561,7 @@ uint32_t am_hal_mspi_control(void *pHandle,
             MSPIn(ui32Module)->DEV0XIP_b.XIPTURNAROUND0              = pTimingScan->ui8Turnaround;
             MSPIn(ui32Module)->DEV0DDR_b.TXDQSDELAY0                 = pTimingScan->ui8TxDQSDelay;
             MSPIn(ui32Module)->DEV0DDR_b.RXDQSDELAY0                 = pTimingScan->ui8RxDQSDelay & (MSPI0_DEV0DDR_RXDQSDELAY0_Msk >> MSPI0_DEV0DDR_RXDQSDELAY0_Pos);
-            MSPIn(ui32Module)->DEV0DDRDLYEXT_b.RXDQS0PDLYEXT0        = pTimingScan->ui8RxDQSDelay / (MSPI0_DEV0DDR_RXDQSDELAY0_Msk >> MSPI0_DEV0DDR_RXDQSDELAY0_Pos);
+            MSPIn(ui32Module)->DEV0DDRDLYEXT_b.RXDQS0PDLYEXT0        = pTimingScan->ui8RxDQSDelay / ((MSPI0_DEV0DDR_RXDQSDELAY0_Msk >> MSPI0_DEV0DDR_RXDQSDELAY0_Pos) + 1);
         }
         break;
 
@@ -2431,10 +2574,6 @@ uint32_t am_hal_mspi_control(void *pHandle,
                 return AM_HAL_STATUS_INVALID_ARG;
             }
 #endif
-            // #### INTERNAL BEGIN ####
-            // Not used for timing scan, hide it from release for now
-            pTimingScan->bTxDataDelay       = MSPIn(ui32Module)->DEV0CFG1_b.TXDATADELAY0;
-            // #### INTERNAL END ####
             pTimingScan->bTxNeg             = MSPIn(ui32Module)->DEV0CFG_b.TXNEG0;
             pTimingScan->bRxNeg             = MSPIn(ui32Module)->DEV0CFG_b.RXNEG0;
             pTimingScan->bRxCap             = MSPIn(ui32Module)->DEV0CFG_b.RXCAP0;
@@ -2466,37 +2605,21 @@ uint32_t am_hal_mspi_control(void *pHandle,
         {
             am_hal_mspi_xip_config_t *pXipConfig = ((am_hal_mspi_xip_config_t *)pConfig);
             uint32_t                 ui32Config = 0;
-
 #ifndef AM_HAL_DISABLE_API_VALIDATION
-            //
-            // Check that the Aperature address is in range.
-            // We should make
-            //
-            switch ( ui32Module )
+            if (!pConfig)
             {
-                case 0:
-                    if ((pXipConfig->ui32APBaseAddr < MSPI0_APERTURE_START_ADDR) || (pXipConfig->ui32APBaseAddr >= MSPI0_APERTURE_END_ADDR))
-                    {
-                        return AM_HAL_STATUS_OUT_OF_RANGE;
-                    }
-                    break;
-                case 1:
-                    if ((pXipConfig->ui32APBaseAddr < MSPI1_APERTURE_START_ADDR) || (pXipConfig->ui32APBaseAddr >= MSPI1_APERTURE_END_ADDR))
-                    {
-                        return AM_HAL_STATUS_OUT_OF_RANGE;
-                    }
-                    break;
-                case 2:
-                    if ((pXipConfig->ui32APBaseAddr < MSPI2_APERTURE_START_ADDR) || (pXipConfig->ui32APBaseAddr >= MSPI2_APERTURE_END_ADDR))
-                    {
-                        return AM_HAL_STATUS_OUT_OF_RANGE;
-                    }
-                    break;
-                default:
-                        return AM_HAL_STATUS_OUT_OF_RANGE;
-                    break;
+                return AM_HAL_STATUS_INVALID_ARG;
             }
 #endif
+            //
+            // Check config parameters
+            //
+            ui32Status = mspi_xip_config_check(ui32Module, pXipConfig);
+            if ( ui32Status != AM_HAL_STATUS_SUCCESS)
+            {
+                return ui32Status;
+            }
+
             //
             // Set the aperture base address.
             //
@@ -2537,17 +2660,6 @@ uint32_t am_hal_mspi_control(void *pHandle,
             // Set the APENDODD bit.
             //
             ui32Config |= _VAL2FLD(MSPI0_DEV0XIPMISC_APNDODD0, pXipMisc->bAppndOdd);
-// #### INTERNAL BEGIN ####
-            //
-            // Set the AFIFOLVL bit.
-            //
-//            ui32Config |= _VAL2FLD(MSPI0_DEV0XIPMISC_AFIFOLVL0, 0x10); //AFIFOLVL bit is removed from Apollo4p.
-
-            //
-            // Set the XIPBOUNDARY bit.
-            //
-//            ui32Config |= _VAL2FLD(MSPI0_DEV0XIPMISC_XIPBOUNDARY0, pXipMisc->bXIPBoundary); //XIPBOUNDARY bit is removed from Apollo4p
-// #### INTERNAL END ####
 
             //
             // Set the BEON bit.
@@ -2630,6 +2742,11 @@ uint32_t am_hal_mspi_control(void *pHandle,
                 return AM_HAL_STATUS_INVALID_ARG;
             }
 #endif // AM_HAL_DISABLE_API_VALIDATION
+            ui32Status = mspi_device_config_check(ui32Module, *pDevCfg);
+            if ( ui32Status )
+            {
+                return ui32Status;
+            }
             pMSPIState->devcfg = *pDevCfg;
             //
             // Configure the Device, Separate I/O, Mix Mode, and Pads.
@@ -2644,11 +2761,57 @@ uint32_t am_hal_mspi_control(void *pHandle,
             am_hal_mspi_io_clock_sel_e eClockSel;
             eClockFreq = *((am_hal_mspi_clock_e *)pConfig);
 
+            ui32Status = mspi_clock_freq_check(ui32Module, eClockFreq,
+                                               MSPIn(ui32Module)->DEV0DDR_b.EMULATEDDR0);
+            if ( ui32Status )
+            {
+                return ui32Status;
+            }
+
             //
             // Disable MSPI CLKGEN clkgate before proceeding
             //
             mspi_clkgen_ctrl(pMSPIState->ui32Module, false, false, (am_hal_mspi_io_clock_sel_e)0);
+            am_hal_clkmgr_clock_id_e eClockSrc;
 
+            switch ( eClockFreq )
+            {
+                case AM_HAL_MSPI_CLK_250MHZ:
+                case AM_HAL_MSPI_CLK_125MHZ:
+                case AM_HAL_MSPI_CLK_62P5MHZ:
+                case AM_HAL_MSPI_CLK_41P67MHZ:
+                case AM_HAL_MSPI_CLK_31P25MHZ:
+                case AM_HAL_MSPI_CLK_20P83MHZ:
+                case AM_HAL_MSPI_CLK_15P63MHZ:
+                case AM_HAL_MSPI_CLK_10P42MHZ:
+                case AM_HAL_MSPI_CLK_7P81MHZ:
+                case AM_HAL_MSPI_CLK_5P21MHZ:
+                case AM_HAL_MSPI_CLK_3P91MHZ:
+                    eClockSrc = AM_HAL_CLKMGR_CLK_ID_PLLVCO;
+                    break;
+                default:
+                    eClockSrc = AM_HAL_CLKMGR_CLK_ID_HFRC;
+                    break;
+            }
+
+            if ( pMSPIState->eClockSrc != eClockSrc )
+            {
+                ui32Status = am_hal_clkmgr_clock_release(pMSPIState->eClockSrc,
+                                                        (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+                if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+                {
+                    return ui32Status;
+                }
+
+                ui32Status = am_hal_clkmgr_clock_request(eClockSrc,
+                                                        (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+                if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+                {
+                    return ui32Status;
+                }
+            }
+
+            pMSPIState->eClockSrc = eClockSrc;
 
             //
             // Set MSPI IO clock source.
@@ -2694,7 +2857,7 @@ uint32_t am_hal_mspi_control(void *pHandle,
                     return AM_HAL_STATUS_OUT_OF_RANGE;
             }
 
-//
+            //
             // Reconfig MSPI CLKGEN
             //
             mspi_clkgen_ctrl(pMSPIState->ui32Module, true, true, eClockSel);
@@ -3386,6 +3549,49 @@ uint32_t am_hal_mspi_control(void *pHandle,
 
             break;
         }
+        case AM_HAL_MSPI_REQ_SCRAMBLE_CONFIG:
+        //
+        // Configure Scrambling addresses
+        //
+        {
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+            if (!pConfig)
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+#endif // AM_HAL_DISABLE_API_VALIDATION
+
+            am_hal_mspi_xip_config_t *pXipConfig = ((am_hal_mspi_xip_config_t *)pConfig);
+
+            //
+            // Set the configuration in the MSPI peripheral.
+            // Set the scrambling start and end addresses aligned to 64K region.
+            //
+            MSPIn(ui32Module)->DEV0SCRAMBLING_b.SCRSTART0 = pXipConfig->scramblingStartAddr >> 16;
+            MSPIn(ui32Module)->DEV0SCRAMBLING_b.SCREND0   = pXipConfig->scramblingEndAddr >> 16;
+        }
+        break;
+
+        case AM_HAL_MSPI_REQ_SET_DATA_LATENCY:
+        //
+        // Configure write latency and turnaround
+        //
+        {
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+            if (!pConfig)
+            {
+                return AM_HAL_STATUS_INVALID_ARG;
+            }
+#endif // AM_HAL_DISABLE_API_VALIDATION
+
+            am_hal_mspi_dev_config_t *pDevConfig = (am_hal_mspi_dev_config_t*)pConfig;
+
+            MSPIn(ui32Module)->DEV0CFG_b.WRITELATENCY0    = pDevConfig->ui8WriteLatency;
+            MSPIn(ui32Module)->DEV0XIP_b.XIPWRITELATENCY0 = pDevConfig->ui8WriteLatency;
+            MSPIn(ui32Module)->DEV0CFG_b.TURNAROUND0      = pDevConfig->ui8TurnAround;
+            MSPIn(ui32Module)->DEV0XIP_b.XIPTURNAROUND0   = pDevConfig->ui8TurnAround;
+        }
+        break;
 
         default:
             return AM_HAL_STATUS_INVALID_ARG;
@@ -3507,16 +3713,6 @@ uint32_t am_hal_mspi_blocking_transfer(void *pHandle,
     //
     ui32Control |= _VAL2FLD(MSPI0_CTRL_HALFWORDREVERSE, pMSPIState->bHalfWordReverse);
 
-// #### INTERNAL BEGIN ####
-// TODO - Will Apollo4 support CONT or not?  FIXME.
-// FALCSW-426 7/29/22 Deprecate MSPI CONT bit. (See also A3DS-25.)
-#if 0 // A3DS-25 Deprecate MSPI CONT
-    //
-    // Set for default of no continuation.
-    //
-    ui32Control |= _VAL2FLD(MSPI_CTRL_CONT, pTransaction->bContinue);
-#endif // A3DS-25
-// #### INTERNAL END ####
 
     //
     // Set the Device number
@@ -3636,23 +3832,6 @@ uint32_t am_hal_mspi_nonblocking_transfer(void *pHandle,
         // Dynamic additions to sequence not allowed
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
-// #### INTERNAL BEGIN ####
-#if 0  // FIXME - Should not need this workaround for Apollo4
-    // This is the SW check to prevent CORVETTE-1174. DMA is not allowed to/from DTCM.
-    //
-    // Check for DMA to/from DTCM.
-    //
-    if ( AM_HAL_MSPI_TRANS_DMA == eMode)
-    {
-        am_hal_mspi_dma_transfer_t *pDMATransaction = (am_hal_mspi_dma_transfer_t *)pTransfer;
-        if ( (pDMATransaction->ui32SRAMAddress >= AM_HAL_FLASH_DTCM_START) &&
-             (pDMATransaction->ui32SRAMAddress <= AM_HAL_FLASH_DTCM_END) )
-        {
-            return AM_HAL_STATUS_OUT_OF_RANGE;
-        }
-    }
-#endif
-// #### INTERNAL END ####
 
     if ( pMSPIState->devcfg == AM_HAL_MSPI_FLASH_HEX_DDR_CE0 || pMSPIState->devcfg == AM_HAL_MSPI_FLASH_HEX_DDR_CE1 )
     {
@@ -3936,24 +4115,9 @@ uint32_t am_hal_mspi_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
     ui32Module = pMSPIState->ui32Module;
-// #### INTERNAL BEGIN ####
-    //
-    // Add a delay to help make the service function work.
-    // TODO - why do we need this?
-    //
-    //    am_hal_flash_delay(FLASH_CYCLES_US(10));
-// #### INTERNAL END ####
 
     if (pMSPIState->bHP)
     {
-// #### INTERNAL BEGIN ####
-#if 0
-        if (ui32IntStatus & AM_HAL_MSPI_INT_CQUPD)
-        {
-          while (1);
-        }
-#endif
-// #### INTERNAL END ####
         //
         // Accumulate the INTSTAT for this transaction
         //
@@ -3972,10 +4136,6 @@ uint32_t am_hal_mspi_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
             // the transactions internally, and each split transaction generates CMDCMP
             // DMATIP is guaranteed to deassert only once the bus transaction is done
             //
-// #### INTERNAL BEGIN ####
-            // TODO - We are waiting for DMATIP indefinetely in the ISR
-            // May need to re-evaluate
-// #### INTERNAL END ####
             while (MSPIn(pMSPIState->ui32Module)->DMASTAT_b.DMATIP);
             pMSPIState->ui32TxnInt |= MSPIn(ui32Module)->INTSTAT;
 
@@ -4027,7 +4187,7 @@ uint32_t am_hal_mspi_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
             if (pMSPIState->ui32NumHPEntries)
             {
                 pMSPIState->ui32TxnInt = 0;
-                program_dma(pMSPIState);
+                return program_dma(pMSPIState);
             }
             else
             {
@@ -4042,6 +4202,11 @@ uint32_t am_hal_mspi_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
                 MSPIn(ui32Module)->INTEN &= ~(AM_HAL_MSPI_INT_DMACMP);
                 // Resume the CQ
                 MSPIn(ui32Module)->CQSETCLEAR = AM_HAL_MSPI_SC_UNPAUSE_CQ;
+                if ( pMSPIState->ui32NumCQEntries == 0 && pMSPIState->eClockSrc != AM_HAL_CLKMGR_CLK_ID_HFRC )
+                {
+                    return am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC,
+                                                       (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+                }
             }
         }
 
@@ -4176,6 +4341,11 @@ uint32_t am_hal_mspi_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
             // Disable DMA
             //
             MSPIn(ui32Module)->DMACFG_b.DMAEN = 0;
+            if ( pMSPIState->eClockSrc != AM_HAL_CLKMGR_CLK_ID_HFRC )
+            {
+                return am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC,
+                                                   (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+            }
         }
     }
 
@@ -4188,9 +4358,6 @@ uint32_t am_hal_mspi_interrupt_service(void *pHandle, uint32_t ui32IntStatus)
 //
 // MSPI power control function
 //
-// #### INTERNAL BEGIN ####
-// FIXME - Need to add in retention space for new registers.
-// #### INTERNAL END ####
 uint32_t am_hal_mspi_power_control(void *pHandle,
                                    am_hal_sysctrl_power_state_e ePowerState,
                                    bool bRetainState)
@@ -4226,6 +4393,17 @@ uint32_t am_hal_mspi_power_control(void *pHandle,
 
             if (bRetainState)
             {
+                if ( pMSPIState->eClockSrc == AM_HAL_CLKMGR_CLK_ID_MAX )
+                {
+                    return AM_HAL_STATUS_INVALID_OPERATION;
+                }
+
+                uint32_t ui32Status = am_hal_clkmgr_clock_request(pMSPIState->eClockSrc,
+                                                                 (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+                if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+                {
+                    return ui32Status;
+                }
                 //
                 // Re-enable MSPI CLKGEN clkgate
                 //
@@ -4255,9 +4433,6 @@ uint32_t am_hal_mspi_power_control(void *pHandle,
                 MSPIn(pMSPIState->ui32Module)->INTEN          = pMSPIState->registerState.regINTEN;
                 MSPIn(pMSPIState->ui32Module)->CQSETCLEAR     = AM_HAL_MSPI_SC_SET(pMSPIState->registerState.regCQFLAGS & 0xFF);
 
-// #### INTERNAL BEGIN ####
-                // TODO: May be we can just set these values, as they are constants anyways?
-// #### INTERNAL END ####
                 MSPIn(pMSPIState->ui32Module)->DMABCOUNT      = pMSPIState->registerState.regDMABCOUNT;
                 MSPIn(pMSPIState->ui32Module)->DMATHRESH      = pMSPIState->registerState.regDMATHRESH;
                 MSPIn(pMSPIState->ui32Module)->THRESHOLD      = pMSPIState->registerState.regTHRESHOLD;
@@ -4276,6 +4451,15 @@ uint32_t am_hal_mspi_power_control(void *pHandle,
             }
             else
             {
+                uint32_t ui32Status;
+
+                pMSPIState->eClockSrc = AM_HAL_CLKMGR_CLK_ID_HFRC;
+                ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC,
+                                                        (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
+                if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+                {
+                    return ui32Status;
+                }
                 //
                 // Default to use HFRC192MHz source on power up
                 //
@@ -4317,9 +4501,6 @@ uint32_t am_hal_mspi_power_control(void *pHandle,
                 pMSPIState->registerState.regINTEN            = MSPIn(pMSPIState->ui32Module)->INTEN;
                 pMSPIState->registerState.regCQFLAGS          = MSPIn(pMSPIState->ui32Module)->CQFLAGS;
 
-// #### INTERNAL BEGIN ####
-                // TODO: May be we can just set these values, as they are constants anyways?
-// #### INTERNAL END ####
                 pMSPIState->registerState.regDMABCOUNT        = MSPIn(pMSPIState->ui32Module)->DMABCOUNT;
                 pMSPIState->registerState.regDMATHRESH        = MSPIn(pMSPIState->ui32Module)->DMATHRESH;
                 pMSPIState->registerState.regTHRESHOLD        = MSPIn(pMSPIState->ui32Module)->THRESHOLD;
@@ -4366,6 +4547,7 @@ uint32_t am_hal_mspi_power_control(void *pHandle,
             // Disable MSPI CLKGEN clkgate
             //
             mspi_clkgen_ctrl(pMSPIState->ui32Module, false, false, (am_hal_mspi_io_clock_sel_e)0);
+            return am_hal_clkmgr_clock_release_all((am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_MSPI0 + pMSPIState->ui32Module));
 
         break;
 
@@ -4415,23 +4597,6 @@ uint32_t am_hal_mspi_highprio_transfer(void *pHandle,
     {
         return AM_HAL_STATUS_INVALID_ARG;
     }
-// #### INTERNAL BEGIN ####
-#if 0
-    // This is the SW check to prevent CORVETTE-1174. DMA is not allowed to/from DTCM.
-    //
-    // Check for DMA to/from DTCM.
-    //
-    if ( AM_HAL_MSPI_TRANS_DMA == eMode)
-    {
-        am_hal_mspi_dma_transfer_t *pDMATransaction = (am_hal_mspi_dma_transfer_t *)pTransfer;
-        if ( (pDMATransaction->ui32SRAMAddress >= AM_HAL_FLASH_DTCM_START) &&
-             (pDMATransaction->ui32SRAMAddress <= AM_HAL_FLASH_DTCM_END) )
-        {
-            return AM_HAL_STATUS_OUT_OF_RANGE;
-        }
-    }
-#endif
-// #### INTERNAL END ####
     if ( pMSPIState->devcfg == AM_HAL_MSPI_FLASH_HEX_DDR_CE0 || pMSPIState->devcfg == AM_HAL_MSPI_FLASH_HEX_DDR_CE1 )
     {
         am_hal_mspi_dma_transfer_t *pDMATransaction = (am_hal_mspi_dma_transfer_t *)pTransfer;

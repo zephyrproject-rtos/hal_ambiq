@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -36,6 +63,25 @@ static uint32_t g_lastStimer[8] =
     0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE
 };
 
+static am_hal_clkmgr_clock_id_e
+am_hal_stimer_clksrc_get(uint32_t clk)
+{
+    switch(clk)
+    {
+        case STIMER_STCFG_CLKSEL_HFRC_6MHZ:
+        case STIMER_STCFG_CLKSEL_HFRC_375KHZ:
+            return AM_HAL_CLKMGR_CLK_ID_HFRC;
+        case STIMER_STCFG_CLKSEL_XTAL_32KHZ:
+        case STIMER_STCFG_CLKSEL_XTAL_8KHZ:
+        case STIMER_STCFG_CLKSEL_XTAL_1KHZ:
+            return AM_HAL_CLKMGR_CLK_ID_XTAL_LS;
+        case STIMER_STCFG_CLKSEL_LFRC_NOMINAL:
+            return AM_HAL_CLKMGR_CLK_ID_LFRC;
+        default:
+            return AM_HAL_CLKMGR_CLK_ID_MAX;
+    }
+}
+
 //*****************************************************************************
 //
 // Set up the stimer.
@@ -48,16 +94,69 @@ uint32_t
 am_hal_stimer_config(uint32_t ui32STimerConfig)
 {
     uint32_t ui32CurrVal;
-
+    uint32_t ui32CfgClkSel, ui32PreClkSel;
+    uint32_t ui32CfgClkSrc, ui32PreClkSrc;
+    bool bCfgClkRequest;
+    bool bPreClkRelease;
     //
     // Read the current config
     //
     ui32CurrVal = STIMER->STCFG;
 
+    ui32CfgClkSel = ui32STimerConfig & STIMER_STCFG_CLKSEL_Msk;
+    ui32PreClkSel = ui32CurrVal & STIMER_STCFG_CLKSEL_Msk;
+    ui32CfgClkSrc = (uint32_t)am_hal_stimer_clksrc_get(ui32CfgClkSel);
+    ui32PreClkSrc = (uint32_t)am_hal_stimer_clksrc_get(ui32PreClkSel);
+
+    if ( ((ui32STimerConfig & STIMER_STCFG_CLEAR_Msk) == STIMER_STCFG_CLEAR_RUN) && ((ui32STimerConfig & STIMER_STCFG_FREEZE_Msk) == STIMER_STCFG_FREEZE_THAW) )
+    {
+        if ( ((ui32CurrVal & STIMER_STCFG_CLEAR_Msk) == STIMER_STCFG_CLEAR_RUN) && ((ui32CurrVal & STIMER_STCFG_FREEZE_Msk) == STIMER_STCFG_FREEZE_THAW) )
+        {
+            if ( ui32CfgClkSrc != ui32PreClkSrc )
+            {
+                bCfgClkRequest = true;
+                bPreClkRelease = true;
+            }
+            else
+            {
+                bCfgClkRequest = false;
+                bPreClkRelease = false;
+            }
+        }
+        else
+        {
+            bCfgClkRequest = true;
+            bPreClkRelease = false;
+        }
+    }
+    else
+    {
+        bCfgClkRequest = false;
+        bPreClkRelease = true;
+    }
+
+    if ( bCfgClkRequest )
+    {
+        //Request a clock
+        if ( STIMER_STCFG_CLKSEL_HFRC_6MHZ <= ui32CfgClkSel && ui32CfgClkSel <= STIMER_STCFG_CLKSEL_LFRC_NOMINAL )
+        {
+            am_hal_clkmgr_clock_request((am_hal_clkmgr_clock_id_e)ui32CfgClkSrc, AM_HAL_CLKMGR_USER_ID_STIMER);
+        }
+    }
+
     //
     // Write our configuration value.
     //
     STIMER->STCFG = ui32STimerConfig;
+
+    if ( bPreClkRelease )
+    {
+        //Release the previous clock source
+        if ( STIMER_STCFG_CLKSEL_HFRC_6MHZ <= ui32PreClkSel && ui32PreClkSel <= STIMER_STCFG_CLKSEL_LFRC_NOMINAL )
+        {
+            am_hal_clkmgr_clock_release((am_hal_clkmgr_clock_id_e)ui32PreClkSrc, AM_HAL_CLKMGR_USER_ID_STIMER);
+        }
+    }
 
     //
     // Indication that the STIMER has been configured.
@@ -94,6 +193,16 @@ am_hal_stimer_is_running(void)
 void
 am_hal_stimer_reset_config(void)
 {
+    bool bClkRelease = false;
+    uint32_t ui32ClkSel = 0;
+    if ( am_hal_stimer_is_running() )
+    {
+        ui32ClkSel = STIMER->STCFG_b.CLKSEL;
+        if ( ui32ClkSel <= STIMER_STCFG_CLKSEL_LFRC_NOMINAL )
+        {
+            bClkRelease = true;
+        }
+    }
     STIMER->STCFG       = _VAL2FLD(STIMER_STCFG_FREEZE, 1);
     STIMER->SCAPCTRL0   = _VAL2FLD(STIMER_SCAPCTRL0_STSEL0, 0xFF);
     STIMER->SCAPCTRL1   = _VAL2FLD(STIMER_SCAPCTRL1_STSEL1, 0xFF);
@@ -116,6 +225,11 @@ am_hal_stimer_reset_config(void)
     STIMER->STMINTEN    = 0;
     STIMER->STMINTSTAT   = 0;
     STIMER->STMINTCLR    = 0xFFF;
+
+    if ( bClkRelease )
+    {
+        am_hal_clkmgr_clock_release(am_hal_stimer_clksrc_get(ui32ClkSel), AM_HAL_CLKMGR_USER_ID_STIMER);
+    }
 }
 
 //*****************************************************************************
@@ -233,27 +347,6 @@ am_hal_stimer_compare_delta_set(uint32_t ui32CmprInstance, uint32_t ui32Delta)
     //!
     //! The application needs to handle these cases gracefully.
     //
-// #### INTERNAL BEGIN ####
-    //
-    // Ref: FALCSW-720 (STIMER Compare disable/enable issue)
-    //   HW Team found internal STIMER issue when using compare enable/disable around setting delta
-    //   Causes STIMER to miss interrupts when delta is <= 4.
-    //   Write to STCFG takes couple of cycles to take effect, and hence the time the Compare is disabled
-    //   is not small as initially assumed.
-    //
-
-    // We cannot set COMPARE back to back
-    // Make sure we disable any previous COMPARE interrupts coming while we wait
-    // NOTE: This does not address stale interrupts once we have written the COMPARE...
-    // as it takes another 2 clocks for Writes to go through.
-    // So - a stale interrupt could still come, that needs to be ignored by application
-    //uint32_t ui32CompareRestoreMsk = STIMER->STCFG & (STIMER_STCFG_COMPAREAEN_Msk << ui32CmprInstance);
-
-    //
-    // Disable the Compare
-    //
-    //STIMER->STCFG &= ~(STIMER_STCFG_COMPAREAEN_Msk << ui32CmprInstance);
-// #### INTERNAL END ####
 
     do
     {
@@ -286,18 +379,6 @@ am_hal_stimer_compare_delta_set(uint32_t ui32CmprInstance, uint32_t ui32Delta)
             // Set the delta
             //
             AM_REGVAL(AM_REG_STIMER_COMPARE(0, ui32CmprInstance)) = ui32Delta;
-// #### INTERNAL BEGIN ####
-            //
-            // Ref: FALCSW-720 (STIMER Compare disable/enable issue)
-            //   HW Team found internal STIMER issue when using compare enable/disable around setting delta
-            //   Causes STIMER to miss interrupts when delta is <= 4
-            //
-
-            //
-            // Restore the Compare Enable
-            //
-            //STIMER->STCFG |= ui32CompareRestoreMsk;
-// #### INTERNAL END ####
             //
             // Get a snapshot when we set COMPARE
             //

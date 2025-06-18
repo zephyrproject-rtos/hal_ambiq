@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_SDHC_H
@@ -32,6 +59,13 @@ extern "C"
 //*****************************************************************************
 #define SDIO_Type                    SDIO0_Type
 #define SDHCn(n)                     ((SDIO_Type*)(SDIO0_BASE + (n * (SDIO1_BASE - SDIO0_BASE))))
+
+#define SDIO_INTSIG_CARDINTEN_Msk                       SDIO0_INTSIG_CARDINTEN_Msk
+#define SDIO_INTENABLE_CARDINTERRUPTSTATUSENABLE_Msk    SDIO0_INTENABLE_CARDINTERRUPTSTATUSENABLE_Msk
+#define SDIO_INTSIG_CARDINSERTEN_Msk                    SDIO0_INTSIG_CARDINSERTEN_Msk
+#define SDIO_INTENABLE_CARDINSERTIONSTATUSENABLE_Msk    SDIO0_INTENABLE_CARDINSERTIONSTATUSENABLE_Msk
+#define SDIO_INTSIG_CARDREMOVALEN_Msk                   SDIO0_INTSIG_CARDREMOVALEN_Msk
+#define SDIO_INTENABLE_CARDREMOVALSTATUSENABLE_Msk      SDIO0_INTENABLE_CARDREMOVALSTATUSENABLE_Msk
 
 //
 //! SD Host software reset types

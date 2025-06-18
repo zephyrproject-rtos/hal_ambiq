@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #include <stdint.h>
@@ -31,11 +58,6 @@
 
 #define AM_HAL_SECURITY_LOCKSTAT_CUSTOTP_PROG   0x00000001
 #define AM_HAL_SECURITY_LOCKSTAT_CUSTOTP_READ   0x00000002
-// #### INTERNAL BEGIN ####
-#define AM_HAL_SECURITY_LOCKSTAT_INFO1ACCESS    0x80000000
-#define AM_HAL_SECURITY_LOCKSTAT_AMBOTP_PROG    0x00000010
-#define AM_HAL_SECURITY_LOCKSTAT_AMBOTP_READ    0x00000020
-// #### INTERNAL END ####
 
 //*****************************************************************************
 //
@@ -53,7 +75,7 @@
 uint32_t
 am_hal_security_get_info(am_hal_security_info_t *pSecInfo)
 {
-    uint32_t ui32retval;
+    uint32_t ui32Ret;
 
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if ( !pSecInfo )
@@ -62,14 +84,14 @@ am_hal_security_get_info(am_hal_security_info_t *pSecInfo)
     }
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
-    ui32retval = am_hal_info0_read(AM_HAL_INFO_INFOSPACE_CURRENT_INFO0,
-                                   AM_REG_OTP_INFO0_SECURITY_VERSION_O / 4,
-                                   1, &pSecInfo->info0Version);
+    ui32Ret = am_hal_info0_read(AM_HAL_INFO_INFOSPACE_CURRENT_INFO0,
+                                AM_REG_OTP_INFO0_SECURITY_VERSION_O / 4,
+                                1, &pSecInfo->info0Version);
 
-    if ( ui32retval != AM_HAL_STATUS_SUCCESS )
+    if ( ui32Ret != AM_HAL_STATUS_SUCCESS )
     {
         pSecInfo->info0Version = 0;
-        return ui32retval;
+        return ui32Ret;
     }
 
     pSecInfo->bInfo0Valid = am_hal_info0_valid();
@@ -92,16 +114,20 @@ am_hal_security_get_info(am_hal_security_info_t *pSecInfo)
     //
     // Fetch the SBL Version and Date Code
     //
-    am_hal_info1_read(AM_HAL_INFO_INFOSPACE_MRAM_INFO1, \
-                      AM_REG_INFO1_SBL_VERSION_0_O / 4, \
-                      1, \
-                      &pSecInfo->sblVersion );
-    am_hal_info1_read(AM_HAL_INFO_INFOSPACE_MRAM_INFO1, \
-                      AM_REG_INFO1_SBL_VERSION_1_O / 4, \
-                      1, \
-                      &pSecInfo->sblVersionAddInfo );
+    ui32Ret = am_hal_info1_read(AM_HAL_INFO_INFOSPACE_MRAM_INFO1, \
+                                AM_REG_INFO1_SBL_VERSION_0_O / 4, \
+                                1, \
+                                &pSecInfo->sblVersion );
+    if ( ui32Ret != AM_HAL_STATUS_SUCCESS )
+    {
+        return ui32Ret;
+    }
 
-    return AM_HAL_STATUS_SUCCESS;
+    ui32Ret = am_hal_info1_read(AM_HAL_INFO_INFOSPACE_MRAM_INFO1, \
+                                AM_REG_INFO1_SBL_VERSION_1_O / 4, \
+                                1, \
+                                &pSecInfo->sblVersionAddInfo );
+    return ui32Ret;
 
 } // am_hal_security_get_info()
 
@@ -177,11 +203,6 @@ am_hal_security_set_key(am_hal_security_locktype_t lockType, am_hal_security_128
     {
         case AM_HAL_SECURITY_LOCKTYPE_CUSTOTP_PROG:
         case AM_HAL_SECURITY_LOCKTYPE_CUSTOTP_READ:
-// #### INTERNAL BEGIN ####
-        case AM_HAL_SECURITY_LOCKTYPE_INFO1ACCESS:
-        case AM_HAL_SECURITY_LOCKTYPE_AMBOTP_PROG:
-        case AM_HAL_SECURITY_LOCKTYPE_AMBOTP_READ:
-// #### INTERNAL END ####
             break;
         default:
             return AM_HAL_STATUS_INVALID_ARG;
@@ -225,17 +246,6 @@ am_hal_security_get_lock_status(am_hal_security_locktype_t lockType, bool *pbUnl
         case AM_HAL_SECURITY_LOCKTYPE_CUSTOTP_READ:
             unlockMask = AM_HAL_SECURITY_LOCKSTAT_CUSTOTP_READ;
             break;
-// #### INTERNAL BEGIN ####
-        case AM_HAL_SECURITY_LOCKTYPE_INFO1ACCESS:
-            unlockMask = AM_HAL_SECURITY_LOCKSTAT_INFO1ACCESS;
-            break;
-        case AM_HAL_SECURITY_LOCKTYPE_AMBOTP_PROG:
-            unlockMask = AM_HAL_SECURITY_LOCKSTAT_AMBOTP_PROG;
-            break;
-        case AM_HAL_SECURITY_LOCKTYPE_AMBOTP_READ:
-            unlockMask = AM_HAL_SECURITY_LOCKSTAT_AMBOTP_READ;
-            break;
-// #### INTERNAL END ####
         default:
             return AM_HAL_STATUS_INVALID_ARG;
     }
@@ -307,6 +317,156 @@ am_hal_crc32(uint32_t ui32StartAddr, uint32_t ui32SizeBytes, uint32_t *pui32Crc)
     return status;
 
 } // am_hal_crc32()
+
+//*****************************************************************************
+//
+//! @brief  Hardcoded function - to Run supplied main program
+//!
+//! @param  r0 = vtor - address of the vector table
+//!
+//! @return Returns None
+//
+//*****************************************************************************
+#if (defined (__ARMCC_VERSION)) && (__ARMCC_VERSION >= 6000000)
+__attribute__((naked))
+static void
+bl_run_main(uint32_t *vtor)
+{
+    __asm
+    (
+        "   movw    r3, #0xED08\n\t"    // Store the vector table pointer of the new image into VTOR.
+        "   movt    r3, #0xE000\n\t"
+        "   str     r0, [r3, #0]\n\t"
+        "   ldr     r3, [r0, #0]\n\t"   // Load the new stack pointer into R1 and the new reset vector into R2.
+        "   ldr     r2, [r0, #4]\n\t"
+        "   mov     sp, r3\n\t"         // Set the stack pointer for the new image.
+        "   bx      r2\n\t"            // Jump to the new reset vector.
+    );
+}
+#elif defined(__GNUC_STDC_INLINE__)
+__attribute__((naked))
+static void
+bl_run_main(uint32_t *vtor)
+{
+    __asm
+    (
+        "   movw    r3, #0xED08\n\t"    // Store the vector table pointer of the new image into VTOR.
+        "   movt    r3, #0xE000\n\t"
+        "   str     r0, [r3, #0]\n\t"
+        "   ldr     r3, [r0, #0]\n\t"   // Load the new stack pointer into R1 and the new reset vector into R2.
+        "   ldr     r2, [r0, #4]\n\t"
+        "   mov     sp, r3\n\t"         // Set the stack pointer for the new image.
+        "   bx      r2\n\t"            // Jump to the new reset vector.
+    );
+}
+#elif defined(__IAR_SYSTEMS_ICC__)
+__stackless static inline void
+bl_run_main(uint32_t *vtor)
+{
+    __asm volatile (
+          "    movw    r3, #0xED08\n"    // Store the vector table pointer of the new image into VTOR.
+          "    movt    r3, #0xE000\n"
+          "    str     r0, [r3, #0]\n"
+          "    ldr     r3, [r0, #0]\n"   // Load the new stack pointer into R1 and the new reset vector into R2.
+          "    ldr     r2, [r0, #4]\n"
+          "    mov     sp, r3\n"         // Set the stack pointer for the new image.
+          "    bx      r2\n"            // Jump to the new reset vector.
+          );
+}
+#else
+#error Compiler is unknown, please contact Ambiq support team
+#endif
+
+//*****************************************************************************
+//
+// @brief  Helper function to Perform exit operations for a secondary bootloader
+//
+// @param  pImage - The address of the image to give control to
+//
+// This function does the necessary security operations while exiting from a
+// a secondary bootloader program. If still open, it locks the infoc key region,
+// as well as further updates to the flash protection register.
+// It also checks if it needs to halt to honor a debugger request.
+// If an image address is specified, control is transferred to the same on exit.
+//
+// @return Returns AM_HAL_STATUS_SUCCESS on success, if no image address specified
+// If an image address is provided, a successful execution results in transfer to
+// the image - and this function does not return.
+//
+//*****************************************************************************
+uint32_t
+am_hal_bootloader_exit(uint32_t *pImage, bool bEnableDebuggerOnExit)
+{
+    am_hal_reset_status_t sResetStatus;
+
+    //
+    // Lock the protection register to prevent further region locking
+    // CAUTION!!! - Cannot do RMW on BOOTLOADER register as all writable
+    //              bits in this register are Write 1 to clear
+    //
+    MCUCTRL->BOOTLOADER = _VAL2FLD(MCUCTRL_BOOTLOADER_PROTUNLOCK, MCUCTRL_BOOTLOADER_PROTUNLOCK_LOCK);
+
+    //
+    // Check if we need to halt (debugger request)
+    //
+    if ( bEnableDebuggerOnExit )
+    {
+        //
+        // Enable debugger
+        //
+        am_hal_dcu_update(true, AM_HAL_DCU_DEBUGGER);
+        if ( MCUCTRL->DEBUGGER & AM_HAL_DCU_DEBUGGER)
+        {
+            //
+            // This could be the case if INFOC->DCU_DISABLEOVERRIDE is set
+            // Remove the overrides
+            //
+            MCUCTRL->DEBUGGER &= ~AM_HAL_DCU_DEBUGGER;
+        }
+
+        //
+        // Get reset status
+        //
+        am_hal_reset_status_get(&sResetStatus);
+
+        //
+        // Act on debugger reset-halt if deferred by SBL
+        //
+        if ( (sResetStatus.eStatus & RSTGEN_STAT_AIRCRSTAT_Msk) &&
+             (MCUCTRL->SCRATCH0 & 0x01) )
+        {
+            //
+            // Clear the flag in scratch0
+            //
+            MCUCTRL->SCRATCH0 &= ~0x1;
+            uint32_t dhcsr = DCB->DSCSR;
+
+            //
+            // Halt the core
+            //
+            DCB->DSCSR = (uint32_t)(0xA05FUL << 16) | (dhcsr & 0xFFFF) | 0x3;
+
+            //
+            // Resume from halt
+            //
+        }
+    }
+
+    //
+    // Give control to supplied image
+    //
+    if ( pImage )
+    {
+        bl_run_main(pImage);
+
+        //
+        // Does not return
+        //
+    }
+
+    return AM_HAL_STATUS_SUCCESS;
+
+} // am_hal_bootloader_exit()
 
 //*****************************************************************************
 //

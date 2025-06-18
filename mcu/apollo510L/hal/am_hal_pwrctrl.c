@@ -12,20 +12,43 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #include <stdint.h>
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
-// #### INTERNAL BEGIN ####
-//#define TEMPCO_DBG 1
-#if TEMPCO_DBG
-extern uint32_t am_util_stdio_printf(const char *pui8Fmt, ...);
-#endif
-// #### INTERNAL END ####
+#include "am_hal_clkmgr_private.h"
+#include "mcu/am_hal_crm_private.h"
 
 //*****************************************************************************
 //
@@ -33,18 +56,17 @@ extern uint32_t am_util_stdio_printf(const char *pui8Fmt, ...);
 //
 //*****************************************************************************
 
+#define PARTS_WO_INITIAL_TON 1
+
 //
 //! Maximum number of checks to memory power status before declaring error
 // (5 x 1usec = 5usec).
 //
 #define AM_HAL_PWRCTRL_MAX_WAIT_US          5
-// #### INTERNAL BEGIN ####
-// As per design inputs from CAB-1160, max time we may need to wait should account
-// for 32b write - which is 40us x32
-// Making this timeout large enough - 100ms to even work for FPGA
-// #### INTERNAL END ####
 #define AM_HAL_PWRCTRL_MAX_WAIT_OTP_US      100000
 #define AM_HAL_PWRCTRL_MAX_BOOTROM_COUNT    10000
+#define AM_HAL_PWRCTRL_MAX_WAIT_CM4_WAKEUP_US    10000
+#define AM_HAL_PWRCTRL_MAX_WAIT_CM4_MBOX_INIT_US 150000
 
 #define AM_HAL_PWRCTRL_MEMPWRSTATUS_MASK    ( PWRCTRL_MEMPWRSTATUS_PWRSTTCM_Msk        |    \
                                               PWRCTRL_MEMPWRSTATUS_PWRSTNVM0_Msk       |    \
@@ -65,19 +87,11 @@ extern uint32_t am_util_stdio_printf(const char *pui8Fmt, ...);
 #define TVRGFVREFTRIM_VAL_0             127
 #define TVRGFTEMPCOTRIM_VAL_0           31
 
-#define VDDCACTLOWTONTRIM_VAL           21
-#define VDDFACTLOWTONTRIM_VAL           31
-
 //
 //! Trim revision 6 is required for the following pwrctrl adjustments:
 //!  - Sourcing MCUH from the VDDC_LV rail
 //!  - Reliable application of TempCo
 //!  - Applying Crypto boosts
-// #### INTERNAL BEGIN ####
-//  TRIMREV_VDDC_LV see FALCSW-286
-//  TRIMREV_TEMPCO see FALCSW-253
-//  TRIMREV_BOOST_ADJUST see FALCSW-348.
-// #### INTERNAL END ####
 //
 #define TRIMREV_PWRCTRL         6
 
@@ -85,11 +99,7 @@ extern uint32_t am_util_stdio_printf(const char *pui8Fmt, ...);
 #define AM_HAL_PWRCTRL_GPU_PWRADJ_WAIT   6
 #define AM_HAL_PWRCTRL_GPU_PWRON_WAIT    1
 
-#define CORE_SLEEP_DURATION            50  //in us
-
-static uint32_t nvic_en[16];
-static uint32_t origBasePri, orgPriMask;
-static bool g_bSTIntEnabled = false;
+void buck_ldo_update_override(bool bEnable);
 
 //*****************************************************************************
 //
@@ -132,31 +142,26 @@ uint32_t g_ui32VDDFBoostReqLevel2Cnt        = 0;
 //! @{
 //
 // ****************************************************************************
-static bool     g_bOrigTrimsStored          = false;
-static uint32_t g_orig_ACTTRIMVDDF          = 0;
-static uint32_t g_orig_MEMLDOACTIVETRIM     = 0;
-static uint32_t g_orig_LPTRIMVDDF           = 0;
-static uint32_t g_orig_MEMLPLDOTRIM         = 0;
-static uint32_t g_orig_TVRGVREFTRIM         = 0;
+bool     g_bOrigTrimsStored          = false;
 
-//! @}
-
-#if AM_HAL_TEMPCO_LP
 //*****************************************************************************
-//
-//! @name Saved handle and slot number for TempCo.
-//! @{
-//
-// ****************************************************************************
-static void    *g_TempcoADCHandle;
-static uint32_t g_ui32TempcoADCslot;
-static uint16_t g_ui16TempcoTEMP_code;
-static bool     g_bTempcoValid           = false;
-static float    g_pfTempMeasured;
-//
+// Temporarily suppress variable set but not used warnings
+//*****************************************************************************
+DIAG_SUPPRESS_SETNOTUSED_VAR
+
+uint32_t g_orig_TVRGCVREFTRIM               = 0;
+uint32_t g_orig_TVRGFVREFTRIM               = 0;
+uint32_t g_orig_VDDCLKGTRIM                 = 0;
+uint32_t g_orig_CORELDOTEMPCOTRIM           = 0;
+uint32_t g_orig_CORELDOACTIVETRIM           = 0;
+static uint32_t g_orig_D2ASPARE             = 0;
+static uint32_t g_orig_MEMLDOACTIVETRIM     = 0;
+DIAG_SUPPRESS_SETNOTUSED_VAR_DEFAULT
 //! @}
-//
-#endif // AM_HAL_TEMPCO_LP
+
+extern uint8_t g_ui8TRCENAcount;    // am_hal_debug.c
+
+
 
 //*****************************************************************************
 //
@@ -192,14 +197,9 @@ am_hal_pwrctrl_info1_regs_t g_sINFO1regs;
     _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUART0, PWRCTRL_DEVPWREN_PWRENUART0_EN) | \
     _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUART1, PWRCTRL_DEVPWREN_PWRENUART1_EN))
 
-#define PWRCTRL_MSPI_DEVPWREN_MASK       ( \
-    _VAL2FLD(PWRCTRL_DEVPWREN_PWRENMSPI0, PWRCTRL_DEVPWREN_PWRENMSPI0_EN) | \
-    _VAL2FLD(PWRCTRL_DEVPWREN_PWRENMSPI1, PWRCTRL_DEVPWREN_PWRENMSPI1_EN) | \
-    _VAL2FLD(PWRCTRL_DEVPWREN_PWRENMSPI2, PWRCTRL_DEVPWREN_PWRENMSPI2_EN))
-
-#define PWRCTRL_AUD_DEVPWREN_MASK       ( \
-    _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENPDM0, PWRCTRL_AUDSSPWREN_PWRENPDM0_EN)     | \
-    _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENI2S0, PWRCTRL_AUDSSPWREN_PWRENI2S0_EN))
+#define PWRCTRL_IOS_DEVPWREN_MASK       ( \
+    _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOSFD0, PWRCTRL_DEVPWREN_PWRENIOSFD0_EN) | \
+    _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOSFD1, PWRCTRL_DEVPWREN_PWRENIOSFD1_EN))
 
 #define PWRCTRL_HCPB_DEVPWRSTATUS_MASK      ( \
     PWRCTRL_DEVPWRSTATUS_PWRSTIOM0_Msk | \
@@ -215,14 +215,9 @@ am_hal_pwrctrl_info1_regs_t g_sINFO1regs;
     PWRCTRL_DEVPWRSTATUS_PWRSTUART0_Msk | \
     PWRCTRL_DEVPWRSTATUS_PWRSTUART1_Msk)
 
-#define PWRCTRL_MSPI_DEVPWRSTATUS_MASK          ( \
-    PWRCTRL_DEVPWRSTATUS_PWRSTMSPI0_Msk | \
-    PWRCTRL_DEVPWRSTATUS_PWRSTMSPI1_Msk | \
-    PWRCTRL_DEVPWRSTATUS_PWRSTMSPI2_Msk)
-
-#define PWRCTRL_AUD_DEVPWRSTATUS_MASK      ( \
-    PWRCTRL_AUDSSPWRSTATUS_PWRSTPDM0_Msk   | \
-    PWRCTRL_AUDSSPWRSTATUS_PWRSTI2S0_Msk)
+#define PWRCTRL_IOS_DEVPWRSTATUS_MASK      ( \
+    PWRCTRL_DEVPWRSTATUS_PWRSTIOSFD0_Msk   | \
+    PWRCTRL_DEVPWRSTATUS_PWRSTIOSFD1_Msk)
 //! @}
 
 // **********************************************
@@ -242,16 +237,6 @@ struct am_pwr_s
 #ifndef AM_HAL_PWRCTRL_RAM_TABLE
 const struct am_pwr_s am_hal_pwrctrl_peripheral_control[AM_HAL_PWRCTRL_PERIPH_MAX] =
 {
-// #### INTERNAL BEGIN ####
-#if 0 // IOS0 is removed from RTL
-    {
-        AM_REGADDR(PWRCTRL, DEVPWREN),
-        _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOS0, PWRCTRL_DEVPWREN_PWRENIOS0_EN),
-        AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
-        PWRCTRL_DEVPWRSTATUS_PWRSTIOS0_Msk
-    },
-#endif
-// #### INTERNAL END ####
     {
         AM_REGADDR(PWRCTRL, DEVPWREN),
         _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOSFD0, PWRCTRL_DEVPWREN_PWRENIOSFD0_EN),
@@ -300,22 +285,6 @@ const struct am_pwr_s am_hal_pwrctrl_peripheral_control[AM_HAL_PWRCTRL_PERIPH_MA
         AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
         PWRCTRL_HCPC_DEVPWRSTATUS_MASK
     },
-// #### INTERNAL BEGIN ####
-#if 0 // IOM6 & IOM7 are removed from RTL
-    {
-        AM_REGADDR(PWRCTRL, DEVPWREN),
-        _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM6, PWRCTRL_DEVPWREN_PWRENIOM6_EN),
-        AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
-        PWRCTRL_HCPC_DEVPWRSTATUS_MASK
-    },
-    {
-        AM_REGADDR(PWRCTRL, DEVPWREN),
-        _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM7, PWRCTRL_DEVPWREN_PWRENIOM7_EN),
-        AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
-        PWRCTRL_HCPC_DEVPWRSTATUS_MASK
-    },
-#endif
-// #### INTERNAL END ####
     {
         AM_REGADDR(PWRCTRL, DEVPWREN),
         _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUART0, PWRCTRL_DEVPWREN_PWRENUART0_EN),
@@ -328,22 +297,6 @@ const struct am_pwr_s am_hal_pwrctrl_peripheral_control[AM_HAL_PWRCTRL_PERIPH_MA
         AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
         PWRCTRL_HCPA_DEVPWRSTATUS_MASK
     },
-// #### INTERNAL BEGIN ####
-#if 0 // UART2 & UART3 are removed from RTL
-    {
-        AM_REGADDR(PWRCTRL, DEVPWREN),
-        _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUART2, PWRCTRL_DEVPWREN_PWRENUART2_EN),
-        AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
-        PWRCTRL_HCPA_DEVPWRSTATUS_MASK
-    },
-    {
-        AM_REGADDR(PWRCTRL, DEVPWREN),
-        _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUART3, PWRCTRL_DEVPWREN_PWRENUART3_EN),
-        AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
-        PWRCTRL_HCPA_DEVPWRSTATUS_MASK
-    },
-#endif
-// #### INTERNAL END ####
     {
         AM_REGADDR(PWRCTRL, DEVPWREN),
         _VAL2FLD(PWRCTRL_DEVPWREN_PWRENADC, PWRCTRL_DEVPWREN_PWRENADC_EN),
@@ -428,22 +381,6 @@ const struct am_pwr_s am_hal_pwrctrl_peripheral_control[AM_HAL_PWRCTRL_PERIPH_MA
         AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
         PWRCTRL_DEVPWRSTATUS_PWRSTOTP_Msk
     },
-// #### INTERNAL BEGIN ####
-#if 0 // am_hal_pwrctrl.c:  As of 26SEPT, PWRENAUDPB, PWRENAUDREC, PWRSTAUDPB, PWRSTAUDREC no longer exist.
-    {
-        AM_REGADDR(PWRCTRL, AUDSSPWREN),
-        _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENAUDREC, PWRCTRL_AUDSSPWREN_PWRENAUDREC_EN),
-        AM_REGADDR(PWRCTRL, AUDSSPWRSTATUS),
-        PWRCTRL_AUDSSPWRSTATUS_PWRSTAUDREC_Msk
-    },
-    {
-        AM_REGADDR(PWRCTRL, AUDSSPWREN),
-        _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENAUDPB, PWRCTRL_AUDSSPWREN_PWRENAUDPB_EN),
-        AM_REGADDR(PWRCTRL, AUDSSPWRSTATUS),
-        PWRCTRL_AUDSSPWRSTATUS_PWRSTAUDPB_Msk
-    },
-#endif
-// #### INTERNAL END ####
     {
         AM_REGADDR(PWRCTRL, AUDSSPWREN),
         _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENPDM0, PWRCTRL_AUDSSPWREN_PWRENPDM0_EN),
@@ -474,112 +411,7 @@ const struct am_pwr_s am_hal_pwrctrl_peripheral_control[AM_HAL_PWRCTRL_PERIPH_MA
         AM_REGADDR(PWRCTRL, DEVPWRSTATUS),
         PWRCTRL_DEVPWRSTATUS_PWRSTNETAOL_Msk
     },
-
-// #### INTERNAL BEGIN ####
-#if 0 // I2S1 and AUDADC are removed from RTL
-    {
-        AM_REGADDR(PWRCTRL, AUDSSPWREN),
-        _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENI2S1, PWRCTRL_AUDSSPWREN_PWRENI2S1_EN),
-        AM_REGADDR(PWRCTRL, AUDSSPWRSTATUS),
-        PWRCTRL_AUDSSPWRSTATUS_PWRSTI2S1_Msk
-    },
-    {
-        AM_REGADDR(PWRCTRL, AUDSSPWREN),
-        _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENAUDADC, PWRCTRL_AUDSSPWREN_PWRENAUDADC_EN),
-        AM_REGADDR(PWRCTRL, AUDSSPWRSTATUS),
-        PWRCTRL_AUDSSPWRSTATUS_PWRSTAUDADC_Msk
-    },
-#endif
-// #### INTERNAL END ####
 };
-
-//*****************************************************************************
-//
-// Mask off all interrupts
-//
-//*****************************************************************************
-static inline uint32_t
-am_critical_mask_all_begin(void)
-{
-    uint32_t basePrioGrouping = ((uint32_t)((SCB->AIRCR & SCB_AIRCR_PRIGROUP_Msk) >> SCB_AIRCR_PRIGROUP_Pos));
-
-    orgPriMask = am_hal_interrupt_master_disable();
-    origBasePri = __get_BASEPRI();
-    __set_BASEPRI((basePrioGrouping >= (8 - __NVIC_PRIO_BITS))?(1 << (basePrioGrouping + 1)):(1 << (8 - __NVIC_PRIO_BITS)));
-    for (uint32_t i = 0; i < 16; i++)
-    {
-        nvic_en[i] = NVIC->ISER[i];
-        NVIC->ICER[i] = nvic_en[i];
-    }
-    //
-    // Disable SysTick Int if it was enabled.
-    //
-    if (SysTick->CTRL & SysTick_CTRL_TICKINT_Msk)
-    {
-        g_bSTIntEnabled = true;
-        SysTick->CTRL &= ~SysTick_CTRL_TICKINT_Msk;
-    }
-
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_critical_mask_all_begin()
-
-//*****************************************************************************
-//
-//  Restore the interrupts
-//
-//*****************************************************************************
-static inline void
-am_critical_mask_all_end(void)
-{
-    uint32_t ui32STVal = 0;
-    bool bSetSTPend = false;
-
-    for (uint32_t i = 0; i < 16; i++ )
-    {
-        NVIC->ISER[i] = nvic_en[i];
-    }
-    __set_BASEPRI(origBasePri);
-
-    if (g_bSTIntEnabled)
-    {
-        //
-        // Address potential race condition where Systick interrupt could have
-        // been fired - while we disabled it
-        //
-        // Current snapshot for Systick
-        //
-        ui32STVal = SysTick->VAL;
-
-        //
-        // Need to read COUNTFLAG before writing to CTRL, as it would get reset
-        //
-        bSetSTPend = SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk;
-
-        //
-        // Enable SysTick Int
-        //
-        SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;
-
-        //
-        // Read Systick again to see if it wrapped
-        //
-        if (SysTick->VAL > ui32STVal)
-        {
-              bSetSTPend = true;
-        }
-
-        //
-        // Set PENDSTSET
-        //
-        if (bSetSTPend)
-        {
-            SCB->ICSR |= SCB_ICSR_PENDSTSET_Msk;
-        }
-    }
-
-    am_hal_interrupt_master_set(orgPriMask);
-} // am_critical_mask_all_end()
 
 //*****************************************************************************
 //
@@ -634,11 +466,10 @@ am_get_pwrctrl(struct am_pwr_s *pwr_ctrl, uint32_t ePeripheral)
     else
     {
         shift_pos = (ePeripheral - AM_HAL_PWRCTRL_PERIPH_PDM0) + 2;
-        if (ePeripheral > AM_HAL_PWRCTRL_PERIPH_I2S1)
+        if (ePeripheral > AM_HAL_PWRCTRL_PERIPH_PDM0)
         {
-            shift_pos += 2;
+            shift_pos += 3;
         }
-
         pwr_ctrl->ui32PwrEnRegAddr =  AM_REGADDR(PWRCTRL, AUDSSPWREN);
         pwr_ctrl->ui32PwrStatReqAddr = AM_REGADDR(PWRCTRL, AUDSSPWRSTATUS);
         pwr_ctrl->ui32PeriphEnable = 1 << shift_pos;
@@ -654,9 +485,6 @@ am_get_pwrctrl(struct am_pwr_s *pwr_ctrl, uint32_t ePeripheral)
 // Default configurations definitions
 //
 //*****************************************************************************
-// #### INTERNAL BEGIN ####
-#warning "TODO - FIXME: What are the proper default memory configurations?"
-// #### INTERNAL END ####
 const am_hal_pwrctrl_mcu_memory_config_t    g_DefaultMcuMemCfg =
 {
     .eROMMode           = AM_HAL_PWRCTRL_ROM_AUTO,
@@ -703,10 +531,7 @@ TrimVersionGet(uint32_t *pui32TrimVer)
                                     1, &g_ui32TrimVer);
 
         if ( (g_ui32TrimVer == 0x00000000)  ||
-#ifdef AM_PART_APOLLO5A
-             (g_ui32TrimVer == 0xFFFFFFFF)  ||
-#endif // AM_PART_APOLLO5A
-            (ui32Ret != AM_HAL_STATUS_SUCCESS) )
+             (ui32Ret != AM_HAL_STATUS_SUCCESS) )
         {
             //
             // Invalid trim value. Set the global to indicate version 0.
@@ -726,6 +551,243 @@ TrimVersionGet(uint32_t *pui32TrimVer)
     }
 
 } // TrimVersionGet()
+
+// ****************************************************************************
+//
+//  Wait for CM4 IPC init event
+//
+// ****************************************************************************
+static uint32_t
+am_hal_pwrctrl_rss_mbox_init_wait()
+{
+    uint32_t ui32Status = AM_HAL_STATUS_TIMEOUT;
+    uint32_t ui32LoopCnt = AM_HAL_PWRCTRL_MAX_WAIT_CM4_MBOX_INIT_US / 10;
+
+    for (uint32_t ui32Loop = 0; ui32Loop < ui32LoopCnt; ui32Loop++)
+    {
+        if (__NVIC_GetPendingIRQ(IPC_ERR_IRQn))
+        {
+            if (AM_HAL_IPC_MBOX_ERROR_IPCINIT)
+            {
+                ui32Status = AM_HAL_STATUS_SUCCESS;
+                break;
+            }
+        }
+        am_hal_delay_us(10);
+    }
+
+    //
+    // Initialize MBOX HAL
+    //
+    if (ui32Status == AM_HAL_STATUS_SUCCESS)
+    {
+        am_hal_ipc_mbox_init_state_set(AM_HAL_IPC_MBOX_INIT_STATE_IPCINIT_RECEIVED);
+        ui32Status = am_hal_ipc_mbox_init();
+    }
+
+    //
+    // Enable MBOX IRQ
+    //
+    #ifdef AM_IRQ_PRIORITY_DEFAULT
+    NVIC_SetPriority(IPC_PEND_MSG_IRQn, AM_IRQ_PRIORITY_DEFAULT);
+    NVIC_SetPriority(IPC_ERR_IRQn, AM_IRQ_PRIORITY_DEFAULT);
+    #endif // AM_IRQ_PRIORITY_DEFAULT
+    NVIC_EnableIRQ(IPC_PEND_MSG_IRQn);
+    NVIC_EnableIRQ(IPC_ERR_IRQn);
+
+    return ui32Status;
+} // am_hal_pwrctrl_rss_mbox_init_wait()
+
+// ****************************************************************************
+//
+//  Start the RSS Power Up sequence
+//
+// ****************************************************************************
+uint32_t
+am_hal_pwrctrl_rss_bootup(void)
+{
+    uint32_t ui32Status;
+
+    if ( PWRCTRL->DEVPWRSTATUS_b.PWRSTNETAOL == PWRCTRL_DEVPWRSTATUS_PWRSTNETAOL_OFF )
+    {
+
+        //
+        // Turn on RSS power
+        //
+        ui32Status = am_hal_pwrctrl_periph_enable(AM_HAL_PWRCTRL_PERIPH_NETAOL);
+        if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+        {
+            return ui32Status;
+        }
+
+        //
+        // Trigger RSS Wakeup
+        //
+        ui32Status = am_hal_pwrctrl_cm4_wakeup_req();
+        if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+        {
+            return ui32Status;
+        }
+
+        //
+        // Wait for Radio Subsystem MBOX init
+        //
+        ui32Status = am_hal_pwrctrl_rss_mbox_init_wait();
+        if ( ui32Status != AM_HAL_STATUS_SUCCESS )
+        {
+            return ui32Status;
+        }
+
+        //
+        // Send the RFXTAL configuration to radio subsystem via mailbox
+        //
+        ui32Status = am_hal_clkmgr_private_rfxtal_config_send();
+    }
+    else
+    {
+        ui32Status = AM_HAL_STATUS_IN_USE;
+    }
+    return ui32Status;
+} // am_hal_pwrctrl_rss_bootup()
+
+// ****************************************************************************
+//
+// Power off the RSS
+//
+// ****************************************************************************
+uint32_t
+am_hal_pwrctrl_rss_pwroff(void)
+{
+    uint32_t ui32Status;
+
+    if ( PWRCTRL->DEVPWRSTATUS_b.PWRSTNETAOL == PWRCTRL_DEVPWRSTATUS_PWRSTNETAOL_ON )
+    {
+        //
+        // Mailbox cannot be accessed now
+        //
+        am_hal_ipc_mbox_init_state_set(AM_HAL_IPC_MBOX_INIT_STATE_NOT_READY);
+        //
+        // Power off RSS
+        //
+        ui32Status = am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_NETAOL);
+
+        //
+        // Disable MBOX IRQ
+        //
+        NVIC_DisableIRQ(IPC_PEND_MSG_IRQn);
+        NVIC_DisableIRQ(IPC_ERR_IRQn);
+        NVIC_ClearPendingIRQ(IPC_PEND_MSG_IRQn);
+        NVIC_ClearPendingIRQ(IPC_ERR_IRQn);
+    }
+    else
+    {
+        ui32Status = AM_HAL_STATUS_SUCCESS;
+    }
+
+    return ui32Status;
+} // am_hal_pwrctrl_rss_pwroff()
+
+// ****************************************************************************
+//
+//  mcu_hp_lp_switch_sequence()
+//  MCU HP/LP switching sequence.
+//
+// ****************************************************************************
+static uint32_t
+mcu_hp_lp_switch_sequence(am_hal_pwrctrl_mcu_mode_e ePowerMode)
+{
+    uint32_t ui32Status;
+
+    AM_CRITICAL_BEGIN
+
+    //
+    //  Switch cpu mode
+    //
+    if ( (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1) ||
+         (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2) )
+    {
+        //
+        // Report CPU state change
+        //
+        am_hal_spotmgr_cpu_state_e eCpuSt;
+        if (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1)
+        {
+            eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_HP1;
+        }
+        else
+        {
+            eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_HP2;
+        }
+        am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_CPU_STATE, false, (void *) &eCpuSt);
+        //
+        // Set the MCU power mode.
+        //
+        PWRCTRL->MCUPERFREQ_b.MCUPERFREQ = ePowerMode;
+        //
+        // Wait for the ACK
+        //
+        ui32Status = AM_HAL_STATUS_TIMEOUT;
+        for ( uint32_t i = 0; i < AM_HAL_PWRCTRL_PERF_SWITCH_WAIT_US; i++ )
+        {
+            if ( PWRCTRL->MCUPERFREQ_b.MCUPERFACK > 0 )
+            {
+                ui32Status = AM_HAL_STATUS_SUCCESS;
+                break;
+            }
+            am_hal_delay_us(1);
+        }
+    }
+    else
+    {
+        //
+        // Set the MCU power mode.
+        //
+        PWRCTRL->MCUPERFREQ_b.MCUPERFREQ = ePowerMode;
+        //
+        // Wait for the ACK
+        //
+        ui32Status = AM_HAL_STATUS_TIMEOUT;
+        for ( uint32_t i = 0; i < AM_HAL_PWRCTRL_PERF_SWITCH_WAIT_US; i++ )
+        {
+            if ( PWRCTRL->MCUPERFREQ_b.MCUPERFACK > 0 )
+            {
+                ui32Status = AM_HAL_STATUS_SUCCESS;
+                break;
+            }
+            am_hal_delay_us(1);
+        }
+    }
+
+    if (ui32Status == AM_HAL_STATUS_SUCCESS)
+    {
+        g_eCurMcuPwrMode = ePowerMode;
+        if ( (ePowerMode != AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1) &&
+             (ePowerMode != AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2) )
+        {
+            //
+            // Report CPU state change
+            //
+            am_hal_spotmgr_cpu_state_e eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_LP;
+            am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_CPU_STATE, false, (void *) &eCpuSt);
+        }
+    }
+    else
+    {
+        if ( (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1) ||
+             (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2) )
+        {
+            //
+            // Need to revert the power state
+            //
+            am_hal_spotmgr_cpu_state_e eCpuSt = AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_LP;
+            am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_CPU_STATE, false, (void *) &eCpuSt);
+        }
+    }
+
+    AM_CRITICAL_END
+
+    return ui32Status;
+} // mcu_hp_lp_switch_sequence()
 
 // ****************************************************************************
 //
@@ -765,17 +827,28 @@ am_hal_pwrctrl_mcu_mode_select(am_hal_pwrctrl_mcu_mode_e ePowerMode)
     {
         return AM_HAL_STATUS_INVALID_ARG;
     }
-#if !defined(APOLLO5_FPGA)
     //
     // We must be using SIMOBUCK in order to go to HP mode.
     //
-    if ( (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1)   &&
+    if ( ( (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1) ||
+           (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2) ) &&
          (PWRCTRL->VRSTATUS_b.SIMOBUCKST != PWRCTRL_VRSTATUS_SIMOBUCKST_ACT) )
     {
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
-#endif
 #endif // AM_HAL_DISABLE_API_VALIDATION
+
+    //
+    // Check if the SKU supports HP1 or HP2
+    //
+    if ( ( (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1) &&
+           (MCUCTRL->SKU_b.SKUTURBOSPOT < MCUCTRL_SKU_SKUTURBOSPOT_HP1) ) ||
+         ( (ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2) &&
+           (MCUCTRL->SKU_b.SKUTURBOSPOT < MCUCTRL_SKU_SKUTURBOSPOT_HP2) ) )
+    {
+        return AM_HAL_STATUS_INVALID_OPERATION;
+    }
+
 
     //
     // Check if the request mode is already selected.  If so, return SUCCESS.
@@ -785,56 +858,28 @@ am_hal_pwrctrl_mcu_mode_select(am_hal_pwrctrl_mcu_mode_e ePowerMode)
         return AM_HAL_STATUS_SUCCESS;
     }
 
-    AM_CRITICAL_BEGIN
-
-    g_eCurMcuPwrMode = ePowerMode;
-
-    //
-    // Set the MCUCTRL MCU power mode.
-    //
-    switch (ePowerMode)
+    if ( ePowerMode == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2)
     {
-        case AM_HAL_PWRCTRL_MCU_MODE_LOW_POWER:
-        case AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1:
-            MCUCTRL->SKUOVERRIDE_b.SKUTURBOSPOT = MCUCTRL_SKU_SKUTURBOSPOT_HP1;
-            break;
-        case AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2:
-            MCUCTRL->SKUOVERRIDE_b.SKUTURBOSPOT = MCUCTRL_SKU_SKUTURBOSPOT_HP2;
-            break;
-    }
-
-    //
-    // Set the MCU power mode.
-    //
-    PWRCTRL->MCUPERFREQ_b.MCUPERFREQ = ePowerMode;
-
-    //
-    // Wait for the ACK
-    //
-    ui32Status = AM_HAL_STATUS_TIMEOUT;
-#ifdef APOLLO5_FPGA
-    for ( uint32_t i = 0; i < 60; i++ )
-    {
-        if ( PWRCTRL->MCUPERFREQ_b.MCUPERFACK > 0 )
+        uint32_t ui32PLLVCOFreq = 0;
+        am_hal_clkmgr_clock_config_get(AM_HAL_CLKMGR_CLK_ID_PLLVCO, &ui32PLLVCOFreq, NULL);
+        if ( ui32PLLVCOFreq < 192000000 )
         {
-            ui32Status = AM_HAL_STATUS_SUCCESS;
-            break;
+            //
+            // We require that SW NOT ask for HP2 if it has set VCO < 192Mhz
+            //
+            return AM_HAL_STATUS_FAIL;
         }
-        am_hal_delay_us(1);
-    }
-#else
-    for ( uint32_t i = 0; i < 5; i++ )
-    {
-        if ( PWRCTRL->MCUPERFREQ_b.MCUPERFACK > 0 )
+        ui32Status = am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_PLLVCO, AM_HAL_CLKMGR_USER_ID_CPU);
+        if ( ui32Status )
         {
-            ui32Status = AM_HAL_STATUS_SUCCESS;
-            break;
+            return ui32Status;
         }
-        am_hal_delay_us(1);
     }
-#endif // APOLLO5_FPGA
 
-    AM_CRITICAL_END
+    //
+    // HP/LP switching sequence
+    //
+    ui32Status = mcu_hp_lp_switch_sequence(ePowerMode);
 
     //
     // Check for timeout.
@@ -853,6 +898,13 @@ am_hal_pwrctrl_mcu_mode_select(am_hal_pwrctrl_mcu_mode_e ePowerMode)
     //
     if ( PWRCTRL->MCUPERFREQ_b.MCUPERFSTATUS == ePowerMode )
     {
+        am_hal_pwrctrl_mcu_mode_e ePWrMode = g_eCurMcuPwrMode;
+        g_eCurMcuPwrMode = ePowerMode;
+        if (ePWrMode != AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2)
+        {
+            return am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_PLLVCO, AM_HAL_CLKMGR_USER_ID_CPU);
+        }
+
         return AM_HAL_STATUS_SUCCESS;
     }
     else
@@ -879,6 +931,7 @@ am_hal_pwrctrl_mcu_memory_config(am_hal_pwrctrl_mcu_memory_config_t *psConfig)
     uint32_t      ui32PwrStatus = 0;
     uint32_t      ui32PwrEn = 0;
     bool          bForceAxiClkEn = false;
+    uint32_t      ui32PwrStatusAfterDisables;
 
     //
     // Configure the ROM power mode.
@@ -943,9 +996,6 @@ am_hal_pwrctrl_mcu_memory_config(am_hal_pwrctrl_mcu_memory_config_t *psConfig)
     // Need to force AXI Clock during the transition
     // If powering on both banks "at same time", no special processing needed
     //
-// #### INTERNAL BEGIN ####
-    // CAYNSWS-1544/CAB-1209
-// #### INTERNAL END ####
     if ((psConfig->eNVMCfg == AM_HAL_PWRCTRL_NVM) &&
         ((PWRCTRL->MEMPWRSTATUS & PWRCTRL_MEMPWRSTATUS_PWRSTNVM0_Msk) == PWRCTRL_MEMPWRSTATUS_PWRSTNVM0_Msk))
     {
@@ -953,38 +1003,74 @@ am_hal_pwrctrl_mcu_memory_config(am_hal_pwrctrl_mcu_memory_config_t *psConfig)
         bForceAxiClkEn = true;
     }
 
-    PWRCTRL->MEMPWREN = ui32PwrEn;
-
-    //
-    // Wait for Status
-    //
-    ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
-                                              (uint32_t)&PWRCTRL->MEMPWRSTATUS,
-                                              AM_HAL_PWRCTRL_MEMPWRSTATUS_MASK,
-                                              ui32PwrStatus,
-                                              true);
-    if (bForceAxiClkEn)
+    if (ui32PwrStatus != PWRCTRL->MEMPWRSTATUS)
     {
-        MCUCTRL->FORCEAXICLKEN_b.FRCAXICLKEN = 0;
-    }
+        //
+        // Calculate expected power status after writing memory disables.
+        //
+        ui32PwrStatusAfterDisables = PWRCTRL->MEMPWRSTATUS & ui32PwrStatus;
 
-    //
-    // Check for timeout.
-    //
-    if (AM_HAL_STATUS_SUCCESS != ui32Status)
-    {
-        return ui32Status;
-    }
+        //
+        // Write memory disables firstly.
+        //
+        PWRCTRL->MEMPWREN &= ui32PwrEn;
 
-    //
-    // Check the MCU power mode status and return SUCCESS/FAIL.
-    //
-    if ((PWRCTRL->MEMPWRSTATUS_b.PWRSTTCM != PWRCTRL->MEMPWREN_b.PWRENTCM)          ||
-        (PWRCTRL->MEMPWRSTATUS_b.PWRSTNVM0 != PWRCTRL->MEMPWREN_b.PWRENNVM)         ||
-        (PWRCTRL->MEMPWRSTATUS_b.PWRSTROM != PWRCTRL->MEMPWREN_b.PWRENROM)          ||
-        (PWRCTRL->DEVPWRSTATUS_b.PWRSTOTP != PWRCTRL->DEVPWREN_b.PWRENOTP))
-    {
-        return AM_HAL_STATUS_FAIL;
+        //
+        // Wait for Status
+        //
+        ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
+                                                    (uint32_t)&PWRCTRL->MEMPWRSTATUS,
+                                                    AM_HAL_PWRCTRL_MEMPWRSTATUS_MASK,
+                                                    ui32PwrStatusAfterDisables,
+                                                    true);
+        //
+        // Check for timeout.
+        //
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            return ui32Status;
+        }
+        else
+        {
+            //
+            // Report MEM power status
+            //
+            am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_MEMPWR, true, (void *) &ui32PwrStatus);
+        }
+
+        PWRCTRL->MEMPWREN = ui32PwrEn;
+
+        //
+        // Wait for Status
+        //
+        ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
+                                                  (uint32_t)&PWRCTRL->MEMPWRSTATUS,
+                                                  AM_HAL_PWRCTRL_MEMPWRSTATUS_MASK,
+                                                  ui32PwrStatus,
+                                                  true);
+        if (bForceAxiClkEn)
+        {
+            MCUCTRL->FORCEAXICLKEN_b.FRCAXICLKEN = 0;
+        }
+
+        //
+        // Check for timeout.
+        //
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            return ui32Status;
+        }
+
+        //
+        // Check the MCU power mode status and return SUCCESS/FAIL.
+        //
+        if ((PWRCTRL->MEMPWRSTATUS_b.PWRSTTCM != PWRCTRL->MEMPWREN_b.PWRENTCM)          ||
+            (PWRCTRL->MEMPWRSTATUS_b.PWRSTNVM0 != PWRCTRL->MEMPWREN_b.PWRENNVM)         ||
+            (PWRCTRL->MEMPWRSTATUS_b.PWRSTROM != PWRCTRL->MEMPWREN_b.PWRENROM)          ||
+            (PWRCTRL->DEVPWRSTATUS_b.PWRSTOTP != PWRCTRL->DEVPWREN_b.PWRENOTP))
+        {
+            return AM_HAL_STATUS_FAIL;
+        }
     }
 
     DIAG_DEFAULT_VOLATILE_ORDER()
@@ -1006,11 +1092,11 @@ am_hal_pwrctrl_mcu_memory_config(am_hal_pwrctrl_mcu_memory_config_t *psConfig)
     //
     if ( psConfig->eRetainDTCM == AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN )
     {
-        PWRCTRL->MEMRETCFG_b.TCMPWDSLP = PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN;
+        PWRCTRL->MEMRETCFG_b.TCMPWDSLP = AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN;
     }
     else if ( psConfig->eRetainDTCM == AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN )
     {
-        PWRCTRL->MEMRETCFG_b.TCMPWDSLP = PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN;
+        PWRCTRL->MEMRETCFG_b.TCMPWDSLP = AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN;
     }
     else
     {
@@ -1051,11 +1137,11 @@ am_hal_pwrctrl_mcu_memory_config_get(am_hal_pwrctrl_mcu_memory_config_t *psConfi
     //
     // Configure the MCU Tightly Coupled Memory retention.
     //
-    if (PWRCTRL->MEMRETCFG_b.TCMPWDSLP == PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN)
+    if (PWRCTRL->MEMRETCFG_b.TCMPWDSLP == AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN)
     {
         psConfig->eRetainDTCM = AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN;
     }
-    else if (PWRCTRL->MEMRETCFG_b.TCMPWDSLP == PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN)
+    else if (PWRCTRL->MEMRETCFG_b.TCMPWDSLP == AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN)
     {
         psConfig->eRetainDTCM = AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN;
     }
@@ -1080,22 +1166,17 @@ am_hal_pwrctrl_rom_enable(void)
 
     if ( AM_HAL_PWRCTRL_ROM_AUTO == g_eCurROMPwrMode )
     {
+        //
+        // Report rom power change
+        //
+        uint32_t ui32MemSt = PWRCTRL_MEMPWRSTATUS_PWRSTROM_Msk | PWRCTRL->MEMPWRSTATUS;
+        am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_MEMPWR, true, (void *) &ui32MemSt);
+
         PWRCTRL->MEMPWREN_b.PWRENROM = PWRCTRL_MEMPWREN_PWRENROM_EN;
 
         //
         // Wait for Status
         //
-// #### INTERNAL BEGIN ####
-        // TODO - We cannot call am_hal_delay_us_status_check now as it will also call the BootROM power enable/disable
-        //        functions as they are no reentrant.
-        //ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
-        //                                          (uint32_t)&PWRCTRL->MEMPWRSTATUS,
-        //                                          AM_HAL_PWRCTRL_MEMPWRSTATUS_MASK,
-        // TODO - Need to calculate expected power status due to misalignment of MEMPWREN and MEMPWRSTATUS fields.
-        //                                          PWRCTRL->MEMPWREN,
-        //                                          true);
-#warning "TODO - Fixme!!! Replace this with TCM based delay function when it is ready."
-// #### INTERNAL END ####
         for (count = 0; count < AM_HAL_PWRCTRL_MAX_BOOTROM_COUNT; count++)
         {
             if (PWRCTRL->MEMPWRSTATUS_b.PWRSTROM == 1)
@@ -1134,17 +1215,6 @@ am_hal_pwrctrl_rom_disable(void)
         //
         // Wait for Status
         //
-// #### INTERNAL BEGIN ####
-        // TODO - We cannot call am_hal_delay_us_status_check now as it will also call the BootROM power enable/disable
-        //        functions as they are no reentrant.
-        //ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
-        //                                          (uint32_t)&PWRCTRL->MEMPWRSTATUS,
-        //                                          AM_HAL_PWRCTRL_MEMPWRSTATUS_MASK,
-        // TODO - Need to calculate expected power status due to misalignment of MEMPWREN and MEMPWRSTATUS fields.
-        //                                          PWRCTRL->MEMPWREN,
-        //                                          true);
-#warning "TODO - Fixme!!! Replace this with TCM based delay function when it is ready."
-// #### INTERNAL END ####
         for (ui32Count = 0; ui32Count < AM_HAL_PWRCTRL_MAX_BOOTROM_COUNT; ui32Count++)
         {
             if (PWRCTRL->MEMPWRSTATUS_b.PWRSTROM == 0)
@@ -1160,6 +1230,11 @@ am_hal_pwrctrl_rom_disable(void)
         {
             return AM_HAL_STATUS_TIMEOUT;
         }
+        //
+        // Report rom power change
+        //
+        uint32_t ui32MemSt = PWRCTRL->MEMPWRSTATUS;
+        am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_MEMPWR, false, (void *) &ui32MemSt);
     }
 
     return AM_HAL_STATUS_SUCCESS;
@@ -1178,37 +1253,75 @@ am_hal_pwrctrl_sram_config(am_hal_pwrctrl_sram_memcfg_t *psConfig)
     uint32_t      ui32Status;
 
     //
-    // Configure the Shared RAM.
+    // When bUpdateLater is true, means we expect to power down partial or whole SSRAM,
+    // we should call am_hal_spotmgr_power_state_update after completing powering down.
     //
-    PWRCTRL->SSRAMPWREN_b.PWRENSSRAM = psConfig->eSRAMCfg;
-
-    DIAG_SUPPRESS_VOLATILE_ORDER()
-
-    //
-    // Wait for Status
-    //
-    ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
-                                              (uint32_t)&PWRCTRL->SSRAMPWRST,
-                                              PWRCTRL_SSRAMPWRST_SSRAMPWRST_Msk,
-                                              PWRCTRL->SSRAMPWREN,
-                                              true);
+    bool          bUpdateLater = false;
 
     //
-    // Check for error.
+    // If psConfig->eSRAMCfg == PWRCTRL->SSRAMPWRST_b.SSRAMPWRST, skipped PWRCTRL->SSRAMPWREN_b.PWRENSSRAM setting.
     //
-    if (AM_HAL_STATUS_SUCCESS != ui32Status)
+    if (psConfig->eSRAMCfg != PWRCTRL->SSRAMPWRST_b.SSRAMPWRST)
     {
-        return ui32Status;
-    }
+        //
+        //Check if turning on more memory.
+        //
+        if ( ((psConfig->eSRAMCfg > PWRCTRL->SSRAMPWRST_b.SSRAMPWRST) &&
+             !((psConfig->eSRAMCfg == 2) && (PWRCTRL->SSRAMPWRST_b.SSRAMPWRST == 1))) ||
+             (((psConfig->eSRAMCfg == 1) && (PWRCTRL->SSRAMPWRST_b.SSRAMPWRST == 2))) )
+        {
+            //
+            // Report SSRAM power change
+            //
+            am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_SSRAMPWR, true, (void *) &(psConfig->eSRAMCfg));
+            bUpdateLater = false;
+        }
+        else
+        {
+            bUpdateLater = true;
+        }
 
-    //
-    // Check the Shared RAM power mode status.
-    //
-    if (PWRCTRL->SSRAMPWRST_b.SSRAMPWRST != PWRCTRL->SSRAMPWREN_b.PWRENSSRAM)
-    {
-        return AM_HAL_STATUS_FAIL;
+        //
+        // Configure the Shared RAM.
+        //
+        PWRCTRL->SSRAMPWREN_b.PWRENSSRAM = psConfig->eSRAMCfg;
+
+        DIAG_SUPPRESS_VOLATILE_ORDER()
+
+        //
+        // Wait for Status
+        //
+        ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
+                                                  (uint32_t)&PWRCTRL->SSRAMPWRST,
+                                                  PWRCTRL_SSRAMPWRST_SSRAMPWRST_Msk,
+                                                  PWRCTRL->SSRAMPWREN,
+                                                  true);
+
+        //
+        // Check for error.
+        //
+        if (AM_HAL_STATUS_SUCCESS != ui32Status)
+        {
+            return ui32Status;
+        }
+
+        //
+        // Check the Shared RAM power mode status.
+        //
+        if (PWRCTRL->SSRAMPWRST_b.SSRAMPWRST != PWRCTRL->SSRAMPWREN_b.PWRENSSRAM)
+        {
+            return AM_HAL_STATUS_FAIL;
+        }
+
+        if (bUpdateLater)
+        {
+            //
+            // Report SSRAM power change
+            //
+            am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_SSRAMPWR, false, NULL);
+        }
+        DIAG_DEFAULT_VOLATILE_ORDER()
     }
-    DIAG_DEFAULT_VOLATILE_ORDER()
 
     //
     // Configure the Shared RAM domain active based on the states of the MCU,
@@ -1216,11 +1329,7 @@ am_hal_pwrctrl_sram_config(am_hal_pwrctrl_sram_memcfg_t *psConfig)
     //
     PWRCTRL->SSRAMRETCFG_b.SSRAMACTMCU  = psConfig->eActiveWithMCU;
     PWRCTRL->SSRAMRETCFG_b.SSRAMACTGFX  = psConfig->eActiveWithGFX;
-// #### INTERNAL BEGIN ####
-#if 0 // DISP is removed from 20240319 RTL. May be added back later.
     PWRCTRL->SSRAMRETCFG_b.SSRAMACTDISP = psConfig->eActiveWithDISP;
-#endif
-// #### INTERNAL END ####
 
     //
     // Configure the Shared RAM retention.
@@ -1230,16 +1339,22 @@ am_hal_pwrctrl_sram_config(am_hal_pwrctrl_sram_memcfg_t *psConfig)
         case AM_HAL_PWRCTRL_SRAM_NONE:
             PWRCTRL->SSRAMRETCFG_b.SSRAMPWDSLP = PWRCTRL_SSRAMRETCFG_SSRAMPWDSLP_ALL;
             break;
-        case AM_HAL_PWRCTRL_SRAM_1M:        // Retain lower 1M, pwr dwn upper 0.75M
+        case AM_HAL_PWRCTRL_SRAM_1M:       // Retain lower 1M, pwr dwn upper 0.75M
             PWRCTRL->SSRAMRETCFG_b.SSRAMPWDSLP = PWRCTRL_SSRAMRETCFG_SSRAMPWDSLP_GROUP1;
             break;
-        case AM_HAL_PWRCTRL_SRAM_0P75M:    // Retain dwn upper 0.75M, pwr dwn lower 1M
+        case AM_HAL_PWRCTRL_SRAM_0P75M:    // Retain upper 0.75M, pwr dwn lower 1M
             PWRCTRL->SSRAMRETCFG_b.SSRAMPWDSLP = PWRCTRL_SSRAMRETCFG_SSRAMPWDSLP_GROUP0;
             break;
         case AM_HAL_PWRCTRL_SRAM_1P75M:    // Retain all SSRAM, power down none
             PWRCTRL->SSRAMRETCFG_b.SSRAMPWDSLP = PWRCTRL_SSRAMRETCFG_SSRAMPWDSLP_NONE;
             break;
     }
+
+    //
+    // Disable overrides to allow the SSRAMRETCFG take effect
+    //
+    PWRCTRL->MMSOVERRIDE_b.MMSOVRSSRAMRETGFX = PWRCTRL_MMSOVERRIDE_MMSOVRSSRAMRETGFX_PGSTATE;
+    PWRCTRL->MMSOVERRIDE_b.MMSOVRSSRAMRETDISP = PWRCTRL_MMSOVERRIDE_MMSOVRSSRAMRETDISP_PGSTATE;
 
     return AM_HAL_STATUS_SUCCESS;
 } // am_hal_pwrctrl_sram_config()
@@ -1263,11 +1378,7 @@ am_hal_pwrctrl_sram_config_get(am_hal_pwrctrl_sram_memcfg_t *psConfig)
     //
     psConfig->eActiveWithMCU  = (am_hal_pwrctrl_sram_select_e)PWRCTRL->SSRAMRETCFG_b.SSRAMACTMCU;
     psConfig->eActiveWithGFX  = (am_hal_pwrctrl_sram_select_e)PWRCTRL->SSRAMRETCFG_b.SSRAMACTGFX;
-// #### INTERNAL BEGIN ####
-#if 0 // DISP is removed from 20240319 RTL. May be added back later.
     psConfig->eActiveWithDISP = (am_hal_pwrctrl_sram_select_e)PWRCTRL->SSRAMRETCFG_b.SSRAMACTDISP;
-#endif
-// #### INTERNAL END ####
 
     //uint32_t val = (PWRCTRL_SSRAMRETCFG_SSRAMPWDSLP_GROUP1 || PWRCTRL_SSRAMRETCFG_SSRAMPWDSLP_GROUP2);
     //
@@ -1377,6 +1488,45 @@ am_hal_pwrctrl_periph_enable(am_hal_pwrctrl_periph_e ePeripheral)
         return AM_HAL_STATUS_SUCCESS;
     }
 
+    //
+    // If INFOC/OTP was not powered on, it is not allowed to power on CRYPTO.
+    //
+    if ( (ePeripheral == AM_HAL_PWRCTRL_PERIPH_CRYPTO)      &&
+         (PWRCTRL->DEVPWRSTATUS_b.PWRSTOTP == PWRCTRL_DEVPWRSTATUS_PWRSTOTP_OFF))
+    {
+        return AM_HAL_STATUS_FAIL;
+    }
+
+    //
+    // For GPU enable, execute GPU power on sequence
+    //
+    if (ePeripheral == AM_HAL_PWRCTRL_PERIPH_GFX)
+    {
+        am_hal_spotmgr_gpu_state_e eGpuSt;
+
+        am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_GFX);
+
+        //
+        // Report GPU state change to SPOTmanager
+        //
+        eGpuSt = AM_HAL_SPOTMGR_GPUSTATE_ACTIVE;
+        am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_GPU_STATE, true, (void *) &eGpuSt);
+    }
+    else
+    {
+        //
+        // Update power state
+        //
+        if ( (pwr_ctrl.ui32PeriphEnable & DEVPWRST_MONITOR_PERIPH_MASK) && (ePeripheral < AM_HAL_PWRCTRL_PERIPH_PDM0) )
+        {
+            am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_DEVPWR, true, (void *) &(pwr_ctrl.ui32PeriphStatus));
+        }
+        if ( (pwr_ctrl.ui32PeriphEnable & AUDSSPWRST_MONITOR_PERIPH_MASK) && (ePeripheral >= AM_HAL_PWRCTRL_PERIPH_PDM0) )
+        {
+            am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_AUDSSPWR, true, (void *) &(pwr_ctrl.ui32PeriphStatus));
+        }
+    }
+
     AM_CRITICAL_BEGIN
 
     //
@@ -1415,19 +1565,12 @@ am_hal_pwrctrl_periph_enable(am_hal_pwrctrl_periph_e ePeripheral)
         {
             return ui32Status;
         }
+
+        am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_CRYPTO);
     }
 
     if ( ePeripheral == AM_HAL_PWRCTRL_PERIPH_OTP)
     {
-        // #### INTERNAL BEGIN ####
-        // CAYNSWS-2001 2/26/24 It was found that after an OTP power up, additional
-        // delay was required before a reliable read from OTP could occur.
-        // Experimentation with Keil6 compiled HAL and using hello_world's Trim
-        // Rev print showed that 45us was not enough delay, but that 50us worked.
-        // For the time-being, at least for SDK6, we'll double that to 100us.
-        // Note that the 100us delay was agreed to in a Teams chat between
-        // Ron, Jayesh, and Eric Mao.
-        // #### INTERNAL END ####
         //
         // Perform a short delay after OTP power up.
         //
@@ -1459,17 +1602,22 @@ am_hal_pwrctrl_periph_enable(am_hal_pwrctrl_periph_e ePeripheral)
 //      user tries disable only one.
 //
 // ****************************************************************************
-static uint32_t
+static bool
 pwrctrl_periph_disable_msk_check(am_hal_pwrctrl_periph_e ePeripheral)
 {
     uint32_t      ui32Status;
     struct am_pwr_s pwr_ctrl;
+    bool bIsLastOneInDomain = true;
 
     ui32Status = am_get_pwrctrl(&pwr_ctrl, ePeripheral);
 
     if ( AM_HAL_STATUS_SUCCESS != ui32Status )
     {
-        return ui32Status;
+        //
+        // If am_get_pwrctrl does not return success, pad bIsLastOneInDomain to true.
+        //
+        bIsLastOneInDomain = true;
+        return bIsLastOneInDomain;
     }
 
     switch (pwr_ctrl.ui32PeriphStatus)
@@ -1478,7 +1626,7 @@ pwrctrl_periph_disable_msk_check(am_hal_pwrctrl_periph_e ePeripheral)
             if (((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & PWRCTRL_HCPA_DEVPWREN_MASK) != 0) &&
                 ((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & pwr_ctrl.ui32PeriphEnable) == 0))
             {
-                ui32Status = AM_HAL_STATUS_SUCCESS;
+                bIsLastOneInDomain = false;
             }
             break;
 
@@ -1486,7 +1634,7 @@ pwrctrl_periph_disable_msk_check(am_hal_pwrctrl_periph_e ePeripheral)
             if (((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & PWRCTRL_HCPB_DEVPWREN_MASK) != 0) &&
                 ((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & pwr_ctrl.ui32PeriphEnable) == 0))
             {
-                ui32Status = AM_HAL_STATUS_SUCCESS;
+                bIsLastOneInDomain = false;
             }
             break;
 
@@ -1494,31 +1642,24 @@ pwrctrl_periph_disable_msk_check(am_hal_pwrctrl_periph_e ePeripheral)
             if (((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & PWRCTRL_HCPC_DEVPWREN_MASK) != 0) &&
                 ((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & pwr_ctrl.ui32PeriphEnable) == 0))
             {
-                ui32Status = AM_HAL_STATUS_SUCCESS;
+                bIsLastOneInDomain = false;
             }
             break;
 
-        case (PWRCTRL_MSPI_DEVPWRSTATUS_MASK):
-            if (((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & PWRCTRL_MSPI_DEVPWREN_MASK) != 0) &&
+        case (PWRCTRL_IOS_DEVPWRSTATUS_MASK):
+            if (((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & PWRCTRL_IOS_DEVPWREN_MASK) != 0) &&
                 ((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & pwr_ctrl.ui32PeriphEnable) == 0))
             {
-                ui32Status = AM_HAL_STATUS_SUCCESS;
-            }
-            break;
-
-        case (PWRCTRL_AUD_DEVPWRSTATUS_MASK):
-            if (((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & PWRCTRL_AUD_DEVPWREN_MASK) != 0) &&
-                ((AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) & pwr_ctrl.ui32PeriphEnable) == 0))
-            {
-                ui32Status = AM_HAL_STATUS_SUCCESS;
+                bIsLastOneInDomain = false;
             }
             break;
 
         default:
+            bIsLastOneInDomain = true;
             break;
     }
 
-    return ui32Status;
+    return bIsLastOneInDomain;
 } // pwrctrl_periph_disable_msk_check()
 
 // ****************************************************************************
@@ -1550,10 +1691,11 @@ am_hal_pwrctrl_periph_disable(am_hal_pwrctrl_periph_e ePeripheral)
 
     if (ePeripheral == AM_HAL_PWRCTRL_PERIPH_OTP)
     {
+        if (PWRCTRL->DEVPWRSTATUS_b.PWRSTCRYPTO)
+        {
+            return AM_HAL_STATUS_IN_USE;
+        }
         // Need to wait for PTM status idle to ensure any outstanding OTP writes are done
-        // #### INTERNAL BEGIN ####
-        // CAYNSWS-1520
-        // #### INTERNAL END ####
 
         ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_OTP_US,
                                                   (uint32_t)&OTP->PTMSTAT,
@@ -1570,38 +1712,87 @@ am_hal_pwrctrl_periph_disable(am_hal_pwrctrl_periph_e ePeripheral)
         }
     }
 
-    AM_CRITICAL_BEGIN
+    if (ePeripheral == AM_HAL_PWRCTRL_PERIPH_DEBUG)
+    {
+        //
+        // TRCENA must be off in order to disable the power domain.
+        //
+        DCB->DEMCR &= ~DCB_DEMCR_TRCENA_Msk;
+
+        //
+        // Disable the CM55 TPIU clock source in MCU control.
+        //
+        MCUCTRL->DBGCTRL_b.DBGTPIUTRACEENABLE = MCUCTRL_DBGCTRL_DBGTPIUTRACEENABLE_DIS;
+        MCUCTRL->DBGCTRL_b.DBGTPIUCLKSEL      = MCUCTRL_DBGCTRL_DBGTPIUCLKSEL_OFF;
+    }
 
     //
     // Disable power domain for the given device.
     //
+    AM_CRITICAL_BEGIN
     AM_REGVAL(pwr_ctrl.ui32PwrEnRegAddr) &= ~pwr_ctrl.ui32PeriphEnable;
     AM_CRITICAL_END
 
+    // When disabling the last peripheral in a power domain, do power status check.
+    // When there are more than one enable in the same domain is set and the user
+    // tries to disable only one, return AM_HAL_STATUS_SUCCESS.
     //
-    //  This check will fail when more than one enable in the same domain
-    //      is set and the user tries to disable only one.
-    //
-    ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
-                                              pwr_ctrl.ui32PwrStatReqAddr,
-                                              pwr_ctrl.ui32PeriphStatus,
-                                              pwr_ctrl.ui32PeriphStatus,
-                                              false);
-
-
-
-
-    //
-    // Check for success.
-    //
-    if (AM_HAL_STATUS_SUCCESS == ui32Status)
+    if ( pwrctrl_periph_disable_msk_check(ePeripheral) )
     {
-        return ui32Status;
+        ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
+                                                  pwr_ctrl.ui32PwrStatReqAddr,
+                                                  pwr_ctrl.ui32PeriphStatus,
+                                                  pwr_ctrl.ui32PeriphStatus,
+                                                  false);
+        //
+        // Check for success.
+        //
+        if (AM_HAL_STATUS_SUCCESS == ui32Status)
+        {
+            //
+            // Release clock after disabled CRYPTO.
+            // CRYPTO has its own power domain.
+            //
+            if (ePeripheral == AM_HAL_PWRCTRL_PERIPH_CRYPTO)
+            {
+                am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_CRYPTO);
+            }
+            //
+            // Update GPU power mode after disabled GFX.
+            // GFX has its own power domain.
+            //
+            if (ePeripheral == AM_HAL_PWRCTRL_PERIPH_GFX)
+            {
+                am_hal_spotmgr_gpu_state_e eGpuSt = AM_HAL_SPOTMGR_GPUSTATE_OFF;
+
+                //
+                // Report GPU state change to SPOTmanager
+                //
+                am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_GPU_STATE, true, (void *) &eGpuSt);
+
+                //
+                // Release GPU clocks to clock manager
+                //
+                am_hal_clkmgr_clock_release_all(AM_HAL_CLKMGR_USER_ID_GFX);
+            }
+            else
+            {
+                //
+                // Update power state
+                //
+                if ((ePeripheral < AM_HAL_PWRCTRL_PERIPH_PDM0) && (pwr_ctrl.ui32PeriphEnable & DEVPWRST_MONITOR_PERIPH_MASK))
+                {
+                    am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_DEVPWR, false, (void *) &(pwr_ctrl.ui32PeriphStatus));
+                }
+                if ((ePeripheral >= AM_HAL_PWRCTRL_PERIPH_PDM0) && (pwr_ctrl.ui32PeriphEnable & AUDSSPWRST_MONITOR_PERIPH_MASK))
+                {
+                    am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_AUDSSPWR, false, (void *) &(pwr_ctrl.ui32PeriphStatus));
+                }
+            }
+        }
     }
-    else
-    {
-        return pwrctrl_periph_disable_msk_check(ePeripheral);
-    }
+
+    return ui32Status;
 
 } // am_hal_pwrctrl_periph_disable()
 
@@ -1701,7 +1892,7 @@ static uint32_t
 pwrctrl_INFO1_populate(void)
 {
     //
-    // To optimizize power, we'll capture the INFO1 registers of interest here
+    // To optimize power, we'll capture the INFO1 registers of interest here
     //  and power down OTP. The registers will then always be available.
     //
 
@@ -1725,14 +1916,6 @@ pwrctrl_INFO1_populate(void)
     if ( (MCUCTRL->SHADOWVALID_b.INFO1SELOTP != MCUCTRL_SHADOWVALID_INFO1SELOTP_VALID)  ||
          (PWRCTRL->DEVPWRSTATUS_b.PWRSTOTP   != PWRCTRL_DEVPWRSTATUS_PWRSTOTP_ON) )
     {
-// #### INTERNAL BEGIN ####
-        //
-        // It might seem that we should mark the data as invalid here. However,
-        // it's possible that somehow, this function was called twice. In that
-        // case, we just want to return a fail but leave the data intact.
-        //
-        // g_sINFO1regs.ui32INFO1GlobalValid = 0;
-// #### INTERNAL END ####
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
 
@@ -1796,16 +1979,40 @@ pwrctrl_INFO1_populate(void)
 //
 //  am_hal_pwrctrl_low_power_init()
 //  Initialize the device for low power operation.
+//  It is not allowed to call this function more than once in application.
 //
 // ****************************************************************************
 uint32_t
 am_hal_pwrctrl_low_power_init(void)
 {
     uint32_t ui32TrimVer = 0;
+    uint32_t ui32RegVal = 0;
+    bool bEnabled = false;
+
+    if ( RSTGEN->STAT_b.POASTAT )
+    {
+        //
+        // Errata ERR027 BORSTAT can be inadvertantly set after a power cycle.
+        //
+        RSTGEN->STAT_b.BORSTAT = 0;
+    }
+
+    //
+    // For lowest power, make sure TRCENA and TPIU clock are off.
+    //
+    if ( g_ui8TRCENAcount == 0 )
+    {
+        am_hal_debug_trace_disable();
+        am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_DEBUG);
+        MCUCTRL->DBGCTRL_b.DBGTPIUTRACEENABLE = MCUCTRL_DBGCTRL_DBGTPIUTRACEENABLE_DIS;
+        MCUCTRL->DBGCTRL_b.DBGTPIUCLKSEL      = MCUCTRL_DBGCTRL_DBGTPIUCLKSEL_OFF;
+    }
 
     //
     // Set the default CPDLPSTATE configuration in active mode.
     // Please refer to M55 TRM 5.17.1 for CPDLPSTATE definitions.
+    // RLP and ELP are turned on here, users can re-configure them after this
+    // by calling am_hal_pwrctrl_pwrmodctl_cpdlp_config().
     //
     am_hal_pwrctrl_pwrmodctl_cpdlp_t sDefaultCpdlpConfig =
     {
@@ -1815,30 +2022,28 @@ am_hal_pwrctrl_low_power_init(void)
     };
     am_hal_pwrctrl_pwrmodctl_cpdlp_config(sDefaultCpdlpConfig);
 
-// #### INTERNAL BEGIN ####
-#warning "TODO - FIXME: WICCONTROL register is removed from RevB. Need to double check"
-#if 0
     //
-    // Set the default EWIC/IWIC configuration.
+    // Set the default WIC configuration.
     //
-    MCUCTRL->WICCONTROL =
-        _VAL2FLD(MCUCTRL_WICCONTROL_USEIWIC, 1) |
-        _VAL2FLD(MCUCTRL_WICCONTROL_DEEPISWIC, 1);
-#endif
-// #### INTERNAL END ####
+    MCUCTRL->WICCONTROL |= _VAL2FLD(MCUCTRL_WICCONTROL_DEEPISWIC, 1);
 
     //
-    // Set the default memory configuration.
+    // If info1 locates in OTP, we need to make sure OTP is powered up.
     //
-    am_hal_pwrctrl_mcu_memory_config((am_hal_pwrctrl_mcu_memory_config_t *)&g_DefaultMcuMemCfg);
-    am_hal_pwrctrl_sram_config((am_hal_pwrctrl_sram_memcfg_t *)&g_DefaultSRAMCfg);
+    if (MCUCTRL->SHADOWVALID_b.INFO1SELOTP)
+    {
+        am_hal_pwrctrl_periph_enabled(AM_HAL_PWRCTRL_PERIPH_OTP, &bEnabled);
+        if ( !bEnabled )
+        {
+            am_hal_pwrctrl_periph_enable(AM_HAL_PWRCTRL_PERIPH_OTP);
+        }
+    }
 
-    // #### INTERNAL BEGIN ####
-    // CAYNSWS-2671 6/24/24
-    //  For Cayenne revB, Crypto must be powered down in order to power down OTP.
-    //  For revA and 510L, it's not clear whether Crypto powerdown is required,
-    //  but to keep everything in sync, power down Crypto nonetheless.
-    // #### INTERNAL END ####
+    //
+    // Get trim version
+    //
+    TrimVersionGet(&ui32TrimVer);
+
     //
     // For power optimization, power down OTP.
     // Since OTP is being powered down, first power down Crypto.
@@ -1851,6 +2056,11 @@ am_hal_pwrctrl_low_power_init(void)
     pwrctrl_INFO1_populate();
 
     //
+    // Initialise SPOT manager
+    //
+    am_hal_spotmgr_init();
+
+    //
     // Power down Crypto.
     //
     am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_CRYPTO);
@@ -1860,85 +2070,136 @@ am_hal_pwrctrl_low_power_init(void)
     //
     am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_OTP);
 
+    //
+    // Set the default memory configuration.
+    //
+    am_hal_pwrctrl_mcu_memory_config((am_hal_pwrctrl_mcu_memory_config_t *)&g_DefaultMcuMemCfg);
+    am_hal_pwrctrl_sram_config((am_hal_pwrctrl_sram_memcfg_t *)&g_DefaultSRAMCfg);
 
     //
-    // Now that we have the INFO1 data saved, power down the OTP
+    // Enable clock gate optimizations.
     //
-    am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_OTP);
-
+    ui32RegVal = CLKGEN->MISC;
+    ui32RegVal |= _VAL2FLD(CLKGEN_MISC_GFXCLKCLKGATEEN, 1)        |   // [19] GFX CLK
+                  _VAL2FLD(CLKGEN_MISC_GFXAXICLKCLKGATEEN, 1)     |   // [20] GFX AXI CLK
+                  _VAL2FLD(CLKGEN_MISC_APBDMACPUCLKCLKGATEEN, 1)  |   // [21] APB DMA CPU CLK
+                  _VAL2FLD(CLKGEN_MISC_ETMTRACECLKCLKGATEEN, 1)   |   // [22] ETM TRACE CLK
+                  _VAL2FLD(CLKGEN_MISC_HFRCFUNCCLKGATEEN, 1);         // [23] HFRC_FUNC_CLK
     //
-    // Enable clock gate optimizations for Apollo4.
     //
-    // #### INTERNAL BEGIN ####
-    //  Bits Equivalent to CLKGEN->MISC_b.CLKGENMISCSPARES = 0x3F
-    // #### INTERNAL END ####
-    CLKGEN->MISC |=
-        _VAL2FLD(CLKGEN_MISC_CM4DAXICLKGATEEN, 1)          |   // [18] DAXI CLK
-        _VAL2FLD(CLKGEN_MISC_GFXCLKCLKGATEEN, 1)        |   // [19] GFX CLK
-        _VAL2FLD(CLKGEN_MISC_GFXAXICLKCLKGATEEN, 1)     |   // [20] GFX AXI CLK
-        _VAL2FLD(CLKGEN_MISC_APBDMACPUCLKCLKGATEEN, 1)  |   // [21] APB DMA CPU CLK
-        _VAL2FLD(CLKGEN_MISC_ETMTRACECLKCLKGATEEN, 1)   |   // [22] ETM TRACE CLK
-        _VAL2FLD(CLKGEN_MISC_HFRCFUNCCLKGATEEN, 1);         // [23] HFRC_FUNC_CLK
-
-    //
-    //  Enable the I-Cache and D-Cache.
-    //
-    // #### INTERNAL BEGIN ####
-    #warning Move out cache enabling from here to respective applications.
-    // #### INTERNAL END ####
-    am_hal_cachectrl_icache_enable();
-    am_hal_cachectrl_dcache_enable(true);
+    ui32RegVal |= _VAL2FLD(CLKGEN_MISC_PWRONCLKENDISP, 1)          |
+                  _VAL2FLD(CLKGEN_MISC_PWRONCLKENGFX, 1)           |
+                  _VAL2FLD(CLKGEN_MISC_PWRONCLKENUSB, 1)           |
+                  _VAL2FLD(CLKGEN_MISC_PWRONCLKENSDIO, 1)          |
+                  _VAL2FLD(CLKGEN_MISC_PWRONCLKENCRYPTO, 1)        |
+                  _VAL2FLD(CLKGEN_MISC_PWRONCLKENI2S0, 1)          |
+                  _VAL2FLD(CLKGEN_MISC_PWRONCLKENI2S0REFCLK, 1)    |
+                  _VAL2FLD(CLKGEN_MISC_PWRONCLKENUSBREFCLK, 1);
+    ui32RegVal &= ~_VAL2FLD(CLKGEN_MISC_AXIXACLKENOVRRIDE, 1);
+    CLKGEN->MISC = ui32RegVal;
 
     //
     // Additional required settings
     //
-    // #### INTERNAL BEGIN ####
-    // HSP20-429 PWRONCLKENDISP Needed for DC workaround, disables revB clock enable
-    //           during reset, basically reverting to revA behavior.
-    // #### INTERNAL END ####
-// #### INTERNAL BEGIN ####
-#if 0 // DISP is removed from 20240319 RTL. May be added back later.
-    CLKGEN->MISC_b.PWRONCLKENDISP = 1;
-#endif
-// #### INTERNAL END ####
+    //
+    CLKGEN->CLKCTRL = 0x0; // Disable all unneccesary clocks including display controller clock
 
-#if 1
-// #### INTERNAL BEGIN ####
-#if 0 // DISP is removed from 20240319 RTL. May be added back later.
-    // #### INTERNAL BEGIN ####
-    // FALCSW-176.
-    // #### INTERNAL END ####
-    // Increases the reference recovery time between scans in LPMODE1 from 5us to 10us.
-    MCUCTRL->AUDADCPWRDLY_b.AUDADCPWR1 = 4;
-#endif
-// #### INTERNAL END ####
 
     //
     // Store the factory values for various trims.
     //
     if ( g_bOrigTrimsStored == false )
     {
-// #### INTERNAL BEGIN ####
-#warning "Fixme!!! Need to update to reflect the changes in MCUCTRL register fields."
-// #### INTERNAL END ####
         g_orig_MEMLDOACTIVETRIM     = MCUCTRL->LDOREG2_b.MEMLDOACTIVETRIM;
-        g_orig_MEMLPLDOTRIM         = MCUCTRL->LDOREG2_b.MEMLDOLPTRIM;
-        g_orig_TVRGVREFTRIM         = MCUCTRL->VREFGEN2_b.TVRGCVREFTRIM;
+        g_orig_TVRGCVREFTRIM        = MCUCTRL->VREFGEN2_b.TVRGCVREFTRIM;
+        g_orig_TVRGFVREFTRIM        = MCUCTRL->VREFGEN4_b.TVRGFVREFTRIM;
+        g_orig_CORELDOTEMPCOTRIM    = MCUCTRL->LDOREG1_b.CORELDOTEMPCOTRIM;
+        g_orig_CORELDOACTIVETRIM    = MCUCTRL->LDOREG1_b.CORELDOACTIVETRIM;
+        //
+        // In order to store the correct g_orig_CORELDOACTIVETRIM, add
+        // CORELDOACTIVETRIM_REDUCE_IN_SIMOBUCK_INIT to g_orig_CORELDOACTIVETRIM
+        // if SIMOBUCK was already enabled.
+        //
+        if ((PWRCTRL->VRSTATUS_b.SIMOBUCKST == PWRCTRL_VRSTATUS_SIMOBUCKST_ACT) && g_bIsTrimver1OrNewer)
+        {
+            g_orig_CORELDOACTIVETRIM += CORELDOACTIVETRIM_REDUCE_IN_SIMOBUCK_INIT;
+        }
+        g_orig_D2ASPARE             = MCUCTRL->D2ASPARE;
         g_bOrigTrimsStored          = true;
     }
+
+    //
+    // Set SSRAM/DTCM/NVM retain comes from VDDS
+    //
+    MCUCTRL->PWRSW0_b.PWRSWVDDRCPUSTATSEL = 0x1;
+    MCUCTRL->PWRSW1_b.PWRSWVDDRMSTATSEL   = 0x1;
+    MCUCTRL->PWRSW1_b.PWRSWVDDRLSTATSEL   = 0x1;
+
+
+#if PARTS_WO_INITIAL_TON
+    // Active Mode Tons
+    // VDDC
+    MCUCTRL->SIMOBUCK3_b.VDDCTONACTLPTRIMLV = 0x7;
+    MCUCTRL->SIMOBUCK3_b.VDDCTONACTHPTRIMLV = 0x7;
+    MCUCTRL->SIMOBUCK9_b.VDDCTONACTLPTRIMHV = 0x7;
+    MCUCTRL->SIMOBUCK9_b.VDDCTONACTHPTRIMHV = 0x7;
+    // VDDF
+    MCUCTRL->SIMOBUCK2_b.VDDFTONACTLPTRIMLV = 0x8;
+    MCUCTRL->SIMOBUCK2_b.VDDFTONACTHPTRIMLV = 0x8;
+    MCUCTRL->SIMOBUCK8_b.VDDFTONACTLPTRIMHV = 0x8;
+    MCUCTRL->SIMOBUCK8_b.VDDFTONACTHPTRIMHV = 0x8;
+    // VDDC_LV
+    MCUCTRL->SIMOBUCK3_b.VDDCLVTONACTLPTRIMLV = 0x8;
+    MCUCTRL->SIMOBUCK3_b.VDDCLVTONACTHPTRIMLV = 0x8;
+    MCUCTRL->SIMOBUCK9_b.VDDCLVTONACTLPTRIMHV = 0x8;
+    MCUCTRL->SIMOBUCK9_b.VDDCLVTONACTHPTRIMHV = 0x8;
+    // VDDS
+    MCUCTRL->SIMOBUCK2_b.VDDSTONACTLPTRIMLV = 0x7;
+    MCUCTRL->SIMOBUCK2_b.VDDSTONACTHPTRIMLV = 0x7;
+    MCUCTRL->SIMOBUCK8_b.VDDSTONACTLPTRIMHV = 0x7;
+    MCUCTRL->SIMOBUCK8_b.VDDSTONACTHPTRIMHV = 0x7;
+    // VDDRF
+    MCUCTRL->SIMOBUCK4_b.VDDRFTONACTLPTRIMLV = 0xF;
+    MCUCTRL->SIMOBUCK4_b.VDDRFTONACTHPTRIMLV = 0xF;
+    MCUCTRL->SIMOBUCK10_b.VDDRFTONACTLPTRIMHV = 0xF;
+    MCUCTRL->SIMOBUCK10_b.VDDRFTONACTHPTRIMHV = 0xF;
+
+    // Deeper/Deep Sleep Tons
+    // VDDC
+    MCUCTRL->SIMOBUCK3_b.VDDCTONDEEPSLEEPTRIMLV = 0x5;
+    MCUCTRL->SIMOBUCK9_b.VDDCTONDEEPSLEEPTRIMHV = 0x5;
+    // VDDF
+    MCUCTRL->SIMOBUCK2_b.VDDFTONDEEPSLEEPTRIMLV = 0x7;
+    MCUCTRL->SIMOBUCK8_b.VDDFTONDEEPSLEEPTRIMHV = 0x7;
+    // VDDC_LV
+    MCUCTRL->SIMOBUCK3_b.VDDCLVTONDEEPSLEEPTRIMLV = 0x4;
+    MCUCTRL->SIMOBUCK9_b.VDDCLVTONDEEPSLEEPTRIMHV = 0x4;
+    // VDDS
+    MCUCTRL->SIMOBUCK2_b.VDDSTONDEEPSLEEPTRIMLV = 0x5;
+    MCUCTRL->SIMOBUCK8_b.VDDSTONDEEPSLEEPTRIMHV = 0x5;
+    // VDDRF
+    MCUCTRL->SIMOBUCK4_b.VDDRFTONDEEPSLEEPTRIMLV = 0xF;
+    MCUCTRL->SIMOBUCK10_b.VDDRFTONDEEPSLEEPTRIMHV = 0xF;
+#endif
+
+#if AM_HAL_PWRCTRL_SIMOLP_AUTOSWITCH
+    am_hal_spotmgr_simobuck_lp_autosw_init();
 #endif
 
     //
-    // Get trim version
+    // Set it here to disable autowakeup to reduce MRAM wakeup latency
     //
-    TrimVersionGet(&ui32TrimVer);
+    PWRCTRL->MRAMEXTCTRL_b.MRAMAUTOWAKEUPCTRL = 0x1;
 
-// #### INTERNAL BEGIN ####
     //
-    // Workaround for SWO no printf on FPGA image.
+    // Always initialize CRM
     //
-    PWRCTRL->DEVPWREN_b.PWRENDBG = PWRCTRL_DEVPWREN_PWRENDBG_EN;
-// #### INTERNAL END ####
+    am_hal_crm_initialize();
+
+    //
+    // Initialize Clock Manager
+    //
+    am_hal_clkmgr_initialize();
 
     return AM_HAL_STATUS_SUCCESS;
 
@@ -1981,144 +2242,6 @@ buck_ldo_override_init(void)
 #endif // AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
 } // buck_ldo_override_init()
 
-// #### INTERNAL BEGIN ####
-#if 0 // Not needed with latest updates
-#if AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
-// ****************************************************************************
-//
-//  coreldo_enable()
-//  Function to set CORELDOTEMPCOTRIM and force CORELDO to be active
-//
-// ****************************************************************************
-void
-coreldo_enable(void)
-{
-    //
-    // Enable coreldo
-    // There are timing constraints involved in getting this done,
-    // so optimize as much as possible.
-    //
-// #### INTERNAL2 BEGIN ####
-    // 10/29/21 Ivan and Jamie: coldstarten is used to limit inrush current of
-    // the LDO on initial power up. Technically it's not needed when used for
-    // backup / running in parallel, but we should set the same as rev B.
-// #### INTERNAL2 END ####
-    MCUCTRL->VRCTRL_b.CORELDOCOLDSTARTEN  = 0;
-    MCUCTRL->VRCTRL |=
-        MCUCTRL_VRCTRL_CORELDOACTIVE_Msk        |
-        MCUCTRL_VRCTRL_CORELDOACTIVEEARLY_Msk   |
-        MCUCTRL_VRCTRL_CORELDOPDNB_Msk;
-    MCUCTRL->VRCTRL_b.CORELDOOVER         = 1;
-} // coreldo_enable()
-
-// ****************************************************************************
-//
-//  coreldo_disable()
-//  Function to turn off coreldo
-//
-// ****************************************************************************
-void
-coreldo_disable(void)
-{
-    //
-    // Disable coreldo
-    //
-    MCUCTRL->VRCTRL_b.CORELDOOVER         = 0;
-    MCUCTRL->VRCTRL &=
-        ~(MCUCTRL_VRCTRL_CORELDOACTIVE_Msk      |
-          MCUCTRL_VRCTRL_CORELDOACTIVEEARLY_Msk |
-          MCUCTRL_VRCTRL_CORELDOPDNB_Msk);
-} // coreldo_disable()
-
-// ****************************************************************************
-//
-//  memldo_enable()
-//  Function to force MEMLDO to be active
-//
-// ****************************************************************************
-void
-memldo_enable(void)
-{
-    //
-    // Enable memldo
-    // There are timing constraints involved in getting this done,
-    // so optimize as much as possible.
-    // However, MEMLDOOVER must be the last bit set.
-    //
-// #### INTERNAL2 BEGIN ####
-    // 10/29/21 See "coldstarten" comment above.
-// #### INTERNAL2 END ####
-    MCUCTRL->VRCTRL_b.MEMLDOCOLDSTARTEN   = 0;
-    MCUCTRL->VRCTRL |=
-        MCUCTRL_VRCTRL_MEMLDOACTIVE_Msk         |
-        MCUCTRL_VRCTRL_MEMLDOACTIVEEARLY_Msk    |
-        MCUCTRL_VRCTRL_MEMLDOPDNB_Msk;
-    MCUCTRL->VRCTRL_b.MEMLDOOVER          = 1;
-} // memldo_enable()
-
-// ****************************************************************************
-//
-//  memldo_disable()
-//  Function to turn off memldo
-//
-// ****************************************************************************
-void
-memldo_disable(void)
-{
-    //
-    // disable memldo
-    //
-    MCUCTRL->VRCTRL_b.MEMLDOOVER          = 0;
-    MCUCTRL->VRCTRL &=
-        ~(MCUCTRL_VRCTRL_MEMLDOACTIVE_Msk         |
-          MCUCTRL_VRCTRL_MEMLDOACTIVEEARLY_Msk    |
-          MCUCTRL_VRCTRL_MEMLDOPDNB_Msk);
-} // memldo_disable()
-#endif // AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
-
-void
-simobuck_ldos_force_active(void)
-{
-    //
-    // Force SIMOBUCK into active mode. SIMOBUCKOVER must be set last.
-    //
-    MCUCTRL->VRCTRL_b.SIMOBUCKPDNB   = 1;
-    MCUCTRL->VRCTRL_b.SIMOBUCKRSTB   = 1;
-    MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE = 1;
-    MCUCTRL->VRCTRL_b.SIMOBUCKOVER   = 1;
-
-#if AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
-    //
-    // Also force LDOs to active in deepsleep
-    //
-    MCUCTRL->VRCTRL_b.CORELDOPDNB    = 1;
-    MCUCTRL->VRCTRL_b.CORELDOACTIVE  = 1;
-    MCUCTRL->VRCTRL_b.CORELDOOVER    = 1;
-    MCUCTRL->VRCTRL_b.MEMLDOPDNB     = 1;
-    MCUCTRL->VRCTRL_b.MEMLDOACTIVE   = 1;
-    MCUCTRL->VRCTRL_b.MEMLDOOVER     = 1;
-#endif // AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
-} // simobuck_ldos_force_active()
-
-void
-simobuck_ldos_force_disable(void)
-{
-    MCUCTRL->VRCTRL_b.SIMOBUCKOVER   = 0;
-    MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE = 0;
-    MCUCTRL->VRCTRL_b.SIMOBUCKRSTB   = 0;
-    MCUCTRL->VRCTRL_b.SIMOBUCKPDNB   = 0;
-
-#if AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
-    MCUCTRL->VRCTRL_b.CORELDOOVER    = 0;
-    MCUCTRL->VRCTRL_b.MEMLDOOVER     = 0;
-    MCUCTRL->VRCTRL_b.CORELDOACTIVE  = 0;
-    MCUCTRL->VRCTRL_b.CORELDOPDNB    = 0;
-    MCUCTRL->VRCTRL_b.MEMLDOACTIVE   = 0;
-    MCUCTRL->VRCTRL_b.MEMLDOPDNB     = 0;
-#endif // AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
-} // simobuck_ldos_force_disable()
-#endif // if 0
-// #### INTERNAL END ####
 
 // Dynamically turn on and off the overrides for buck and LDO
 // Override configs are already set once in buck_ldo_override_init
@@ -2141,65 +2264,49 @@ buck_ldo_update_override(bool bEnable)
 uint32_t
 am_hal_pwrctrl_control(am_hal_pwrctrl_control_e eControl, void *pArgs)
 {
-    uint32_t ui32ReturnStatus = AM_HAL_STATUS_SUCCESS;
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
 
     switch ( eControl )
     {
         case AM_HAL_PWRCTRL_CONTROL_SIMOBUCK_INIT:
             {
+                if (PWRCTRL->VRSTATUS_b.SIMOBUCKST == PWRCTRL_VRSTATUS_SIMOBUCKST_ACT)
+                {
+                    return AM_HAL_STATUS_SUCCESS;
+                }
                 //
-                // Set Set VDDC active low and high TON trim.
+                // Set hfrcsimobucken to 1
+                // TODO Expose this reg
                 //
-                MCUCTRL->VRCTRL_b.SIMOBUCKPDNB   = 1;
-                MCUCTRL->VRCTRL_b.SIMOBUCKRSTB   = 1;
-                MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE = 1;
-                MCUCTRL->VRCTRL_b.SIMOBUCKOVER   = 1;
-
-                //
-                // Force LDOs into active mode and to run in parallel with SIMO.
-                // Coreldo override
-                //
-                MCUCTRL->VRCTRL_b.CORELDOCOLDSTARTEN  = 0;
-                MCUCTRL->VRCTRL |=
-                    MCUCTRL_VRCTRL_CORELDOACTIVE_Msk        |
-                    MCUCTRL_VRCTRL_CORELDOACTIVEEARLY_Msk   |
-                    MCUCTRL_VRCTRL_CORELDOPDNB_Msk;
-                MCUCTRL->VRCTRL_b.CORELDOOVER         = 1;
-
-                //
-                // Memldo override
-                //
-                MCUCTRL->VRCTRL_b.MEMLDOCOLDSTARTEN   = 0;
-                MCUCTRL->VRCTRL |=
-                    MCUCTRL_VRCTRL_MEMLDOACTIVE_Msk         |
-                    MCUCTRL_VRCTRL_MEMLDOACTIVEEARLY_Msk    |
-                    MCUCTRL_VRCTRL_MEMLDOPDNB_Msk;
-                MCUCTRL->VRCTRL_b.MEMLDOOVER          = 1;
-
-                // #### INTERNAL BEGIN ####
-                // *(uint32_t*)0x4004033c=0xf; from validation team
-                // #### INTERNAL END ####
+                *((volatile uint32_t *) 0x4000A8C0) |= (1UL << 22);
                 //
                 // Enable SIMOBUCK compensations
+                // MCUCTRL->SIMOBUCK0 = 0x0007FFBF;
                 //
-                MCUCTRL->SIMOBUCK0 |=
-                    MCUCTRL_SIMOBUCK0_VDDCRXCOMPEN_Msk |
-                    MCUCTRL_SIMOBUCK0_VDDFRXCOMPEN_Msk |
-                    MCUCTRL_SIMOBUCK0_VDDSRXCOMPEN_Msk |
-                    MCUCTRL_SIMOBUCK0_VDDCLVRXCOMPEN_Msk;
-
-#warning "TODO - FIXME: SIMOBUCKEN is removed from apollo5b.h. "
+                MCUCTRL->SIMOBUCK0 =
+                    MCUCTRL_SIMOBUCK0_VDDCRXCOMPEN_Msk   |
+                    MCUCTRL_SIMOBUCK0_VDDFRXCOMPEN_Msk   |
+                    MCUCTRL_SIMOBUCK0_VDDSRXCOMPEN_Msk   |
+                    MCUCTRL_SIMOBUCK0_VDDCLVRXCOMPEN_Msk |
+                    MCUCTRL_SIMOBUCK0_VDDRFRXCOMPEN_Msk  |
+                    MCUCTRL_SIMOBUCK0_CCMEN_Msk          |
+                    MCUCTRL_SIMOBUCK0_PMOSDRVSTRTRIM_Msk |
+                    MCUCTRL_SIMOBUCK0_NMOSDRVSTRTRIM_Msk |
+                    MCUCTRL_SIMOBUCK0_TPNDELAYTRIM_Msk   |
+                    MCUCTRL_SIMOBUCK0_TNPDELAYTRIM_Msk;
                 //
                 // Enable the SIMOBUCK
                 //
-                PWRCTRL->VRCTRL |= 0x1;
+                am_hal_spotmgr_simobuck_init_bfr_enable();
+                PWRCTRL->VRCTRL_b.SIMOBUCKEN = 1;
+                buck_ldo_override_init();
+                am_hal_spotmgr_simobuck_init_aft_enable();
             }
             break;
 
             // Use am_hal_pwrctrl_control(AM_HAL_PWRCTRL_CONTROL_CRYPTO_POWERDOWN) if using crypto
         case AM_HAL_PWRCTRL_CONTROL_CRYPTO_POWERDOWN:
             {
-                uint32_t    ui32Status;
                 bool        bEnabled;
 
                 //
@@ -2238,14 +2345,6 @@ am_hal_pwrctrl_control(am_hal_pwrctrl_control_e eControl, void *pArgs)
             //
             MCUCTRL->XTALGENCTRL_b.XTALBIASTRIM   = 0x20;
 
-// #### INTERNAL BEGIN ####
-            // TODO FIXME: Is this intended to be a write to the field or the
-            //      entire register? The workaround code from validation simply
-            //      wrote the value 1 to the register.
-            // Answer: Assuming the question is in reference to the following write
-            //         to XTALCTRL, it is indeed writing the value 0x1 to the register.
-            //         It's just more explicit than a plain, hard-coded value. - REH
-// #### INTERNAL END ####
             MCUCTRL->XTALCTRL =
                 _VAL2FLD(MCUCTRL_XTALCTRL_XTALICOMPTRIM,  0 )                                       |
                 _VAL2FLD(MCUCTRL_XTALCTRL_XTALIBUFTRIM,   0 )                                       |
@@ -2257,694 +2356,120 @@ am_hal_pwrctrl_control(am_hal_pwrctrl_control_e eControl, void *pArgs)
             break;
 
         case AM_HAL_PWRCTRL_CONTROL_DIS_PERIPHS_ALL:
-            PWRCTRL->DEVPWREN =
-// #### INTERNAL BEGIN ####
-#if 0   // A2SD-2003 deprecate I3C enable/status registers/fields
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENI3C1,    PWRCTRL_DEVPWREN_PWRENI3C1_DIS)         |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENI3C0,    PWRCTRL_DEVPWREN_PWRENI3C0_DIS)         |
-#endif
-// #### INTERNAL END ####
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENI3C,     PWRCTRL_DEVPWREN_PWRENI3C_DIS)          |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENDBG,     PWRCTRL_DEVPWREN_PWRENDBG_DIS)          |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUSBPHY,  PWRCTRL_DEVPWREN_PWRENUSBPHY_DIS)       |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUSB,     PWRCTRL_DEVPWREN_PWRENUSB_DIS)          |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENSDIO1,   PWRCTRL_DEVPWREN_PWRENSDIO1_DIS)        |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENSDIO0,   PWRCTRL_DEVPWREN_PWRENSDIO0_DIS)        |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENCRYPTO,  PWRCTRL_DEVPWREN_PWRENCRYPTO_DIS)       |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENDISPPHY, PWRCTRL_DEVPWREN_PWRENDISPPHY_DIS)      |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENDISP,    PWRCTRL_DEVPWREN_PWRENDISP_DIS)         |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENGFX,     PWRCTRL_DEVPWREN_PWRENGFX_DIS)          |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENMSPI2,   PWRCTRL_DEVPWREN_PWRENMSPI2_DIS)        |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENMSPI1,   PWRCTRL_DEVPWREN_PWRENMSPI1_DIS)        |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENMSPI0,   PWRCTRL_DEVPWREN_PWRENMSPI0_DIS)        |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENADC,     PWRCTRL_DEVPWREN_PWRENADC_DIS)          |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUART1,   PWRCTRL_DEVPWREN_PWRENUART1_DIS)        |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENUART0,   PWRCTRL_DEVPWREN_PWRENUART0_DIS)        |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENI3CPHY,  PWRCTRL_DEVPWREN_PWRENI3CPHY_DIS)       |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM5,    PWRCTRL_DEVPWREN_PWRENIOM5_DIS)         |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM4,    PWRCTRL_DEVPWREN_PWRENIOM4_DIS)         |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM3,    PWRCTRL_DEVPWREN_PWRENIOM3_DIS)         |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM2,    PWRCTRL_DEVPWREN_PWRENIOM2_DIS)         |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM1,    PWRCTRL_DEVPWREN_PWRENIOM1_DIS)         |
-                _VAL2FLD(PWRCTRL_DEVPWREN_PWRENIOM0,    PWRCTRL_DEVPWREN_PWRENIOM0_DIS);
-// #### INTERNAL BEGIN ####
-#if 0 // Probably not needed, no Coremark difference.
             //
-            // Update only certain fields of this register.
+            // TRCENA must be off in order to disable the power domain.
             //
-            MCUCTRL->AUDADCPWRCTRL &=
-                ~(MCUCTRL_AUDADCPWRCTRL_AUDADCPWRCTRLSWE_Msk    |
-                  MCUCTRL_AUDADCPWRCTRL_VDDAUDADCRESETN_Msk     |
-                  MCUCTRL_AUDADCPWRCTRL_VDDAUDADCDIGISOLATE_Msk |
-                  MCUCTRL_AUDADCPWRCTRL_VDDAUDADCSARISOLATE_Msk |
-                  MCUCTRL_AUDADCPWRCTRL_AUDADCBPSEN_Msk         |
-                  MCUCTRL_AUDADCPWRCTRL_AUDADCAPSEN_Msk);
-            MCUCTRL->AUDADCPWRCTRL |=
-                _VAL2FLD(MCUCTRL_AUDADCPWRCTRL_AUDADCPWRCTRLSWE,    MCUCTRL_AUDADCPWRCTRL_AUDADCPWRCTRLSWE_OVERRIDE_DIS)    |
-                _VAL2FLD(MCUCTRL_AUDADCPWRCTRL_VDDAUDADCRESETN,     MCUCTRL_AUDADCPWRCTRL_VDDAUDADCRESETN_ASSERT)           |
-                _VAL2FLD(MCUCTRL_AUDADCPWRCTRL_VDDAUDADCDIGISOLATE, MCUCTRL_AUDADCPWRCTRL_VDDAUDADCDIGISOLATE_DIS)          |
-                _VAL2FLD(MCUCTRL_AUDADCPWRCTRL_VDDAUDADCSARISOLATE, MCUCTRL_AUDADCPWRCTRL_VDDAUDADCSARISOLATE_DIS)          |
-                _VAL2FLD(MCUCTRL_AUDADCPWRCTRL_AUDADCBPSEN,         MCUCTRL_AUDADCPWRCTRL_AUDADCBPSEN_DIS)                  |
-                _VAL2FLD(MCUCTRL_AUDADCPWRCTRL_AUDADCAPSEN,         MCUCTRL_AUDADCPWRCTRL_AUDADCAPSEN_DIS);
+            DCB->DEMCR &= ~DCB_DEMCR_TRCENA_Msk;
 
             //
-            // Update only certain fields of this register.
+            // Disable the CM55 TPIU clock source in MCU control.
             //
-            MCUCTRL->ADCPWRCTRL &=
-                ~(MCUCTRL_ADCPWRCTRL_VDDADCRESETN_Msk       |
-                  MCUCTRL_ADCPWRCTRL_VDDADCDIGISOLATE_Msk   |
-                  MCUCTRL_ADCPWRCTRL_VDDADCSARISOLATE_Msk   |
-                  MCUCTRL_ADCPWRCTRL_ADCBPSEN_Msk);
-            MCUCTRL->ADCPWRCTRL |=
-                _VAL2FLD(MCUCTRL_ADCPWRCTRL_VDDADCRESETN, MCUCTRL_ADCPWRCTRL_VDDADCRESETN_ASSERT)       |
-                _VAL2FLD(MCUCTRL_ADCPWRCTRL_VDDADCDIGISOLATE, MCUCTRL_ADCPWRCTRL_VDDADCDIGISOLATE_DIS)  |
-                _VAL2FLD(MCUCTRL_ADCPWRCTRL_VDDADCSARISOLATE, MCUCTRL_ADCPWRCTRL_VDDADCSARISOLATE_DIS)  |
-                _VAL2FLD(MCUCTRL_ADCPWRCTRL_ADCBPSEN, MCUCTRL_ADCPWRCTRL_ADCBPSEN_DIS);
-#endif
-#if 0 // Probably not needed, should be handled in the appl.
-    //
-    // Configure the Shared RAM domain active state settings.
-    //
-    PWRCTRL->SSRAMRETCFG_b.SSRAMACTDISP = AM_HAL_PWRCTRL_SRAM_NONE;
-    PWRCTRL->SSRAMRETCFG_b.SSRAMACTGFX  = AM_HAL_PWRCTRL_SRAM_NONE;
-    PWRCTRL->SSRAMRETCFG_b.SSRAMACTDSP  = AM_HAL_PWRCTRL_SRAM_NONE;
-    PWRCTRL->SSRAMRETCFG_b.SSRAMACTMCU  = AM_HAL_PWRCTRL_SRAM_NONE;
-    PWRCTRL->SSRAMRETCFG_b.SSRAMPWDSLP  = AM_HAL_PWRCTRL_SRAM_1M;
-#endif
-// #### INTERNAL END ####
-            break;
-
-// #### INTERNAL BEGIN ####
-#if 0 // Note: As of Apollo5b 26SEPT, PWRENAUDPB, PWRENAUDREC, PWRSTAUDPB, PWRSTAUDREC no longer exist.
-        case IF_USED_THIS_WOULD_BE_A_NEW_CASE:
-            PWRCTRL->MEMPWREN =
-                _VAL2FLD(PWRCTRL_MEMPWREN_PWRENCACHEB2, PWRCTRL_AUDSSPWRSTATUS_PWRSTAUDADC_ON)  |
-                _VAL2FLD(PWRCTRL_MEMPWREN_PWRENCACHEB0, PWRCTRL_MEMPWREN_PWRENCACHEB0_EN)       |
-                _VAL2FLD(PWRCTRL_MEMPWREN_PWRENNVM0, PWRCTRL_MEMPWREN_PWRENNVM0_EN)             |
-                _VAL2FLD(PWRCTRL_MEMPWREN_PWRENDTCM, PWRCTRL_MEMPWREN_PWRENDTCM_TCM384K);
-
-            PWRCTRL->SSRAMPWREN =
-                _VAL2FLD(PWRCTRL_SSRAMPWREN_PWRENSSRAM, PWRCTRL_SSRAMPWREN_PWRENSSRAM_ALL);
-
-            PWRCTRL->AUDSSPWREN =
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENDSPA,   PWRCTRL_AUDSSPWREN_PWRENDSPA_DIS)      |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENAUDADC, PWRCTRL_AUDSSPWREN_PWRENAUDADC_DIS)    |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENI2S1,   PWRCTRL_AUDSSPWREN_PWRENI2S1_DIS)      |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENI2S0,   PWRCTRL_AUDSSPWREN_PWRENI2S0_DIS)      |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENPDM3,   PWRCTRL_AUDSSPWREN_PWRENPDM3_DIS)      |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENPDM2,   PWRCTRL_AUDSSPWREN_PWRENPDM2_DIS)      |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENPDM1,   PWRCTRL_AUDSSPWREN_PWRENPDM1_DIS)      |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENPDM0,   PWRCTRL_AUDSSPWREN_PWRENPDM0_DIS)      |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENAUDPB,  PWRCTRL_AUDSSPWREN_PWRENAUDPB_DIS)     |
-                _VAL2FLD(PWRCTRL_AUDSSPWREN_PWRENAUDREC, PWRCTRL_AUDSSPWREN_PWRENAUDREC_DIS);
-            break;
-#endif
-// #### INTERNAL END ####
-#if AM_HAL_TEMPCO_LP
-        case AM_HAL_PWRCTRL_CONTROL_TEMPCO_GETMEASTEMP:
-            if ( pArgs )
+            MCUCTRL->DBGCTRL_b.DBGTPIUTRACEENABLE = MCUCTRL_DBGCTRL_DBGTPIUTRACEENABLE_DIS;
+            MCUCTRL->DBGCTRL_b.DBGTPIUCLKSEL      = MCUCTRL_DBGCTRL_DBGTPIUCLKSEL_OFF;
+            PWRCTRL->DEVPWREN = 0;
+            PWRCTRL->AUDSSPWREN = 0;
+            ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
+                                                      (uint32_t) &(PWRCTRL->DEVPWREN),
+                                                      DEVPWRST_ALL_PERIPH_MASK,
+                                                      0,
+                                                      true);
+            //
+            // Check for success.
+            //
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
             {
-                *((float*)pArgs) = g_pfTempMeasured;
+                return ui32Status;
             }
-#endif // AM_HAL_TEMPCO_LP
+            else
+            {
+                uint32_t ui32AllDisabledStatus = 0;
+                am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_DEVPWR, false, &ui32AllDisabledStatus);
+            }
+            ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_US,
+                                                      (uint32_t) &(PWRCTRL->AUDSSPWREN),
+                                                      AUDSSPWRST_ALL_PERIPH_MASK,
+                                                      0,
+                                                      true);
+            //
+            // Check for success.
+            //
+            if (AM_HAL_STATUS_SUCCESS != ui32Status)
+            {
+                return ui32Status;
+            }
+            else
+            {
+                uint32_t ui32AllDisabledStatus = 0;
+                am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_AUDSSPWR, false, &ui32AllDisabledStatus);
+            }
 
-        case AM_HAL_PWRCTRL_CONTROL_DEEPERSLEEP_ENABLE:
-            PWRCTRL->CPUPWRCTRL_b.DEEPERSLEEPEN = 1;
-            break;
-
-        case AM_HAL_PWRCTRL_CONTROL_DEEPERSLEEP_DISABLE:
-            PWRCTRL->CPUPWRCTRL_b.DEEPERSLEEPEN = 0;
             break;
 
         default:
-            ui32ReturnStatus = AM_HAL_STATUS_INVALID_ARG;
+            ui32Status = AM_HAL_STATUS_INVALID_ARG;
             break;
     }
 
     //
     // Return success status.
     //
-    return ui32ReturnStatus;
+    return ui32Status;
 
 } // am_hal_pwrctrl_control()
 
-// ****************************************************************************
-// Function to restore factory trims.
-// ****************************************************************************
-static void
-restore_factory_trims(void)
-{
-    if ( g_bOrigTrimsStored )
-    {
-        //
-        // Restore the original factory trim values
-        //
-// #### INTERNAL BEGIN ####
-#warning "Fixe me!!! Need to update based on MCUCTRL register field changes."
-// #### INTERNAL END ####
-        MCUCTRL->LDOREG2_b.MEMLDOACTIVETRIM = g_orig_MEMLDOACTIVETRIM;
-        MCUCTRL->LDOREG2_b.MEMLDOLPTRIM     = g_orig_MEMLPLDOTRIM;
-        MCUCTRL->VREFGEN2_b.TVRGCVREFTRIM    = g_orig_TVRGVREFTRIM;
-    }
-} // restore_factory_trims()
-
 //*****************************************************************************
 //
-// Restore original power settings
-//
-// This function restores default power trims, reverting relative changes that
-// were done as part of am_hal_pwrctrl_low_power_init, SIMOBUCK init, and
-// dynamic updates such as are made with Temperature Compensation (TempCo)
-// and/or by enabling Crypto.
+// This function no longer restores MCU to its boot state; instead, it prepares
+// MCU for the next image to start in the correct state.
 //
 // Important:
-// - This function must be called before transition to a new application, such
-//   as the case of a secondary bootloader transistioning to an application.
-// - If previously enabled, TempCo must be disabled before this function is
-//   called.
+//
+// - This function must be called before
+//   transition to a new application, such as the case of a secondary bootloader
+//   transitioning to an application. Before calling this function, users
+//   should switch CPU to LP if it is in HP mode, and turned off GPU and all other
+//   peripherals if anyone was turned on.
+//   Before calling this function, in order to release all clocks when exiting
+//   second boot loader, we suggest users to disable peripherals which are used
+//   in second bootloader and already requested clocks through clkmgr. Users
+//   should disable peripherals by calling the separated API for peripheral
+//   disable/deinit/powerdown, but not by writing to the power enable registers
+//   directly.
 //
 //*****************************************************************************
 uint32_t
 am_hal_pwrctrl_settings_restore(void)
 {
-    uint32_t ui32Ret;
+    bool bEnabled = false;
 
-// #### INTERNAL BEGIN ####
-    // Switch from HP to LP mode (if in HP mode)
-    // Switch to LDO mode (if not already in LDO mode)
-    // Delay 20us for rails to settle
-    // Disable LDOs in parallel (if override was set to enabled this in simobuck mode)
-    // Remove VDDS/VDDF short
-    // Turn on Crypto if not already on.
-// #### INTERNAL END ####
     //
-    // Ensure - we're in LP mode
+    // Check CPU status, if it is HP, return failure.
     //
-    if (PWRCTRL->MCUPERFREQ_b.MCUPERFREQ != AM_HAL_PWRCTRL_MCU_MODE_LOW_POWER)
+    if (( PWRCTRL->MCUPERFREQ_b.MCUPERFSTATUS == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE1 ) ||
+        ( PWRCTRL->MCUPERFREQ_b.MCUPERFSTATUS == AM_HAL_PWRCTRL_MCU_MODE_HIGH_PERFORMANCE2 ))
     {
-        // Device needs to be in LP mode before restore is called
-        return AM_HAL_STATUS_INVALID_OPERATION;
-    }
-
-    //
-    // Need to revert the trim changes, and turn to LDO mode
-    //
-    AM_CRITICAL_BEGIN
-
-    //
-    // Switch to LDO mode (if not already in LDO mode)
-    // Delay 20us for rails to settle
-    //
-    if (PWRCTRL->VRSTATUS_b.SIMOBUCKST == PWRCTRL_VRSTATUS_SIMOBUCKST_ACT)
-    {
-#if AM_HAL_PWRCTL_SHORT_VDDF_TO_VDDS
-        if (g_ui32origSimobuckVDDStrim != 0xFFFFFFFF)
-        {
-            MCUCTRL->SIMOBUCK13_b.ACTTRIMVDDS = g_ui32origSimobuckVDDStrim;
-        }
-
-        //
-        // Remove VDDS/VDDF short
-        //
-        MCUCTRL->PWRSW1_b.SHORTVDDFVDDSORVAL  = 0;
-        MCUCTRL->PWRSW1_b.SHORTVDDFVDDSOREN   = 0;
-#endif
-
-// #### INTERNAL BEGIN ####
-#if 0 // This is not needed, as LDO's should already be in parallel
-#if AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL
-#if AM_HAL_PWRCTRL_LDOS_FOR_VDDC
-        // #### INTERNAL2 BEGIN ####
-        // A2SD-2248 Activate LDOs in parallel when disabling SIMOBUCK.
-        // #### INTERNAL2 END ####
-        simobuck_ldos_force_active();  // Force LDOs in parallel with simobuck
-#else
-        coreldo_disable();
-        memldo_disable();
-#endif // AM_HAL_PWRCTRL_LDOS_FOR_VDDC
-#endif
-#endif // if 0
-#warning "Fix me!!! - VRCTRL is not defined in PWRCTRL registers."
-#warning "Fixme!!! - VRCTRL is NOW defined in PWRCTRL registers. Do we still want to enable SIMOBUCKEN??"
-// #### INTERNAL END ####
-        //PWRCTRL->VRCTRL_b.SIMOBUCKEN = 0;
-        //
-        // Need to remove overrides
-        //
-        buck_ldo_update_override(false);
-    }
-
-    //
-    // Re-enable Crypto if not already on.
-    // The enable function will check whether it's enabled or not.
-    //
-    ui32Ret = am_hal_pwrctrl_periph_enable(AM_HAL_PWRCTRL_PERIPH_CRYPTO);
-
-    //
-    // Restore original factory trims.
-    // This will apply whether or not AM_HAL_TEMPCO_LP is activated.
-    //
-    restore_factory_trims();
-
-    AM_CRITICAL_END
-
-    return ui32Ret;
-
-} // am_hal_pwrctrl_settings_restore()
-
-#if AM_HAL_TEMPCO_LP
-// ****************************************************************************
-//
-//  am_hal_pwrctrl_tempco_init()
-//  ui32UpdateInterval - Time in seconds. 10 is recommended.
-//
-//  User must also call am_hal_adc_initialize().
-//
-// ****************************************************************************
-uint32_t
-am_hal_pwrctrl_tempco_init(void *pADCHandle,
-                           uint32_t ui32ADCslot)
-{
-    uint32_t                    ui32Retval;
-    am_hal_adc_slot_config_t    sSlotCfg;
-    uint32_t ui32TrimVer;
-
-    uint32_t ui32Temp[3];
-
-    //
-    // First make sure the temperature calibration is valid.
-    //
-    ui32Retval = am_hal_info1_read(AM_HAL_INFO_INFOSPACE_CURRENT_INFO1,
-                                   AM_REG_OTP_INFO1_TEMP_CAL_ATE_O / 4,
-                                   3, &ui32Temp[0]);
-
-    if ( (ui32Temp[0] == 0x00000000)    ||
-         (ui32Temp[1] == 0x00000000)    ||
-         (ui32Temp[2] == 0x00000000)    ||
-#ifdef AM_PART_APOLLO5A
-         (ui32Temp[0] == 0xFFFFFFFF)    ||
-         (ui32Temp[1] == 0xFFFFFFFF)    ||
-         (ui32Temp[2] == 0xFFFFFFFF)    ||
-#endif // AM_PART_APOLLO5A
-        (ui32Retval != AM_HAL_STATUS_SUCCESS) )
-    {
-        //
-        // Invalidate the application of TempCo.
-        //
-        g_bTempcoValid = false;
-        return AM_HAL_STATUS_HW_ERR;
-    }
-
-    //
-    // Make sure this device can reliably support TempCo
-    //
-    TrimVersionGet(&ui32TrimVer);
-// #### INTERNAL BEGIN ####
-#if 0 // Set to 1 to temporarily debug on a non-TempCo ready part
-    ui32TrimVer = TRIMREV_PWRCTRL;
-#endif
-// #### INTERNAL END ####
-    if ( ui32TrimVer < TRIMREV_PWRCTRL )
-    {
-        //
-        // Invalidate that original trims have been saved, which
-        // invalidates the application of TempCo.
-        //
-        //
-        // Invalidate the application of TempCo.
-        //
-        g_bTempcoValid = false;
         return AM_HAL_STATUS_FAIL;
     }
-    else
+    //
+    // Check GPU status, if it is ON, return failure.
+    //
+    if (am_hal_pwrctrl_periph_enabled(AM_HAL_PWRCTRL_PERIPH_GFX, &bEnabled) == AM_HAL_STATUS_SUCCESS)
     {
-        g_bTempcoValid = true;
-    }
-
-    //
-    // Save the ADC handle and the slot number.
-    //
-    g_TempcoADCHandle   = pADCHandle;
-    g_ui32TempcoADCslot = ui32ADCslot;
-
-    //
-    // At this point the ADC is expected to be initialized, powered, and configured.
-    // Configure the temperature slot.
-    //
-    sSlotCfg.eMeasToAvg     = AM_HAL_ADC_SLOT_AVG_1;
-    sSlotCfg.ui32TrkCyc     = 32;
-    sSlotCfg.ePrecisionMode = AM_HAL_ADC_SLOT_12BIT;
-    sSlotCfg.eChannel       = AM_HAL_ADC_SLOT_CHSEL_TEMP;
-    sSlotCfg.bWindowCompare = false;
-    sSlotCfg.bEnabled       = true;
-    ui32Retval = am_hal_adc_configure_slot(g_TempcoADCHandle, g_ui32TempcoADCslot, &sSlotCfg);
-    if ( ui32Retval != AM_HAL_STATUS_SUCCESS )
-    {
-       return ui32Retval;
-    }
-
-    return AM_HAL_STATUS_SUCCESS;
-
-} // am_hal_pwrctrl_tempco_init()
-
-//
-// TempCo trims lookup tables
-// The VDD table is arranged row-by-row with 3 values as:
-//  0: Min temperature
-//  1: Max temperature
-//  2: Trim code adjust
-//
-
-//
-//! Trim adjust table for VDDF
-//
-const static int8_t
-g_VDDF_trimstbl[][3] =
-{
-    { -20, -11,   0},
-    { -11,  -2,  -1},
-    {  -2,   8,  -2},
-    {   8,  17,  -3},
-    {  17,  26,  -4},
-    {  26,  35,  -5},
-    {  35,  44,  -6},
-    {  44,  53,  -7},
-    {  53,  60,  -8},   // Last actual table entry
-    { 127, 127,   0}    // End of table: Probably bogus temp, do no adjustment
-};
-
-//
-//! Trim adjust table for VDDFLP
-//
-const static int8_t
-g_VDDFLP_trimstbl[][3] =
-{
-    { -20, -11,   0},
-    { -11,  -2,  -1},
-    {  -2,   8,  -2},
-    {   8,  17,  -3},
-    {  17,  26,  -4},
-    {  26,  35,  -5},
-    {  35,  44,  -6},
-    {  44,  53,  -7},
-    {  53,  60,  -8},   // Last actual table entry
-    { 127, 127,   0}    // End of table: Probably bogus temp, do no adjustment
-};
-
-//
-//! Trim adjust table for memlpldo
-//
-const static int8_t
-g_memlpldo_trimstbl[][3] =
-{
-    { -18, -14,   8},
-    { -14, -10,   7},
-    { -10,  -6,   6},
-    {  -6,  -2,   5},
-    {  -2,   2,   4},
-    {   2,   6,   3},
-    {   6,  10,   2},
-    {  10,  14,   1},
-    {  14,  18,   0},
-    {  18,  22,  -1},
-    {  22,  26,  -2},
-    {  26,  42,  -3},
-    {  42,  60,  -4},   // Last actual table entry
-    { 127, 127,   0}    // End of table: Probably bogus temp, do no adjustment
-};
-
-//
-//! Helper macro to round a float down.
-//
-#define FTOI_RNDDN(fval)        ( (fval < 0.00F) ? (int)fval - 1 : (int)fval )
-
-// ****************************************************************************
-// Function to lookup a trim given a temperature and a pointer
-// to the appropriate lookup table.
-// ****************************************************************************
-static int8_t
-lookup_trim(int8_t i8Temp, const int8_t pi8Tbl[][3])
-{
-    uint32_t ux;
-    if ( i8Temp < pi8Tbl[0][0] )
-    {
-        //
-        // Return the trim for the lowest temperature in the table
-        //
-        return pi8Tbl[0][2];
+        if (bEnabled)
+        {
+            return AM_HAL_STATUS_FAIL;
+        }
     }
     else
-    {
-        //
-        // Lookup the trim
-        //
-        ux = 0;
-        while ( pi8Tbl[ux][0] < 127 )
-        {
-            if ( i8Temp <= pi8Tbl[ux][1] )
-            {
-                return pi8Tbl[ux][2];
-            }
-            ux++;
-        }
-
-// #### INTERNAL BEGIN ####
-        //return pi8Tbl[ux][2];
-// #### INTERNAL END ####
-        //
-        // The temperature is very high, so snap to the default trims
-        ///
-        return 0;
-    }
-
-} // lookup_trim()
-
-// ****************************************************************************
-// Function to validate and apply trim changes.
-// ****************************************************************************
-static void
-tempco_set_trims(int32_t i32VDDFtrim,
-                 int32_t i32VDDFLPtrim,
-                 int32_t i32MemlpLDOtrim)
-{
-    int32_t i32SimoVDDFact, i32Memldoact, i32SimoVDDFlp, i32Memlpldo;
-
-    if ( !g_bOrigTrimsStored )
-    {
-        return;
-    }
-
-    i32SimoVDDFact = g_orig_ACTTRIMVDDF      + i32VDDFtrim;
-    i32Memldoact   = g_orig_MEMLDOACTIVETRIM + i32VDDFtrim;
-    i32SimoVDDFlp  = g_orig_LPTRIMVDDF       + i32VDDFLPtrim;
-    i32Memlpldo    = g_orig_MEMLPLDOTRIM     + i32MemlpLDOtrim;
-
-    //
-    // If Crypto is currently off, adjust the VDDF active trim.
-    //
-    AM_CRITICAL_BEGIN
-
-    if ( i32SimoVDDFact < 0 )
-    {
-        i32SimoVDDFact = 0;
-    }
-    else if ( i32SimoVDDFact > MAX_ACTTRIMVDDF )
-    {
-        i32SimoVDDFact = MAX_ACTTRIMVDDF;
-    }
-
-    if ( i32Memldoact < 0 )
-    {
-        i32Memldoact = 0;
-    }
-    else if ( i32Memldoact > MAX_MEMLDOACTIVETRIM )
-    {
-        i32Memldoact = MAX_MEMLDOACTIVETRIM;
-    }
-
-    if ( i32SimoVDDFlp < 0 )
-    {
-        i32SimoVDDFlp = 0;
-    }
-    else if ( i32SimoVDDFlp > MAX_LPTRIMVDDF )
-    {
-        i32SimoVDDFlp = MAX_LPTRIMVDDF;
-    }
-
-    if ( i32Memlpldo  < 0 )
-    {
-        i32Memlpldo  = 0;
-    }
-    else if ( i32Memlpldo > MAX_MEMLPLDOTRIM )
-    {
-        i32Memlpldo = MAX_MEMLPLDOTRIM;
-    }
-
-    //
-    // Now set the new values
-    //
-    MCUCTRL->LDOREG2_b.MEMLDOACTIVETRIM = i32Memldoact;
-    MCUCTRL->LDOREG2_b.MEMLPLDOTRIM     = i32Memlpldo;
-
-    AM_CRITICAL_END
-} // tempco_set_trims()
-
-// ****************************************************************************
-// Validate samples from temperature sensor, and average them.
-// ****************************************************************************
-static uint32_t
-adc_get_temperature_volts(float *pfADCTempVolts,
-                          uint32_t ui32NumSamples,
-                          am_hal_adc_sample_t sSample[])
-{
-    uint32_t ux;
-    float fSum;
-
-    //
-    // ui32NumSamples temperature samples have been obtained.
-    // Make sure at least 2 of the samples are slightly different.
-    //
-    ux = 0;
-    while ( ux < (ui32NumSamples - 1) )
-    {
-        if ( sSample[ux].ui32Sample != sSample[ux + 1].ui32Sample )
-        {
-            break;
-        }
-        ux++;
-    }
-
-    if ( ux == (ui32NumSamples - 1) )
-    {
-        //
-        // This sample is not reliable, return with error.
-        //
-        return AM_HAL_STATUS_FAIL;
-    }
-
-    //
-    // The measured temperature can be considered reliable.
-    // Get an average of the temperature.
-    //
-    ux = 0;
-    fSum = 0.0F;
-    while ( ux < ui32NumSamples )
-    {
-        //
-        // Convert and scale the temperature sample into its corresponding voltage.
-        //
-        g_ui16TempcoTEMP_code = AM_HAL_ADC_FIFO_SAMPLE(sSample[ux].ui32Sample);
-        fSum += (float)g_ui16TempcoTEMP_code * AM_HAL_ADC_VREF / 4096.0f; // 12-bit sample
-        ux++;
-    }
-
-    *pfADCTempVolts = fSum / ((float)ui32NumSamples);
-
-    return AM_HAL_STATUS_SUCCESS;
-
-} // adc_get_temperature_volts()
-
-// ****************************************************************************
-//
-//  am_hal_pwrctrl_tempco_sample_handler()
-//
-//  This function to be called with a minimum periodicity as recommended
-//  by Ambiq engineering.
-//
-// ****************************************************************************
-uint32_t
-am_hal_pwrctrl_tempco_sample_handler(uint32_t ui32NumSamples, am_hal_adc_sample_t sSamples[])
-{
-    uint32_t ui32Retval;
-    float fVT[3];
-    float fADCTempVolts, fADCTempDegreesC;
-    int32_t i32VDDFtrim, i32VDDFLPtrim, i32MemlpLDOtrim;
-
-    if ( (g_bTempcoValid == false) || (ui32NumSamples < AM_HAL_TEMPCO_NUMSAMPLES) )
     {
         return AM_HAL_STATUS_FAIL;
     }
 
     //
-    // Query the ADC for the current temperature of the chip.
+    // Reset SPOT manager state to default state
     //
-    ui32Retval = adc_get_temperature_volts(&fADCTempVolts, ui32NumSamples, sSamples);
-    if ( ui32Retval != AM_HAL_STATUS_SUCCESS )
-    {
-        //
-        // This sample is not reliable.
-        // Snap to the highest trim code settings from the tables and return.
-// #### INTERNAL BEGIN ####
-        // Note - these settings per Jamie email on 5/15/22.
-// #### INTERNAL END ####
-        //
-        tempco_set_trims(g_VDDF_trimstbl[0][2],
-                         g_VDDFLP_trimstbl[0][2],
-                         g_memlpldo_trimstbl[0][2]);
-// #### INTERNAL BEGIN ####
-#if TEMPCO_DBG // Debug only
-        am_util_stdio_printf("ERROR in adc_get_temperature_volts().\n");
-#endif
-// #### INTERNAL END ####
-        return ui32Retval;
-    }
-
-    //
-    // Now call the HAL routine to convert volts to degrees Celsius.
-    //
-    fVT[0] = fADCTempVolts;
-    fVT[1] = 0.0f;
-    fVT[2] = -123.456;
-    ui32Retval = am_hal_adc_control(g_TempcoADCHandle, AM_HAL_ADC_REQ_TEMP_CELSIUS_GET, fVT);
-    if ( ui32Retval == AM_HAL_STATUS_SUCCESS )
-    {
-        fADCTempDegreesC = fVT[1];  // Get the temperature
-        g_pfTempMeasured = fADCTempDegreesC;
-    }
-    else
-    {
-        //
-        // Error, restore default values.
-        //
-        tempco_set_trims(0, 0, 0);
-        g_pfTempMeasured = 0.0F;
-        return ui32Retval;
-    }
-
-    //
-    // The temperature in degC is stored in fADCTempDegreesC
-    //
-    int8_t  i8Temp;
-    int32_t i32Temp;
-    i32Temp = FTOI_RNDDN(fADCTempDegreesC);
-
-    //
-    // Get the integer value of the temperature.
-    // Allow for the temperature sensor specified at +-3C.
-    //
-    i8Temp = (int8_t)(i32Temp - 3);
-
-    //
-    // Look up the 3 trim adjustments.
-    //
-    i32VDDFtrim     = (int32_t)lookup_trim(i8Temp, g_VDDF_trimstbl);
-    i32VDDFLPtrim   = (int32_t)lookup_trim(i8Temp, g_VDDFLP_trimstbl);
-    i32MemlpLDOtrim = (int32_t)lookup_trim(i8Temp, g_memlpldo_trimstbl);
-
-    //
-    // Now, set the trims appropriately.
-    //
-// #### INTERNAL BEGIN ####
-#if TEMPCO_DBG // Debug only
-    am_util_stdio_printf("TEMP=%.2F C, AdjTemp=%4d, VDDFtrim=%4d, VDDFLPtrim=%4d, LDOtrim=%4d\n", fADCTempDegreesC, i8Temp, i32VDDFtrim, i32VDDFLPtrim, i32MemlpLDOtrim);
-#endif
-// #### INTERNAL END ####
-    tempco_set_trims(i32VDDFtrim, i32VDDFLPtrim, i32MemlpLDOtrim);
-
-    return AM_HAL_STATUS_SUCCESS;
-} // am_hal_pwrctrl_tempco_sample_handler()
-
-#endif // AM_HAL_TEMPCO_LP
+    return am_hal_spotmgr_default_reset();
+}
 
 // ****************************************************************************
 //
@@ -2995,6 +2520,44 @@ am_hal_pwrctrl_pwrmodctl_cpdlp_get(am_hal_pwrctrl_pwrmodctl_cpdlp_t * psCpdlpCon
 
 // ****************************************************************************
 //
+//  am_hal_pwrctrl_temp_update()
+//  fCurTemp - Current temperature in Celsius.
+//  psTempThresh - This API returns this structure for notifying of thresholds
+//                 when application should make this call again (When temp goes
+//                 lower than fLowThresh or rises above fHighThresh).
+//
+//  If current temperature is higher than BUCK_LP_TEMP_THRESHOLD(e.g. 50c),
+//  bFrcBuckAct must be set to true. Otherwise, set bFrcBuckAct to false.
+//
+// ****************************************************************************
+uint32_t
+am_hal_pwrctrl_temp_update(float fCurTemp, am_hal_pwrctrl_temp_thresh_t * psTempThresh)
+{
+    uint32_t ui32Status;
+    am_hal_spotmgr_tempco_param_t sTempCo;
+    sTempCo.fTemperature = fCurTemp;
+
+    //
+    // Update SPOTmanager on the temperature
+    //
+    ui32Status = am_hal_spotmgr_power_state_update(AM_HAL_SPOTMGR_STIM_TEMP, false, (void *) &sTempCo);
+
+    if (ui32Status == AM_HAL_STATUS_SUCCESS)
+    {
+        psTempThresh->fLowThresh = sTempCo.fRangeLower;
+        psTempThresh->fHighThresh = sTempCo.fRangeHigher;
+        return AM_HAL_STATUS_SUCCESS;
+    }
+    else
+    {
+        psTempThresh->fLowThresh = 0.0f;
+        psTempThresh->fHighThresh = 0.0f;
+        return AM_HAL_STATUS_FAIL;
+    }
+}
+
+// ****************************************************************************
+//
 //  am_hal_pwrctrl_wait_pll_lock_for_hp2()
 //
 // ****************************************************************************
@@ -3006,6 +2569,107 @@ am_hal_pwrctrl_wait_pll_lock_for_hp2(bool bWaitPllockForHp2)
     //
     PWRCTRL->MCUPERFREQ_b.WAITFORHP2 = bWaitPllockForHp2;
 } // am_hal_pwrctrl_wait_pll_lock_for_hp2()
+
+//*****************************************************************************
+//
+// Enable power to system PLL.
+//
+//*****************************************************************************
+uint32_t
+am_hal_pwrctrl_syspll_enable()
+{
+    AM_CRITICAL_BEGIN
+
+    MCUCTRL->PLLCTL0_b.SYSPLLVDDFPDN = MCUCTRL_PLLCTL0_SYSPLLVDDFPDN_ENABLE;
+    MCUCTRL->PLLCTL0_b.SYSPLLVDDHPDN = MCUCTRL_PLLCTL0_SYSPLLVDDHPDN_ENABLE;
+
+    AM_CRITICAL_END
+
+    // Give some time for power to stable
+    am_hal_delay_us(5);
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
+// Disable power to system PLL.
+//
+//*****************************************************************************
+uint32_t
+am_hal_pwrctrl_syspll_disable()
+{
+    AM_CRITICAL_BEGIN
+
+    MCUCTRL->PLLCTL0_b.SYSPLLVDDFPDN = MCUCTRL_PLLCTL0_SYSPLLVDDFPDN_DISABLE;
+    MCUCTRL->PLLCTL0_b.SYSPLLVDDHPDN = MCUCTRL_PLLCTL0_SYSPLLVDDHPDN_DISABLE;
+
+    AM_CRITICAL_END
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+// ****************************************************************************
+//
+//  Determine whether system PLL is currently enabled.
+//
+// ****************************************************************************
+uint32_t
+am_hal_pwrctrl_syspll_enabled(bool *bEnabled)
+{
+    *bEnabled =  (MCUCTRL->PLLCTL0_b.SYSPLLVDDFPDN == MCUCTRL_PLLCTL0_SYSPLLVDDFPDN_ENABLE);
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
+// ****************************************************************************
+//
+//  Get the CM4 power state.
+//
+// ****************************************************************************
+uint32_t am_hal_pwrctrl_get_cm4_pwrstate(am_hal_pwrctrl_cm4_pwr_state_e * pCm4pwrstate)
+ {
+    *pCm4pwrstate = PWRCTRL->CM4PWRSTATE_b.CM4PWRSTATUS;
+
+    return AM_HAL_STATUS_SUCCESS;
+ }
+
+// ****************************************************************************
+//
+//  Wake up the CM4 .
+//
+// ****************************************************************************
+uint32_t am_hal_pwrctrl_cm4_wakeup_req(void)
+{
+    uint32_t count;
+
+    PWRCTRL->CM4PWRCTRL_b.CM4POWERONREQ = PWRCTRL_CM4PWRCTRL_CM4POWERONREQ_ON;
+
+    //
+    // Wait for Status
+    //
+    for (count = 0; count < AM_HAL_PWRCTRL_MAX_WAIT_CM4_WAKEUP_US; count++)
+    {
+        if (PWRCTRL->CM4PWRSTATE_b.CM4PWRSTATUS !=
+            PWRCTRL_CM4PWRSTATE_CM4PWRSTATUS_OFF)
+        {
+            break;
+        }
+        am_hal_delay_us(1);
+        PWRCTRL->CM4PWRCTRL_b.CM4POWERONREQ = PWRCTRL_CM4PWRCTRL_CM4POWERONREQ_ON;
+    }
+
+    //
+    // Check for timeout.
+    //
+    if (count == AM_HAL_PWRCTRL_MAX_WAIT_CM4_WAKEUP_US)
+    {
+        return AM_HAL_STATUS_TIMEOUT;
+    }
+
+    return AM_HAL_STATUS_SUCCESS;
+} // am_hal_pwrctrl_cm4_wakeup_req()
+
 
 //*****************************************************************************
 //

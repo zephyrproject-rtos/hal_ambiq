@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -32,7 +59,6 @@ extern "C"
 //
 //*****************************************************************************
 #define PDMn(n)                             ((PDM0_Type*)(AM_REG_PDMn(n)))
-#define CRMn(n)                             ((CRM_Type*)(AM_REG_CRMn(n)))
 
 //*****************************************************************************
 //
@@ -131,6 +157,16 @@ typedef enum
 }
 am_hal_pdm_highpass_filter_onoff_e;
 
+// ****************************************************************************
+//
+//! @brief Macros to extract clock source and clock divider ratio from am_hal_pdm_clkspd_e.
+//
+// ****************************************************************************
+#define AM_HAL_PDM_CRM_CLKSRC_POS   (0)
+#define AM_HAL_PDM_CRM_CLKSRC_MSK   (0x000000FF)
+#define AM_HAL_PDM_CRM_CLKDIV_POS   (8)
+#define AM_HAL_PDM_CRM_CLKDIV_MSK   (0x0000FF00)
+
 //*****************************************************************************
 //
 //! PDM internal clock speed selection.
@@ -138,11 +174,52 @@ am_hal_pdm_highpass_filter_onoff_e;
 //*****************************************************************************
 typedef enum
 {
-    AM_HAL_PDM_CLK_HFRC2ADJ_49P152MHZ   = 0,
-    AM_HAL_PDM_CLK_HFXTAL               = 1,
-    AM_HAL_PDM_CLK_HFRC_24MHZ           = 2,
-    AM_HAL_PDM_CLK_PLL                  = 8,   // PLL output, F_PLL_POSTDIV
-    AM_HAL_PDM_CLK_HFRC_DED             = 9    // HFRC 48MHz from dedicated clock trunk
+    //! External crystal oscillator.
+    AM_HAL_PDM_CLK_HFXTAL      = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_RF_XTAL_48MHz << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (0 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! HFRC 24 MHz, the actual frequency may change if HFADJ is enabled.
+    AM_HAL_PDM_CLK_HFRC_24MHZ  = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_HFRC48 << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (1 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! HFRC 1.5 MHz, the actual frequency may change if HFADJ is enabled.
+    AM_HAL_PDM_CLK_HFRC_1P5MHZ = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_HFRC48 << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (31 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! HFRC 500 kHz, the actual frequency may change if HFADJ is enabled.
+    AM_HAL_PDM_CLK_HFRC_0P5MHZ = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_HFRC48 << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (95 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! External crystal oscillator divide 2.
+    AM_HAL_PDM_CLK_HFXTAL_DIV2 = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_RF_XTAL_48MHz << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (1 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! External crystal oscillator divide 4.
+    AM_HAL_PDM_CLK_HFXTAL_DIV4 = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_RF_XTAL_48MHz << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (3 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! External reference clock from GPIO 15.
+    AM_HAL_PDM_CLK_EXTREF      = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_EXTREF_CLK << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (0 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! POSTDIV, an output of PLL.
+    AM_HAL_PDM_CLK_PLL         = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_PLLPOSTDIV << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (0 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! POSTDIV divide 16.
+    AM_HAL_PDM_CLK_PLL_DIV16   = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_PLLPOSTDIV << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (15 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! POSTDIV divide 48.
+    AM_HAL_PDM_CLK_PLL_DIV48   = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_PLLPOSTDIV << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (47 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! FOUT4, an output of PLL, its frequency is equal to POSTDIV / 8.
+    AM_HAL_PDM_CLK_PLL_FOUT4   = ((CRM_DSPPDM0CRM_DSPPDM0CLKSEL_PLLFOUT4 << AM_HAL_PDM_CRM_CLKSRC_POS) | \
+                                  (0 << AM_HAL_PDM_CRM_CLKDIV_POS)),
+
+    //! A virtual clock used internally or by the application when the PDMI2S0 operates in slave mode.
+    AM_HAL_PDM_CLK_OFF         = 0xFF000000,
 }
 am_hal_pdm_clkspd_e;
 
@@ -151,7 +228,7 @@ am_hal_pdm_clkspd_e;
 //! PDM clock divider setting.
 //! DIVMCLKQ REG_PDM_CORECFG1(3:2)
 //! Divide down ratio for generating internal master MCLKQ.
-//! Fmclkq = Fpdmclk/(DIVMCLKQ) if DIVMCLKQ > 0;
+//! Fmclkq = Fpdmclk/(DIVMCLKQ+1)
 //
 //*****************************************************************************
 typedef enum
@@ -159,6 +236,7 @@ typedef enum
     AM_HAL_PDM_MCLKDIV_3 = 3,
     AM_HAL_PDM_MCLKDIV_2 = 2,
     AM_HAL_PDM_MCLKDIV_1 = 1,
+    AM_HAL_PDM_MCLKDIV_0 = 0,
 }
 am_hal_pdm_mclkdiv_e;
 
@@ -184,7 +262,7 @@ typedef enum
     AM_HAL_PDM_PDMA_CLKO_DIV3  = 0x3,
     AM_HAL_PDM_PDMA_CLKO_DIV2  = 0x2,
     AM_HAL_PDM_PDMA_CLKO_DIV1  = 0x1,
-    AM_HAL_PDM_PDMA_CLKO_DIV0  = 0x1,   // setting DIV0 is prohibited
+    AM_HAL_PDM_PDMA_CLKO_DIV0  = 0x0,
 }
 am_hal_pdm_pdma_clkodiv_e;
 
@@ -236,6 +314,34 @@ typedef enum
     AM_HAL_PDM_CHANNEL_STEREO = PDM0_CORECFG1_PCMCHSET_STEREO,
 }
 am_hal_pdm_chset_e;
+
+//*****************************************************************************
+//
+//! The data flow direction after PDM convertion.
+//!
+//! The data can flow to memory via DMA, to external pads via I2S (a sub-module
+//! of PDM), or to both destinations simultaneously.
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_PDM_DATA_FLOW_TO_MEMORY = 0,
+    AM_HAL_PDM_DATA_FLOW_TO_I2S    = 1,
+    AM_HAL_PDM_DATA_FLOW_TO_BOTH   = 2,
+}
+am_hal_pdm_data_flow_direction_e;
+
+//*****************************************************************************
+//
+//! The word width of PCM data if the data flows to memory.
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_PDM_DATA_WORD_WIDTH_24BITS = 0,
+    AM_HAL_PDM_DATA_WORD_WIDTH_16BITS = 1,
+}
+am_hal_pdm_data_word_width_e;
 
 //*****************************************************************************
 //
@@ -327,6 +433,15 @@ typedef struct
     bool bSoftMute;
 
     bool bLRSwap;
+
+    //! The data flow direction after PDM convertion.
+    am_hal_pdm_data_flow_direction_e eDataFlowDirection;
+
+    //! The word width of PCM data if the data flows to memory.
+    am_hal_pdm_data_word_width_e eWordWidth;
+
+    //! I2S role if I2S is enabled.
+    bool bI2sMaster;
 }
 am_hal_pdm_config_t;
 
@@ -378,7 +493,7 @@ extern uint32_t am_hal_pdm_deinitialize(void *pHandle);
 
 //*****************************************************************************
 //
-//! @brief PDM Power control function. function
+//! @brief PDM Power control function
 //!
 //! @param pHandle      - handle for the PDM.
 //! @param ePowerState  - power state requested
@@ -461,6 +576,17 @@ extern uint32_t am_hal_pdm_reset(void *pHandle);
 //
 //*****************************************************************************
 extern uint32_t am_hal_pdm_dma_start(void *pHandle, am_hal_pdm_transfer_t *pDmaCfg);
+
+//*****************************************************************************
+//
+//! @brief Stop PDM DMA Transfer.
+//!
+//! @param pHandle - handle for the interface.
+//!
+//! @return status - generic or interface specific status.
+//
+//*****************************************************************************
+extern uint32_t am_hal_pdm_dma_stop(void *pHandle);
 
 //*****************************************************************************
 //
@@ -634,12 +760,19 @@ extern uint32_t am_hal_pdm_interrupt_status_get(void *pHandle, uint32_t *pui32St
 //
 //*****************************************************************************
 extern uint32_t am_hal_pdm_interrupt_service(void *pHandle, uint32_t ui32IntMask, am_hal_pdm_transfer_t* psConfig);
-// #### INTERNAL BEGIN ####
+
+//*****************************************************************************
 //
-// Test use only!
+//! @brief PDM DMA transfer continue function
+//!
+//! @param pHandle  - Handle for the module instance.
+//! @param psConfig - Pointer to the PDM transfer configuration.
+//!
+//! @return AM_HAL_STATUS_SUCCESS
 //
-extern uint32_t am_hal_pdm_find_dma_threshold(uint32_t ui32TotalCount);
-// #### INTERNAL END ####
+//*****************************************************************************
+extern uint32_t am_hal_pdm_dma_transfer_continue(void *pHandle, am_hal_pdm_transfer_t *pTransferCfg);
+
 
 #ifdef __cplusplus
 }

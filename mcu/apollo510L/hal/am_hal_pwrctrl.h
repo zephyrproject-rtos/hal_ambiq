@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -45,15 +72,15 @@ extern "C"
 //!      0 = Do not turn on LDOs in parallel with simobuck.
 //!      1 = Turn on LDOs in parallel with simobuck and set their voltage levels
 //!          ~35mV lower than minimum buck voltages.
-//  Default: 1
-//  NOTE: FOR Apollo5b - this must be 1
+//  Default: 0
+//  NOTE: FOR Apollo510L - this must be 0
 //
 //*****************************************************************************
-#define AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL    1  // Enabled for Apollo5b silicon
+#define AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL    0  // Disabled for Apollo510L
 
-#if (AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL == 0)
-#error Apollo5b requires AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL.
-#endif
+// #if (AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL == 0)
+// #error Apollo510L requires AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL.
+// #endif
 
 //*****************************************************************************
 //
@@ -62,10 +89,6 @@ extern "C"
 //!      0 = Do not assist VDDC.
 //!      1 = Activate LDOs in parallel when disabling SIMOBUCK.
 //!  Default: 1
-// #### INTERNAL BEGIN ####
-// A2SD-2248 AM_HAL_PWRCTRL_LDOS_FOR_VDDC. This option is dependent on
-// AM_HAL_PWRCTL_SET_CORELDO_MEMLDO_IN_PARALLEL.
-// #### INTERNAL END ####
 //
 //*****************************************************************************
 #define AM_HAL_PWRCTRL_LDOS_FOR_VDDC                    0
@@ -78,9 +101,6 @@ extern "C"
 //! Option to connect MCU core to VDDC_LV for increased power efficiency. Ambiq
 //! recommends this option be enabled for all new applications
 //
-// #### INTERNAL BEGIN ####
-// See FB-350 for discussion and detail concerning this option.
-// #### INTERNAL END ####
 //
 //! Default: 1 for RevC
 //*****************************************************************************
@@ -88,20 +108,107 @@ extern "C"
 
 //*****************************************************************************
 //
-//! Option for the TempCo power minimum power.
+//! Option to enable Simobuck to switch to Active from LP mode in DeepSleep
+//! if there is increase in load
+//! Disable this option for Apollo510L
+//! Default: 0
+//*****************************************************************************
+#define AM_HAL_PWRCTRL_SIMOLP_AUTOSWITCH                0
+
+//*****************************************************************************
+//
+//! If the application wants to suspend tempsensing during deeplseep, it is a
+//! must to set NO_TEMPSENSE_IN_DEEPSLEEP to true to restore VDDC and VDDF
+//! settings before deepsleep. This MACRO is set to false by default.
 //
 //*****************************************************************************
-#define AM_HAL_TEMPCO_LP                                0
-#if AM_HAL_TEMPCO_LP
-#define AM_HAL_TEMPCO_DELAYUS   30
+#define NO_TEMPSENSE_IN_DEEPSLEEP                       false
+
+//*****************************************************************************
+//
+//! Option for the TempCo power minimum power.
+//! The tempco algorithm is still being tuned for optimal operation, and hence
+//! it is possible that for certain temperature ranges, it does not yet get the
+//! most optimal settings (might increase power, when compared to without tempco).
+//
+//*****************************************************************************
+//*****************************************************************************
+//
+//! Enable VDDC TempCo
+//! VDDC Tempco was found to created elevated current under room temperature,
+//! and hence is disabled by default currently.
+//
+//*****************************************************************************
+#define AM_HAL_ENABLE_TEMPCO_VDDC                       false
+
+//*****************************************************************************
+//
+//! Enable VDDD TempCo
+//
+//*****************************************************************************
+#define AM_HAL_ENABLE_TEMPCO_VDDF                       true
+
+//*****************************************************************************
+//
+//! Compile switch for boosting VDDF for SDIO, it is false by default
+//
+//*****************************************************************************
+#define BOOST_VDDF_FOR_SDIO                             false
+
+
+//*****************************************************************************
+//
+//! Definition of temperature threshold of buck state control before seepsleep
+//! and VDDC & VDDF temperrature compensation.
+//
+//*****************************************************************************
+#define BUCK_LP_TEMP_THRESHOLD      50.0f
+#define VDDC_VDDF_TEMPCO_THRESHOLD  35.0f
+#define TEMP_HYSTERESIS              2.0f
+#define LOW_LIMIT                 -273.0f
+#define HIGH_LIMIT                1000.0f
+#define VDDC_VDDF_TEMPCO_THRESHOLD_LOW  -20.0f
+#define VDDC_VDDF_TEMPCO_THRESHOLD_MID    0.0f
+#define VDDC_VDDF_TEMPCO_THRESHOLD_HIGH  50.0f
 
 //
-//! Define the recommended number of ADC samples required for accurate
-//! temperature measurement. This number of samples must be passed along
-//! to the HAL function, am_hal_pwrctrl_tempco_sample_handler().
+//! Maximum time to wait for performance switch acknowledge before declaring
+//! error.
 //
-#define AM_HAL_TEMPCO_NUMSAMPLES  5
-#endif // AM_HAL_TEMPCO_LP
+#define AM_HAL_PWRCTRL_PERF_SWITCH_WAIT_US  20
+
+//
+//! When waking up from deepsleep to HP mode, CPU will wake up even if not operating on HP mode
+//! yet. During the transition period, it will run as LP mode.
+//! Default setting of 0 is better for reducing wakeup latency
+//! Set AM_HAL_STALL_CPU_HPWAKE to 1 if we need to block CPU after wakeup till running in HP mode
+//
+// #define AM_HAL_STALL_CPU_HPWAKE      0
+
+//
+//! VDDC to VDDC_LV short and VDDS to VDDF short
+//! bShort - true:  Short VDDC to VDDC_LV and VDDS to VDDF.
+//!          false: Remove VDDC and VDDC_LV short and VDDS to VDDF short.
+//!
+//
+#define vddc_to_vddclv_and_vdds_to_vddf_short(bShort) \
+do                                                    \
+{                                                     \
+    if (bShort)                                       \
+    {                                                 \
+        MCUCTRL->PWRSW1_b.SHORTVDDCVDDCLVORVAL = 1;   \
+        MCUCTRL->PWRSW1_b.SHORTVDDCVDDCLVOREN = 1;    \
+        MCUCTRL->PWRSW1_b.SHORTVDDFVDDSORVAL = 1;     \
+        MCUCTRL->PWRSW1_b.SHORTVDDFVDDSOREN = 1;      \
+    }                                                 \
+    else                                              \
+    {                                                 \
+        MCUCTRL->PWRSW1_b.SHORTVDDCVDDCLVORVAL = 0;   \
+        MCUCTRL->PWRSW1_b.SHORTVDDCVDDCLVOREN = 0;    \
+        MCUCTRL->PWRSW1_b.SHORTVDDFVDDSORVAL = 0;     \
+        MCUCTRL->PWRSW1_b.SHORTVDDFVDDSOREN = 0;      \
+    }                                                 \
+} while (0);
 
 //*****************************************************************************
 //
@@ -191,8 +298,8 @@ typedef enum
 //
 typedef enum
 {
-  AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN = PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN,
-  AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN = PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN,
+  AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_RETAIN = PWRCTRL_MEMRETCFG_TCMPWDSLP_DIS,
+  AM_HAL_PWRCTRL_MEMRETCFG_TCMPWDSLP_NORETAIN = PWRCTRL_MEMRETCFG_TCMPWDSLP_EN,
 } am_hal_pwrctrl_dtcm_retain_e;
 
 //
@@ -222,6 +329,18 @@ typedef enum
     AM_HAL_PWRCTRL_ROM_ALWAYS_ON,               // Turn on ROM and always leave it on.
     AM_HAL_PWRCTRL_ROM_AUTO                     // Allow HAL to manage ROM power state.
 } am_hal_pwrctrl_rom_select_e;
+
+//*****************************************************************************
+//
+//! CLPSTATE, type of low-power state for PDCORE.
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_PWRCTRL_CM4_POWEROFF = PWRCTRL_CM4PWRSTATE_CM4PWRSTATUS_OFF,
+    AM_HAL_PWRCTRL_CM4_POWERON = PWRCTRL_CM4PWRSTATE_CM4PWRSTATUS_ON,
+    AM_HAL_PWRCTRL_CM4_POWERORET = PWRCTRL_CM4PWRSTATE_CM4PWRSTATUS_RET
+} am_hal_pwrctrl_cm4_pwr_state_e;
 
 //
 //! MCU memory configuration structure.
@@ -261,11 +380,6 @@ typedef enum
     AM_HAL_PWRCTRL_CONTROL_CRYPTO_POWERDOWN,    // Power down Crypto
     AM_HAL_PWRCTRL_CONTROL_XTAL_PWDN_DEEPSLEEP, // Allow the crystal to power down during deepsleep
     AM_HAL_PWRCTRL_CONTROL_DIS_PERIPHS_ALL,     // Power down all peripherals
-#if AM_HAL_TEMPCO_LP
-    AM_HAL_PWRCTRL_CONTROL_TEMPCO_GETMEASTEMP,  // TempCo, return the measured temperature
-#endif // AM_HAL_TEMPCO_LP
-    AM_HAL_PWRCTRL_CONTROL_DEEPERSLEEP_ENABLE,  // Enable mcu to go to Deeper-sleep
-    AM_HAL_PWRCTRL_CONTROL_DEEPERSLEEP_DISABLE, // Select mcu to go to Deep-sleep
 } am_hal_pwrctrl_control_e;
 
 //*****************************************************************************
@@ -385,16 +499,11 @@ typedef struct
 {
     uint32_t ui32INFO1GlobalValid;
 
-    uint32_t ui32SBLVer0;                   // 00 Apollo5b MRAM
-    uint32_t ui32SBLVer1;                   // 04 Apollo5b MRAM
+    uint32_t ui32SBLVer0;                   // 00 Apollo510L MRAM
+    uint32_t ui32SBLVer1;                   // 04 Apollo510L MRAM
 
     uint32_t ui32MAINPTR;                   // 10
-    uint32_t ui32SBLOTA;                    // 18 Apollo5b
-// #### INTERNAL BEGIN ####
-//  uint32_t ui32resvd14;                   // 14
-//  uint32_t ui32SBLOTA;                    // 18 Apollo5b
-//  uint32_t ui32resvd1C;                   // 1C
-// #### INTERNAL END ####
+    uint32_t ui32SBLOTA;                    // 18 Apollo510L
 
     uint32_t ui32SOCID0;                    // 20 OTP
     uint32_t ui32SOCID1;                    // 24 OTP
@@ -405,29 +514,9 @@ typedef struct
     uint32_t ui32SOCID6;                    // 38 OTP
     uint32_t ui32SOCID7;                    // 3C OTP
 
-// #### INTERNAL BEGIN ####
-//  uint32_t ui32PATCH_TRACKER0;            // 40
-//  uint32_t ui32PATCH_TRACKER1;            // 44
-//  uint32_t ui32PATCH_TRACKER2;            // 48
-//  uint32_t ui32PATCH_TRACKER3;            // 4C
-//  uint32_t ui32SBR_SDCERT_ADDR;           // 50
-//  uint32_t ui32resvd54;                   // 54
-//  uint32_t ui32SBR_IPT_ADDR;              // 58
-//  uint32_t ui32SBR_OPT_ADDR;              // 5C
-//  uint32_t ui32TRIM_SBR_OTP;              // 60 Apollo5b
-// #### INTERNAL END ####
     uint32_t ui32TEMP_CAL_ATE;              // 00
     uint32_t ui32TEMP_CAL_MEASURED;         // 04
     uint32_t ui32TEMP_CAL_ADC_OFFSET;       // 08
-// #### INTERNAL BEGIN ####
-//  uint32_t ui32CHIPSUBREV;                // 0C Apollo5b
-//  uint32_t ui32TRIM_REV;                  // 10
-//  uint32_t ui32FT1_GDR1;                  // 14 Apollo5b
-//  uint32_t ui32FT2_GDR1;                  // 18 Apollo5b
-//  uint32_t ui32LVT_TRIMCODE;              // 1C Apollo5b
-//  uint32_t ui32EHVT_TRIMCODE;             // 20 Apollo5b
-//  uint32_t ui32AUDADC_BINNING;            // 24
-// #### INTERNAL END ####
     uint32_t ui32ADC_GAIN_ERR;              // 28
     uint32_t ui32ADC_OFFSET_ERR;            // 2C
 
@@ -448,12 +537,13 @@ typedef struct
 #define INFO1DATAENTRIES    (sizeof(am_hal_pwrctrl_info1_regs_t) / 4)
 
 //
-// Define a value used in ui32INFO1GlobalValid to indicate
+// Define a value used in ui32INFO1GlobalValid and ui32SpotMgrINFO1GlobalValid to indicate
 // that INFO1 has been saved globally.
 //
 #define INFO1GLOBALVALID          0x1F01600D
 
 extern am_hal_pwrctrl_info1_regs_t g_sINFO1regs;
+extern uint32_t g_orig_CORELDOACTIVETRIM;
 
 //*****************************************************************************
 //
@@ -519,6 +609,43 @@ typedef struct
 
 //*****************************************************************************
 //
+//! Temperature threshold structure
+//
+//*****************************************************************************
+typedef struct
+{
+    float fLowThresh;
+    float fHighThresh;
+} am_hal_pwrctrl_temp_thresh_t;
+
+//*****************************************************************************
+//
+//! Temperature range enum for tempco
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_PWRCTRL_TEMPCO_RANGE_LOW,
+    AM_HAL_PWRCTRL_TEMPCO_RANGE_MID,
+    AM_HAL_PWRCTRL_TEMPCO_RANGE_HIGH,
+    AM_HAL_PWRCTRL_TEMPCO_OUT_OF_RANGE
+} am_hal_pwrctrl_tempco_range_e;
+
+//*****************************************************************************
+//
+//! Mask of PWRCTRL->SYSPWRSTATUS sleep power status bits.
+//! This mask is useful for clearing all the bits after reading them, e.g.
+//! PWRCTRL->SYSPWRSTATUS = PWRCTRL_SYSPWRSTATUS_SLEEP_Msk;
+//
+//*****************************************************************************
+#define PWRCTRL_SYSPWRSTATUS_SLEEP_Msk                      \
+            (PWRCTRL_SYSPWRSTATUS_SYSDEEPSLEEP_Msk      |   \
+             PWRCTRL_SYSPWRSTATUS_COREDEEPSLEEP_Msk     |   \
+             PWRCTRL_SYSPWRSTATUS_CORESLEEP_Msk         |   \
+             PWRCTRL_SYSPWRSTATUS_SYSDEEPERSLEEP_Msk)
+
+//*****************************************************************************
+//
 //! @name Default configurations
 //! @{
 //
@@ -533,6 +660,7 @@ extern const am_hal_pwrctrl_sram_memcfg_t            g_DefaultSRAMCfg;
 //! @{
 //
 // ****************************************************************************
+extern bool     g_bOrigTrimsStored;
 extern uint32_t g_ui32TrimVer;
 //! @}
 
@@ -702,14 +830,6 @@ extern uint32_t am_hal_pwrctrl_periph_enabled(am_hal_pwrctrl_periph_e ePeriphera
 //*****************************************************************************
 extern uint32_t am_hal_pwrctrl_status_get(am_hal_pwrctrl_status_t *psStatus);
 
-// #### INTERNAL BEGIN ####
-// ****************************************************************************
-// Brief version of
-// am_hal_pwrctrl_periph_enabled(AM_HAL_PWRCTRL_PERIPH_OTP, &bEnabled);
-// ****************************************************************************
-#define am_hal_pwrctrl_is_OTP_enabled()     \
-    (PWRCTRL->DEVPWRSTATUS_b.PWRSTOTP ? true : false)
-// #### INTERNAL END ####
 //*****************************************************************************
 //
 //! @brief Initialize system for low power configuration.
@@ -718,6 +838,11 @@ extern uint32_t am_hal_pwrctrl_status_get(am_hal_pwrctrl_status_t *psStatus);
 //! - See also am_hal_pwrctrl_control() for other power saving techniques.
 //!
 //! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
+//!
+//! @note IMPORTANT - This function requires access to INFO0 and/or INFO1 data.
+//! Therefore, if either INFO0 or INFO1 is in OTP, OTP must be powered up prior
+//! to calling this function. For more information, see the description for
+//! am_hal_info0_read().
 //
 //*****************************************************************************
 extern uint32_t am_hal_pwrctrl_low_power_init(void);
@@ -752,33 +877,6 @@ extern uint32_t am_hal_pwrctrl_control(am_hal_pwrctrl_control_e eControl, void *
 //*****************************************************************************
 extern uint32_t am_hal_pwrctrl_settings_restore(void);
 
-#if AM_HAL_TEMPCO_LP
-//*****************************************************************************
-//
-//! @brief Initialize the TempCo workaround.
-//!
-//! @param pADCHandle - Pointer to ADC Handle
-//! @param ui32ADCslot - ADc Slot to initialize
-//!
-//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
-//
-//*****************************************************************************
-extern uint32_t am_hal_pwrctrl_tempco_init(void *pADCHandle,
-                                           uint32_t ui32ADCslot);
-
-// ****************************************************************************
-//
-//! @brief This function to be called from the ADC or timer ISR.
-//!
-//! @param ui32NumSamples - Number of sSamples to process
-//! @param sSamples - Array of ADC Samples
-//!
-//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
-//
-// ****************************************************************************
-extern uint32_t am_hal_pwrctrl_tempco_sample_handler(uint32_t ui32NumSamples,
-                                                     am_hal_adc_sample_t sSamples[]);
-#endif // AM_HAL_TEMPCO_LP
 
 //*****************************************************************************
 //
@@ -802,6 +900,24 @@ extern uint32_t am_hal_pwrctrl_pwrmodctl_cpdlp_config(am_hal_pwrctrl_pwrmodctl_c
 //*****************************************************************************
 extern void am_hal_pwrctrl_pwrmodctl_cpdlp_get(am_hal_pwrctrl_pwrmodctl_cpdlp_t * psCpdlpConfig);
 
+// ****************************************************************************
+//
+//! @brief A function for temperature compensation for power.
+//!
+//! @param fCurTemp     - Current temperature in Celsius.
+//! @param psTempThresh - This API returns this structure for notifying of thresholds
+//!                       when application should make this call again (When temp goes
+//!                       lower than fLowThresh or rises above fHighThresh).
+//!
+//! @return AM_HAL_STATUS_SUCCESS or errors
+//!
+//! If current temperature is higher than BUCK_LP_TEMP_THRESHOLD(e.g. 50c),
+//! bFrcBuckAct must be set to true. Otherwise, set bFrcBuckAct to false.
+//
+// ****************************************************************************
+extern uint32_t am_hal_pwrctrl_temp_update(float fCurTemp,
+                                           am_hal_pwrctrl_temp_thresh_t * psTempThresh);
+
 //*****************************************************************************
 //
 //! @brief Decides CPU will enter HP1 and wait until PLL_LOCK and switch to HP2.
@@ -813,6 +929,81 @@ extern void am_hal_pwrctrl_pwrmodctl_cpdlp_get(am_hal_pwrctrl_pwrmodctl_cpdlp_t 
 //
 //*****************************************************************************
 extern void am_hal_pwrctrl_wait_pll_lock_for_hp2(bool bWaitPllockForHp2);
+
+//*****************************************************************************
+//
+//! @brief Enable power to system PLL.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
+//
+//*****************************************************************************
+extern uint32_t am_hal_pwrctrl_syspll_enable(void);
+
+//*****************************************************************************
+//
+//! @brief Disable power to system PLL.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
+//
+//*****************************************************************************
+extern uint32_t am_hal_pwrctrl_syspll_disable(void);
+
+// ****************************************************************************
+//
+//! @brief  Determine whether system PLL is currently enabled.
+//! @param  bEnabled - Pointer to a bool that will return as true if system PLL
+//!                    is powered up, false otherwise.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
+//
+// ****************************************************************************
+extern uint32_t am_hal_pwrctrl_syspll_enabled(bool *bEnabled);
+
+// ****************************************************************************
+//
+//! @brief Get the CM4 power state.
+//!
+//! @param pCm4pwrstate is a ptr to a variable to save the current status.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors.
+//
+// ****************************************************************************
+extern uint32_t am_hal_pwrctrl_get_cm4_pwrstate(am_hal_pwrctrl_cm4_pwr_state_e * pCm4pwrstate);
+
+//*****************************************************************************
+//
+//! @brief Wake up the CM4.
+//!
+//! @param none.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
+//
+//*****************************************************************************
+extern uint32_t am_hal_pwrctrl_cm4_wakeup_req(void);
+
+//*****************************************************************************
+//
+//! @brief Power Up RSS .
+//!
+//! @param none.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
+//
+//*****************************************************************************
+
+extern uint32_t am_hal_pwrctrl_rss_bootup(void);
+
+//*****************************************************************************
+//
+//! @brief Power off the RSS.
+//!
+//! @param none.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or applicable PWRCTRL errors
+//
+//*****************************************************************************
+extern uint32_t am_hal_pwrctrl_rss_pwroff(void);
+
 #ifdef __cplusplus
 }
 #endif

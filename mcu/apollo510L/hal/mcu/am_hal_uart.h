@@ -12,9 +12,36 @@
 
 //*****************************************************************************
 //
-// ${copyright}
+// Copyright (c) 2025, Ambiq Micro, Inc.
+// All rights reserved.
 //
-// This is part of revision ${version} of the AmbiqSuite Development Package.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+// this list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright
+// notice, this list of conditions and the following disclaimer in the
+// documentation and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+// contributors may be used to endorse or promote products derived from this
+// software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// This is part of revision release_sdk5_2_a_0-438c93f352 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -23,7 +50,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
 
 #ifdef __cplusplus
 extern "C"
@@ -62,6 +88,10 @@ typedef enum
     AM_HAL_UART_ERR_MEMORY_ERROR_01,
     AM_HAL_UART_ERR_MEMORY_ERROR_02,
     AM_HAL_UART_ERR_MEMORY_ERROR_03,
+    AM_HAL_UART_DMA_BUSY_ERROR,
+    AM_HAL_UART_RX_BUFFER_TOO_SMALL,
+    AM_HAL_UART_DMA_CFG_ERROR,
+    AM_HAL_UART_DMA_SETUP_ERROR,
     AM_HAL_UART_ERR_END,            //<! Keep this the last entry in this enum list
 
 }
@@ -79,6 +109,7 @@ am_hal_uart_errors_t;
 #define AM_HAL_UART_RSR_BESTAT              UART0_RSR_BESTAT_Msk
 #define AM_HAL_UART_RSR_PESTAT              UART0_RSR_PESTAT_Msk
 #define AM_HAL_UART_RSR_FESTAT              UART0_RSR_FESTAT_Msk
+//! @}
 
 //*****************************************************************************
 //
@@ -238,24 +269,8 @@ typedef enum
 {
     AM_HAL_UART_HFCLK_SRC_HFRC_96M  = CRM_UART0HFCRM_UART0HFCLKSEL_HFRC_96MHz,
     AM_HAL_UART_HFCLK_SRC_PLLPOSTDIV  = CRM_UART0HFCRM_UART0HFCLKSEL_PLLPOSTDIV,
-
 } am_hal_uart_clock_src_e;
 
-//
-//! DMA async mode defs,
-//! These are modes that are supported by the uart async functions
-//
-typedef enum
-{
-    AM_HAL_UART_DMA_NONE,
-    AM_HAL_UART_DMA_TX_DOUBLE_BUFFER,
-    AM_HAL_UART_DMA_TX_SINGLE_BUFFER,
-    AM_HAL_UART_DMA_RX,                //!< This is not supported in Async Calls
-    AM_HAL_UART_DMA_RX_TX_DOUBLE,      //!< This is not supported
-    AM_HAL_UART_DMA_RX_TX_SINGLE,      //!< This is not supported
-    AM_HAL_UART_DMA_MODE_ENTRIES,
-}
-am_hal_uart_async_dma_mode_e;
 
 //
 //! UART Config
@@ -270,67 +285,14 @@ typedef struct
     am_hal_uart_fifo_level_e        eTXFifoLevel;  //!< TX fifo interrupt level
     am_hal_uart_fifo_level_e        eRXFifoLevel;  //!< RX fifo interrupt level
     am_hal_uart_clock_src_e         eClockSrc;     //!< Clock source
-    am_hal_uart_async_dma_mode_e    eAsyncDMAMode; //!< DmaMode
 }
 am_hal_uart_config_t;
-
-
-//! @{
-//! Structs to manage DMA tx queueing
-#define AM_HAL_DMA_QUEUE_MAX_ENTRIES 3
-
-
-//
-//! defines a tx buffer descriptor used
-//! for DMA transmissions in the async functions
-//! These buffer queuing methods work because uart DMA does
-//! not require an aligned start address
-//
-typedef struct uart_dma_tx_qe
-{
-    struct uart_dma_tx_qe *nextDesc;
-    uint32_t              ui32BuffBaseAddr;    //!< used in double buffer mode to save base address
-    uint32_t              ui32StartAddress;    //!< next starting address of this section
-    uint32_t              ui32BufferSize;      //!< the size of this descriptor buffer
-    uint32_t              ui32NumBytes;        //!< num bytes saved in this section, other than sending DMA
-    uint32_t              ui32NumDmaQueued;    //!< number of bytes in buffer, sending via DMA
-    uint8_t               descIdx;
-    uint8_t               align[3];
-}
-am_hal_uart_dma_tx_descriptor_entry_t;
-
-
-//
-//! This is the
-//! for DMA transmissions in the async functions
-//
-typedef struct
-{
-    //
-    //! buffer descriptors for a uart
-    //!
-    am_hal_uart_dma_tx_descriptor_entry_t tDescriptor[AM_HAL_DMA_QUEUE_MAX_ENTRIES];
-    uint32_t                              queueStartAddr;        //!< start of the circular buffer
-    uint32_t                              queueEndAddr;          //!< end of circular buffer
-    am_hal_uart_dma_tx_descriptor_entry_t *activeDmaTxDesc;      //!< active dma queue, 0 when no DMA ongoing
-    am_hal_uart_dma_tx_descriptor_entry_t *nextDmaWrtDesc;       //!< used in SingleBuffer mode
-
-    am_hal_uart_async_dma_mode_e          eAsyncDmaMode;         //!< the dma mode used for this uart
-    bool                                  bDmaQueueInited;       //!< true when data in this struct is inited
-
-    uint8_t     align[2];
-}
-am_hal_uart_dma_tx_queue_t;
-
-//! @}   circular buffer dma queue structs
-
-//! @}  // Structs to manage DMA tx queueing
 
 
 //*****************************************************************************
 //
 //! @brief The type of transfer to execute.
-//! This is for the non-async (blocking and non-blocking) functions
+//! This is for the non-streaming (blocking and non-blocking) functions
 //!
 //! For blocking transfers, the CPU will poll until the requested number of
 //! bytes have been transferred, or the timeout interval elapses, whichever
@@ -408,7 +370,6 @@ typedef struct
     //
     uint32_t ui32ErrorStatus;
 
-
     //
     //! Buffer
     //
@@ -441,37 +402,6 @@ typedef struct
 }
 am_hal_uart_transfer_t;
 
-
-//*****************************************************************************
-//
-//! UART error codes.
-//! This is returned from the async uart ISR service
-//
-//*****************************************************************************
-typedef enum
-{
-    AM_HAL_UART_ASYNC_STATUS_SUCCESS            = 0,
-    AM_HAL_UART_ASYNC_STATUS_RX_QUEUE_FULL      = 0x0001,
-    AM_HAL_UART_ASYNC_STATUS_RX_DATA_AVAIL      = 0x0002,
-    AM_HAL_UART_ASYNC_STATUS_TX_QUEUE_FULL      = 0x0004,
-    AM_HAL_UART_ASYNC_STATUS_TX_COMPLETE        = 0x0008,
-    AM_HAL_UART_ASYNC_STATUS_TX_BUSY            = 0x0010,
-    AM_HAL_UART_ASYNC_STATUS_TX_DMA_BUSY        = 0x0020,
-    AM_HAL_UART_ASYNC_STATUS_TX_DMA_COMPLETE    = 0x0020,
-    AM_HAL_UART_ASYNC_STATUS_DMA_ERROR          = 0x0040,
-    AM_HAL_UART_ASYNC_STATUS_INTERNAL_DMA_ERROR = 0x0080,
-    AM_HAL_UART_ASYNC_STATUS_FRM_ERROR          = UART0_DR_FEDATA_Msk,  // 0x0100 <-> 0x0800 are reserved for hardware outputs
-    AM_HAL_UART_ASYNC_STATUS_PRTY_ERROR         = UART0_DR_PEDATA_Msk,
-    AM_HAL_UART_ASYNC_STATUS_BRK_ERROR          = UART0_DR_BEDATA_Msk,
-    AM_HAL_UART_ASYNC_STATUS_OVRN_ERROR         = UART0_DR_OEDATA_Msk,
-    AM_HAL_UART_ASYNC_STATUS_INTRNL_MSK         = (AM_HAL_UART_ASYNC_STATUS_FRM_ERROR
-                                                   | AM_HAL_UART_ASYNC_STATUS_OVRN_ERROR
-                                                   | AM_HAL_UART_ASYNC_STATUS_PRTY_ERROR
-                                                   | AM_HAL_UART_ASYNC_STATUS_BRK_ERROR),
-
-    AM_HAL_UART_ASYNC_STATUS_x32                = 0x80000000,  // force all compilers to use 32bit
-}
-am_hal_uart_async_status_t;
 
 
 //
@@ -548,7 +478,10 @@ am_hal_uart_async_status_t;
 //! Clock frequency when using SYSPLL as clock source
 //
 #define AM_HAL_UART_PLLCLK_FREQ             49152000
-
+//
+//! Clock frequency when using HFRC as clock source
+//
+#define AM_HAL_UART_HFRCCLK_FREQ             96000000
 //*****************************************************************************
 //
 //! @brief UART enable macro
@@ -813,6 +746,19 @@ extern uint32_t am_hal_uart_dma_transfer(void *pHandle, am_hal_uart_transfer_t *
 
 //*****************************************************************************
 //
+//! @brief UART DMA transaction completes, clear config and status
+//!
+//! @param pHandle is the UART handle to use.
+//!
+//! This function disables and clears UART DMA.
+//!
+//! @return void.
+//
+//*****************************************************************************
+extern void am_hal_uart_dma_transfer_complete(void *pHandle);
+
+//*****************************************************************************
+//
 //! @brief UART dma full duplex transfer function
 //!
 //! @param pTXHandle       - handle for the TX UART.
@@ -1059,110 +1005,6 @@ extern uint32_t am_hal_uart_interrupt_enable_get(void *pHandle, uint32_t *pui32I
 extern uint32_t am_hal_uart_interrupt_service(void *pHandle,
                                               uint32_t ui32Status);
 
-//*****************************************************************************
-//
-//! @brief //! Manage UART ISR used when uart fifos and tx and rx queues are enabled
-//! This is a nonblocking, non-signalling uart driver, it saves incoming rx data
-//! in the rx queue, and transmits tx data from the queue.
-//!
-//! @param pHandle  uart handle
-//!
-//! @return am_hal_uart_async_status_t
-//
-//*****************************************************************************
-extern am_hal_uart_async_status_t am_hal_uart_interrupt_queue_service(void *pHandle);
-
-//*****************************************************************************
-//
-//! @brief Choose correct function based on DMA mode for tx append.
-//! @param pHandle  pointer to uart handle
-//! @param pui8Buff  pointer to tx buffer
-//! @param ui32NumBytes number of bytes to transmit
-//!
-//! @return standard hal status
-//
-//*****************************************************************************
-extern am_hal_uart_errors_t am_hal_async_uart_append_tx(void *pHandle,
-                                            uint8_t *pui8Buff,
-                                            uint32_t ui32NumBytes);
-
-//*****************************************************************************
-//
-//
-//! @brief Append data into the uart tx output queue
-//! using fifos not DMA
-//!
-//! @param pHandle is the handle for the UART to operate on.
-//! @param pui8Buff  pointer to data buffer
-//! @param ui32NumBytes  number of bytes to transmit
-//!
-//! @return  uart hal status (standard hal status)
-//
-//*****************************************************************************
-extern am_hal_uart_errors_t am_hal_uart_append_tx_fifo( void *pHandle,
-                                       uint8_t *pui8Buff,
-                                       uint32_t ui32NumBytes);
-
-//*****************************************************************************
-//
-//! @brief queue data to transmit via UART DMA
-//!
-//! @param pHandle is the handle for the UART to operate on.
-//! @param pui8Buff pointer to data buffer
-//! @param ui32NumBytes  number of bytes to send
-//!
-//! @return uart status
-//
-//*****************************************************************************
-extern am_hal_uart_errors_t am_hal_uart_append_tx_double(void *pHandle,
-                                             uint8_t *pui8Buff,
-                                             uint32_t ui32NumBytes);
-//*****************************************************************************
-//
-//! @brief queue data to transmit via UART DMA
-//!
-//! @param pHandle is the handle for the UART to operate on.
-//! @param pui8Buff pointer to data buffer
-//! @param ui32NumBytes  number of bytes to send
-//!
-//! @return uart status
-//
-//*****************************************************************************
-extern am_hal_uart_errors_t am_hal_uart_append_tx_single(void *pHandle,
-                                             uint8_t *pui8Buff,
-                                             uint32_t ui32NumBytes);
-
-//*****************************************************************************
-//
-//! @brief Get Rx Data from Async buffered data
-//! This function will unload data from the queue and load the data into
-//! a user supplied buffer.
-//!
-//! @param pHandle              pointer to handle for the UART to operate on.
-//! @param pui8DestBuff         pointer to rx data buffer
-//! @param ui32MaxBytesToRead   max number of bytes to read
-//!
-//! @return number of bytes loaded into data buffer
-//
-//*****************************************************************************
-extern uint32_t am_hal_uart_async_get_rx_data(void *pHandle,
-                                                uint8_t *pui8DestBuff,
-                                                uint32_t ui32MaxBytesToRead);
-
-//*****************************************************************************
-//
-//! @brief // Setup the DMA queue buffer descriptors depending on the dma mode chosen
-//!
-//! @param pHandle       Is pointer to the handle for this UART
-//! @param eAsyncDmaMode The dma mode used for this UART
-//! @param psDmaQ        Pointer to a global the calling program must allocate (cannot be on the stack)
-//!
-//! @return standard hal status
-//
-//*****************************************************************************
-extern uint32_t am_hal_uart_dmaQueueInit(void *pHandle,
-                                         am_hal_uart_async_dma_mode_e eAsyncDmaMode,
-                                         am_hal_uart_dma_tx_queue_t *psDmaQ);
 
 #ifdef __cplusplus
 }
