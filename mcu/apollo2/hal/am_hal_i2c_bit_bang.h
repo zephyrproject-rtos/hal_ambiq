@@ -1,18 +1,17 @@
 //*****************************************************************************
 //
-//! @file am_sdk_version.h
+//  am_hal_i2c_bit_bang.h
+//! @file
 //!
-//! @brief Defines SDK version.
+//! @brief I2C bit bang module.
 //!
-//! @addtogroup ambiqsuite Ambiqsuite SDK
+//! These functions implement the I2C bit bang utility
 //
-//! @defgroup hal mcu
-//! @ingroup ambiqsuite
-//! @{
+//*****************************************************************************
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2020, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,11 +40,26 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p0p0-5f68a8286b of the AmbiqSuite Development Package.
+// This is part of revision 2.5.1 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
-#ifndef AM_SDK_VERSION_H
-#define AM_SDK_VERSION_H
+#ifndef AM_HAL_I2C_BIT_BANG_H
+#define AM_HAL_I2C_BIT_BANG_H
+
+//*****************************************************************************
+//
+// Enumerated return constants
+//
+//*****************************************************************************
+typedef enum
+{
+    AM_HAL_I2C_BIT_BANG_SUCCESS = 0,
+    AM_HAL_I2C_BIT_BANG_ADDRESS_NAKED,
+    AM_HAL_I2C_BIT_BANG_DATA_NAKED,
+    AM_HAL_I2C_BIT_BANG_CLOCK_TIMEOUT,
+    AM_HAL_I2C_BIT_BANG_DATA_TIMEOUT,
+    AM_HAL_I2C_BIT_BANG_STATUS_MAX,
+}am_hal_i2c_bit_bang_enum_e;
 
 #ifdef __cplusplus
 extern "C"
@@ -54,45 +68,31 @@ extern "C"
 
 //*****************************************************************************
 //
-// Macros to define HAL SDK version.
+// External function definitions
 //
 //*****************************************************************************
-//
-// Define the current HAL version.
-//
-#ifndef AM_HAL_VERSION_MAJ
-#if defined(AM_PART_APOLLO3_API)
-#define AM_HAL_VERSION_MAJ      3
-#define AM_HAL_VERSION_MIN      2
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO4_API)
-#define AM_HAL_VERSION_MAJ      4
-#define AM_HAL_VERSION_MIN      5
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO5_API)
-#define AM_HAL_VERSION_MAJ      5
-#define AM_HAL_VERSION_MIN      0
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO2_API)
-#define AM_HAL_VERSION_MAJ      2
-#define AM_HAL_VERSION_MIN      5
-#define AM_HAL_VERSION_REV      1
-#else
-#define AM_HAL_VERSION_MAJ      0
-#define AM_HAL_VERSION_MIN      0
-#define AM_HAL_VERSION_REV      0
-#endif
-#endif // AM_HAL_VERSION_MAJ
+extern am_hal_i2c_bit_bang_enum_e am_hal_i2c_bit_bang_init(uint32_t sck_gpio_number,
+                                     uint32_t sda_gpio_number);
 
-#if (AM_HAL_VERSION_MAJ == 0)
-#error AM_HAL_VERSION_MAJ cannot be defined as 0.
-#endif
+extern am_hal_i2c_bit_bang_enum_e am_hal_i2c_bit_bang_send(uint8_t address,
+                                                    uint32_t number_of_bytes,
+                                                    uint8_t *pData,
+                                                    uint8_t ui8Offset,
+                                                    bool bUseOffset,
+                                                    bool bNoStop);
 
+extern am_hal_i2c_bit_bang_enum_e am_hal_i2c_bit_bang_receive(uint8_t address,
+                                                    uint32_t number_of_bytes,
+                                                    uint8_t *pData,
+                                                    uint8_t ui8Offset,
+                                                    bool bUseOffset,
+                                                    bool bNoStop);
 #ifdef __cplusplus
 }
 #endif
 
-#endif // AM_SDK_VERSION_H
+#endif //AM_HAL_I2C_BIT_BANG_H
+
 //*****************************************************************************
 //
 // End Doxygen group.

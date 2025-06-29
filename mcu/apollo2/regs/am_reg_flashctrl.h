@@ -1,18 +1,15 @@
 //*****************************************************************************
 //
-//! @file am_sdk_version.h
+//  am_reg_flashctrl.h
+//! @file
 //!
-//! @brief Defines SDK version.
-//!
-//! @addtogroup ambiqsuite Ambiqsuite SDK
+//! @brief Register macros for the FLASHCTRL module
 //
-//! @defgroup hal mcu
-//! @ingroup ambiqsuite
-//! @{
+//*****************************************************************************
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2020, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,61 +38,32 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p0p0-5f68a8286b of the AmbiqSuite Development Package.
+// This is part of revision 2.5.1 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
-#ifndef AM_SDK_VERSION_H
-#define AM_SDK_VERSION_H
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#ifndef AM_REG_FLASHCTRL_H
+#define AM_REG_FLASHCTRL_H
 
 //*****************************************************************************
 //
-// Macros to define HAL SDK version.
+// FLASHCTRL
+// Instance finder. (1 instance(s) available)
 //
 //*****************************************************************************
-//
-// Define the current HAL version.
-//
-#ifndef AM_HAL_VERSION_MAJ
-#if defined(AM_PART_APOLLO3_API)
-#define AM_HAL_VERSION_MAJ      3
-#define AM_HAL_VERSION_MIN      2
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO4_API)
-#define AM_HAL_VERSION_MAJ      4
-#define AM_HAL_VERSION_MIN      5
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO5_API)
-#define AM_HAL_VERSION_MAJ      5
-#define AM_HAL_VERSION_MIN      0
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO2_API)
-#define AM_HAL_VERSION_MAJ      2
-#define AM_HAL_VERSION_MIN      5
-#define AM_HAL_VERSION_REV      1
-#else
-#define AM_HAL_VERSION_MAJ      0
-#define AM_HAL_VERSION_MIN      0
-#define AM_HAL_VERSION_REV      0
-#endif
-#endif // AM_HAL_VERSION_MAJ
+#define AM_REG_FLASHCTRL_NUM_MODULES                 1
+#define AM_REG_FLASHCTRLn(n) \
+    (REG_FLASHCTRL_BASEADDR + 0x00001000 * n)
 
-#if (AM_HAL_VERSION_MAJ == 0)
-#error AM_HAL_VERSION_MAJ cannot be defined as 0.
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // AM_SDK_VERSION_H
 //*****************************************************************************
 //
-// End Doxygen group.
-//! @}
+// Register offsets.
 //
 //*****************************************************************************
+
+//*****************************************************************************
+//
+// Key values.
+//
+//*****************************************************************************
+
+#endif // AM_REG_FLASHCTRL_H
