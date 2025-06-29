@@ -1,18 +1,19 @@
 //*****************************************************************************
 //
-//! @file am_sdk_version.h
+//  am_hal_systick.h
+//! @file
 //!
-//! @brief Defines SDK version.
+//! @brief Functions for accessing and configuring the SYSTICK.
 //!
-//! @addtogroup ambiqsuite Ambiqsuite SDK
-//
-//! @defgroup hal mcu
-//! @ingroup ambiqsuite
+//! @addtogroup systick2 System Timer (SYSTICK)
+//! @ingroup apollo2hal
 //! @{
+//
+//*****************************************************************************
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2020, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,11 +42,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p0p0-5f68a8286b of the AmbiqSuite Development Package.
+// This is part of revision 2.5.1 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
-#ifndef AM_SDK_VERSION_H
-#define AM_SDK_VERSION_H
+#ifndef AM_HAL_SYSTICK_H
+#define AM_HAL_SYSTICK_H
 
 #ifdef __cplusplus
 extern "C"
@@ -54,45 +55,26 @@ extern "C"
 
 //*****************************************************************************
 //
-// Macros to define HAL SDK version.
+// External function definitions
 //
 //*****************************************************************************
-//
-// Define the current HAL version.
-//
-#ifndef AM_HAL_VERSION_MAJ
-#if defined(AM_PART_APOLLO3_API)
-#define AM_HAL_VERSION_MAJ      3
-#define AM_HAL_VERSION_MIN      2
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO4_API)
-#define AM_HAL_VERSION_MAJ      4
-#define AM_HAL_VERSION_MIN      5
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO5_API)
-#define AM_HAL_VERSION_MAJ      5
-#define AM_HAL_VERSION_MIN      0
-#define AM_HAL_VERSION_REV      0
-#elif defined(AM_PART_APOLLO2_API)
-#define AM_HAL_VERSION_MAJ      2
-#define AM_HAL_VERSION_MIN      5
-#define AM_HAL_VERSION_REV      1
-#else
-#define AM_HAL_VERSION_MAJ      0
-#define AM_HAL_VERSION_MIN      0
-#define AM_HAL_VERSION_REV      0
-#endif
-#endif // AM_HAL_VERSION_MAJ
-
-#if (AM_HAL_VERSION_MAJ == 0)
-#error AM_HAL_VERSION_MAJ cannot be defined as 0.
-#endif
+extern void am_hal_systick_start(void);
+extern void am_hal_systick_stop(void);
+extern void am_hal_systick_int_enable(void);
+extern void am_hal_systick_int_disable(void);
+extern uint32_t am_hal_systick_int_status_get(void);
+extern void am_hal_systick_reset(void);
+extern void am_hal_systick_load(uint32_t ui32LoadVal);
+extern uint32_t am_hal_systick_count(void);
+extern uint32_t am_hal_systick_wait_ticks(uint32_t u32Ticks);
+extern uint32_t am_hal_systick_delay_us(uint32_t u32NumUs);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // AM_SDK_VERSION_H
+#endif // AM_HAL_SYSTICK_H
+
 //*****************************************************************************
 //
 // End Doxygen group.
