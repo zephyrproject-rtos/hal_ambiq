@@ -93,6 +93,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
+#if defined(AM_PART_APOLLO330P_510L)
+#include "../../../mcu/apollo510L/hal/mcu/am_hal_crm_private.h"
+#endif
 
 #if defined(NEMA_MULTI_PROCESS) || defined(NEMA_MULTI_THREAD)
 
@@ -134,8 +137,24 @@ typedef enum
     DISP_INTERFACE_SPI4,
     DISP_INTERFACE_JDI,
     DISP_INTERFACE_DPI,
-    DISP_INTERFACE_DBI
+    DISP_INTERFACE_DBI,
+    DISP_INTERFACE_QSPI_DDR
 } display_interface_t;
+
+#if defined(AM_PART_APOLLO330P_510L)
+typedef enum
+{
+    DISPCLKSRC_HFRC_192MHz = 0, /*!< HFRC_192MHz : Source clock is HFRC_192MHz.                                */
+    DISPCLKSRC_PLLVCO  = 1,     /*!< PLLVCO : Source clock is PLLVCO.                                          */
+    DISPCLKSRC_DPHY_PLL_CLK = 2,/*!< dphy_pll_clk : Source clock is dphy_pll_clk.                              */
+} display_clksrc_e;
+
+typedef enum
+{
+    DISP_CLOCK_DISABLE = 0,
+    DISP_CLOCK_ENABLE
+} display_clock_control_e;
+#endif
 
 typedef struct
 {
@@ -482,7 +501,8 @@ nemagfx_power_control(am_hal_sysctrl_power_state_e ePowerState,
 //! @param retainState  - flag (if true) to save/restore perhipheral state upon
 //!                       power state change.
 //!
-//! This function updates the peripheral to a given power state.
+//! This function updates the peripheral to a given power state, excluding DSI
+//! for apollo510L.
 //!
 //! @return status      - generic or interface specific status.
 //
@@ -490,5 +510,23 @@ nemagfx_power_control(am_hal_sysctrl_power_state_e ePowerState,
 extern uint32_t
 nemadc_power_control(am_hal_sysctrl_power_state_e ePowerState,
                      bool bRetainState);
-
+#if defined(AM_PART_APOLLO330P_510L)
+//*****************************************************************************
+//
+//! @brief control the NemaDC clock
+//!
+//! @param eClkControl  - Clock control option (enable/disable).
+//! @param eClkSel      - Clock source selection.
+//! @param ui32Divider  - Divider value to configure the clock speed.
+//!
+//! @return AM_HAL_STATUS_SUCCESS or ui32Status.
+//!
+//! This function enables or disables the NemaDC clock based on the provided
+//! control parameter. If enabling the clock, the clock source and divider
+//! will be configured accordingly. If disabling, the clock source and divider
+//! parameters are ignored and should be set to 0.
+//
+//*****************************************************************************
+extern uint32_t
+nemadc_clock_control(display_clock_control_e eClkControl, display_clksrc_e eClkSel, uint32_t ui32Divider);
 #endif
