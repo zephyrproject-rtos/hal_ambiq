@@ -120,12 +120,10 @@ static const uint8_t g_DeviceNameApollo4l[]   = "Apollo4 Lite";
 static const uint8_t g_DeviceNameApollo510[]   = "Apollo510";
 static const uint8_t g_DeviceNameApollo510B[]  = "Apollo510B";
 #endif // AM_ID_APOLLO510
-#if defined(AM_ID_APOLLO330P)
+#if defined(AM_ID_APOLLO330P_510L)
 static const uint8_t g_DeviceNameApollo330P[] = "Apollo330P";
-#endif // AM_ID_APOLLO330P
-#if defined(AM_ID_APOLLO510L)
 static const uint8_t g_DeviceNameApollo510L[] = "Apollo510 Lite";
-#endif // AM_ID_APOLLO510L
+#endif // AM_ID_APOLLO330P_510L
 #if defined(AM_ID_APOLLO510L_CM4)
 static const uint8_t g_DeviceNameApollo510L_cm4[] = "Apollo5 Lite CM4";
 #endif // AM_ID_APOLLO510L_CM4
@@ -365,27 +363,26 @@ am_util_id_device(am_util_id_t *psIDDevice)
         }
 #endif // AM_ID_APOLLO510
 
-#if defined(AM_ID_APOLLO330P)
-        if ( ( ui32PN == AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO330P)          &&
-                  ((psIDDevice->sMcuCtrlDevice.ui32JedecPN & 0xFF0) == 0xE90)   &&
-                  ( revmaj_get(ui32ChipRev) == 'A' ) )
+#if defined(AM_ID_APOLLO330P_510L)
+        if ( (ui32PN == AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO330P_510L)  &&
+             ((psIDDevice->sMcuCtrlDevice.ui32JedecPN & 0xFF0) == 0xE90)    &&
+             (revmaj_get(ui32ChipRev) == 'A') )
         {
-            psIDDevice->ui32Device = AM_UTIL_ID_APOLLO330P;
-            psIDDevice->pui8DeviceName = g_DeviceNameApollo330P;
-            chiprev_set(psIDDevice, 1);
+            bool b330P = _FLD2VAL(MCUCTRL_CHIPPN_DEVTYPE, psIDDevice->sMcuCtrlDevice.ui32ChipPN) ? true : false;
+            if ( b330P )
+            {
+                psIDDevice->ui32Device = AM_UTIL_ID_APOLLO330P;
+                psIDDevice->pui8DeviceName = g_DeviceNameApollo330P;
+                chiprev_set(psIDDevice, 1);
+            }
+            else
+            {
+                psIDDevice->ui32Device = AM_UTIL_ID_APOLLO510L;
+                psIDDevice->pui8DeviceName = g_DeviceNameApollo510L;
+                chiprev_set(psIDDevice, 1);
+            }
         }
 #endif // AM_ID_APOLLO330P
-
-#if defined(AM_ID_APOLLO510L)
-        if ( ( ui32PN == AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO510L)          &&
-                  ((psIDDevice->sMcuCtrlDevice.ui32JedecPN & 0xFF0) == 0xE90)   &&
-                  ( revmaj_get(ui32ChipRev) == 'A' ) )
-        {
-            psIDDevice->ui32Device = AM_UTIL_ID_APOLLO510L;
-            psIDDevice->pui8DeviceName = g_DeviceNameApollo510L;
-            chiprev_set(psIDDevice, 1);
-        }
-#endif // AM_ID_APOLLO510L
 
 #if defined(AM_ID_APOLLO510L_CM4)
         //if ( ( ui32PN == AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO510L_CM4)          &&

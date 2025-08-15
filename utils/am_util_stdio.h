@@ -69,6 +69,7 @@ extern "C"
 #endif
 
 typedef void (*am_util_stdio_print_char_t)(char *pcStr);
+typedef void (*am_util_stdio_get_char_t)(char *pcStr);
 
 //*****************************************************************************
 //
@@ -87,6 +88,19 @@ typedef void (*am_util_stdio_print_char_t)(char *pcStr);
 //
 //*****************************************************************************
 extern void am_util_stdio_printf_init(am_util_stdio_print_char_t pfnCharPrint);
+
+//*****************************************************************************
+//
+//! @brief Sets the interface for scanf calls.
+//!
+//! @param pfnCharGet - Function pointer to be used to get from interface
+//!
+//! This function initializes the global scanf function which is used for
+//! scanf. This allows users to define their own scanf interface and pass it
+//! in as a am_util_stdio_get_char_t type.
+//
+//*****************************************************************************
+extern void am_util_stdio_scanf_init(am_util_stdio_get_char_t pfnCharGet);
 
 //*****************************************************************************
 //
@@ -182,6 +196,17 @@ extern uint32_t am_util_stdio_sprintf(char *pcBuf, const char *pcFmt, ...);
 //
 // *****************************************************************************
 extern uint32_t am_util_stdio_printf(const char *pcFmt, ...);
+
+//*****************************************************************************
+//
+//! @brief A lite version of scanf()
+//!
+//! @param *fmt - Pointer to formatter string
+//!
+//! @return uint32_t representing the number of characters scanned.
+//
+// *****************************************************************************
+extern uint32_t am_util_stdio_scanf(const char *fmt, ...);
 
 //******************************************************************************
 //
