@@ -109,7 +109,7 @@ uint32_t
 am_hal_clkgen_sysclk_get(void)
 {
     uint32_t ui32ClockSetting;
-    uint32_t ui32ClockFreq;
+    uint32_t ui32ClockFreq = 48000000;
 
     //
     // Read the value of the clock divider.
