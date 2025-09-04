@@ -723,7 +723,11 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
     {
         int i32PreDivider;
         float fPLLCLKFreq;
+#if defined(AM_PART_APOLLO330P_510L)
+        fPLLCLKFreq = (float)192.0 / (CRM->DISPCLKCRM_b.DISPCLKCLKDIV + 1);
+#else
         fPLLCLKFreq = 3 * (2 << CLKGEN->DISPCLKCTRL_b.DISPCLKSEL);
+#endif
         //
         // SDR frequency
         //
