@@ -645,6 +645,13 @@ void
 nemadc_configure(nemadc_initial_config_t *psDCConfig)
 {
     uint32_t cfg = 0;
+    int i32PreDivider = 1,i32PrimaryDivider = 1;
+#if defined(AM_PART_APOLLO330P_510L)
+    float fPLLCLKFreq = (float)192.0 / (CRM->DISPCLKCRM_b.DISPCLKCLKDIV + 1);
+#else
+    float fPLLCLKFreq = 3 * (2 << CLKGEN->DISPCLKCTRL_b.DISPCLKSEL);
+#endif
+
     if (psDCConfig->eInterface == DISP_INTERFACE_DBI || psDCConfig->eInterface == DISP_INTERFACE_DBIDSI)
     {
         //
@@ -662,17 +669,9 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
                 //
                 // Set the primary divider ratio to 2 to make sure the pixel clock isn't greater than 96MHz and bypass predivider
                 //
-                nemadc_clkdiv(2, 1, 4, 0);
+                i32PrimaryDivider = 2;
             }
-            else
-            {
-                //
-                // Set the primary divider ratio to 0 or 1,it's bypass the primary divider.the swap feature is invalid in this situation.
-                // After this configuration, both pixel_clk and format_clk's frequencies are from pll_clk through predivider if its value is equal to 0 or 1;
-                // they are from pll_clk directly when its value is 0 or 1.
-                //
-                nemadc_clkdiv(1, 1, 4, 0);
-            }
+
             cfg = MIPICFG_DBI_EN | MIPICFG_RESX | MIPICFG_EXT_CTRL | MIPICFG_BLANKING_EN | MIPICFG_EN_STALL | psDCConfig->ui32PixelFormat;
             //
             // Setting the DBIB_CLK clock frequency is the half of the format clock, that is 96MHz.(This is the limitation of the DSI host)
@@ -682,18 +681,7 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
         else
 #endif
         {
-            int i32PreDivider;
-            float fPLLCLKFreq;
-            //
-            // Calculated the present clock source frequency.
-            //
-#if defined(AM_PART_APOLLO330P_510L)
-            fPLLCLKFreq = (float)192.0 / (CRM->DISPCLKCRM_b.DISPCLKCLKDIV + 1);
             i32PreDivider = nema_ceil(fPLLCLKFreq / psDCConfig->fCLKMaxFreq);
-#else
-            fPLLCLKFreq = 3 * (2 << CLKGEN->DISPCLKCTRL_b.DISPCLKSEL);
-            i32PreDivider = nema_ceil(fPLLCLKFreq / psDCConfig->fCLKMaxFreq);
-#endif
 
             //
             // The value of the predivider should be less than 128 on Apollo510 & Apollo510L.
@@ -702,7 +690,7 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
             {
                 return;
             }
-            nemadc_clkdiv( 1, i32PreDivider, 4, 0);
+
             //
             // Adjust the timing between signals D/CX and WRX.
             //
@@ -715,19 +703,14 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
             cfg |= MIPICFG_DIS_TE;
         }
         nemadc_MIPI_CFG_out(cfg);
+
+        nemadc_clkdiv(i32PrimaryDivider, i32PreDivider, 4, 0);
     }
     else if ((psDCConfig->eInterface == DISP_INTERFACE_QSPI) ||
              (psDCConfig->eInterface == DISP_INTERFACE_DSPI) ||
              (psDCConfig->eInterface == DISP_INTERFACE_SPI4) ||
              (psDCConfig->eInterface == DISP_INTERFACE_QSPI_DDR))
     {
-        int i32PreDivider;
-        float fPLLCLKFreq;
-#if defined(AM_PART_APOLLO330P_510L)
-        fPLLCLKFreq = (float)192.0 / (CRM->DISPCLKCRM_b.DISPCLKCLKDIV + 1);
-#else
-        fPLLCLKFreq = 3 * (2 << CLKGEN->DISPCLKCTRL_b.DISPCLKSEL);
-#endif
         //
         // SDR frequency
         //
@@ -739,7 +722,7 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
         {
             return;
         }
-        nemadc_clkdiv(1, i32PreDivider, 4, 0);
+        nemadc_clkdiv(i32PrimaryDivider, i32PreDivider, 4, 0);
 
         cfg = psDCConfig->ui32PixelFormat;
         if(psDCConfig->bTEEnable)
@@ -750,13 +733,6 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
     }
     else if (psDCConfig->eInterface == DISP_INTERFACE_JDI)
     {
-        int i32PreDivider,i32PrimaryDivider;
-        float fPLLCLKFreq;
-#if defined(AM_PART_APOLLO330P_510L)
-        fPLLCLKFreq = (float)192.0 / (CRM->DISPCLKCRM_b.DISPCLKCLKDIV + 1);
-#else
-        fPLLCLKFreq = 3 * (2 << CLKGEN->DISPCLKCTRL_b.DISPCLKSEL);
-#endif
         //
         // Calculate the Optimal solution primary divider and predivider for the JDI interface.
         //
@@ -824,13 +800,6 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
     }
     else if (psDCConfig->eInterface == DISP_INTERFACE_DPI)
     {
-        int i32PreDivider;
-        float fPLLCLKFreq;
-#if defined(AM_PART_APOLLO330P_510L)
-        fPLLCLKFreq = (float)192.0 / (CRM->DISPCLKCRM_b.DISPCLKCLKDIV + 1);
-#else
-        fPLLCLKFreq = 3 * (2 << CLKGEN->DISPCLKCTRL_b.DISPCLKSEL);
-#endif
         i32PreDivider = nema_ceil(fPLLCLKFreq / psDCConfig->fCLKMaxFreq);
 
         //
@@ -840,7 +809,7 @@ nemadc_configure(nemadc_initial_config_t *psDCConfig)
         {
             return;
         }
-        nemadc_clkdiv( 1, i32PreDivider, 4, 0);
+        nemadc_clkdiv(i32PrimaryDivider, i32PreDivider, 4, 0);
 
         //
         // Configure DPI(RGB) interface color coding, Hsync and Vsync polarity.

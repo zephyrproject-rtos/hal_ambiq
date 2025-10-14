@@ -530,3 +530,4 @@ nemadc_power_control(am_hal_sysctrl_power_state_e ePowerState,
 extern uint32_t
 nemadc_clock_control(display_clock_control_e eClkControl, display_clksrc_e eClkSel, uint32_t ui32Divider);
 #endif
+#endif
