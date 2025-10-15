@@ -49,8 +49,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "am_mcu_apollo.h"
-
 
 #ifdef __cplusplus
 extern "C"
