@@ -1,10 +1,10 @@
 //*****************************************************************************
 //
-//! @file am_hal_tpiu.h
+//! @file am_hal_puf.h
 //!
-//! @brief Support functions for the Arm TPIU module
+//! @brief Hardware abstraction for the PUF (Physically Unclonable Function)
 //!
-//! @addtogroup tpiu4_ap510L TPIU - Trace Port Interface Unit
+//! @addtogroup puf_ap510L PUF - Physically Unclonable Function
 //! @ingroup apollo510L_hal
 //! @{
 //
@@ -44,8 +44,9 @@
 // This is part of revision release_sdk5_2_a_2-228a2539a of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
-#ifndef AM_HAL_TPIU_H
-#define AM_HAL_TPIU_H
+
+#ifndef AM_HAL_PUF_H
+#define AM_HAL_PUF_H
 
 #include <stdint.h>
 
@@ -56,81 +57,62 @@ extern "C"
 
 //*****************************************************************************
 //
-//! Various TPI fields and values that may not be defined in core_cm55.h
+// Public PUF entropy APIs
 //
 //*****************************************************************************
-#define TPI_SPPR_TXMODE_UART       2    // SWO NRZ (UART)
-#define TPI_SPPR_TXMODE_MANCHESTER 1    // SWO Manchester
-#define TPI_SPPR_TXMODE_PARALLEL   0    // Parallel port
-
-#define TPI_CSPSR_CWIDTH_1BIT      1    // 1-bit trace port
-#define TPI_CSPSR_CWIDTH_2BIT      2    // 2-bit trace port
-#define TPI_CSPSR_CWIDTH_4BIT      4    // 4-bit trace port
-
-#ifndef TPI_ACPR_SWOSCALER_Pos
-#define TPI_ACPR_SWOSCALER_Pos              0U                                         /*!< TPI ACPR: SWOSCALER Position */
-#define TPI_ACPR_SWOSCALER_Msk             (0xFFFFUL /*<< TPI_ACPR_SWOSCALER_Pos*/)    /*!< TPI ACPR: SWOSCALER Mask */
-#endif
 
 //*****************************************************************************
 //
-//! @name TPIU bit rate defines.
-//! @{
-//
-//*****************************************************************************
-#define AM_HAL_TPIU_BAUD_57600      (115200 / 2)
-#define AM_HAL_TPIU_BAUD_115200     (115200 * 1)
-#define AM_HAL_TPIU_BAUD_230400     (115200 * 2)
-#define AM_HAL_TPIU_BAUD_460800     (115200 * 4)
-#define AM_HAL_TPIU_BAUD_250000     (1000000 / 4)
-#define AM_HAL_TPIU_BAUD_500000     (1000000 / 2)
-#define AM_HAL_TPIU_BAUD_1M         (1000000 * 1)
-#define AM_HAL_TPIU_BAUD_2M         (1000000 * 2)
-#define AM_HAL_TPIU_BAUD_DEFAULT    (AM_HAL_TPIU_BAUD_1M)
-//! @}
-
-//*****************************************************************************
-//
-//! @brief Configure the TPIU
+//! @brief Read PUF UID data into a buffer.
 //!
-//! This function configures TPIU parameters.
-//! Since the TPIU is used by different peripherals such as ITM, DWT, PMU, etc.,
-//! each user can call this function to configure for specific needs.
+//! This function retrieves one or more 32-bit words from the PUF UID registers
+//! (UID_PUF_000 through UID_PUF_031) and copies them into the caller's buffer.
+//!
+//! @param pui32Buffer Pointer to a uint32_t array to receive the UID words.
+//! @param ui32StartWord Starting word index (0..31).
+//! @param ui32NumWords Number of consecutive words to read (1..32).
+//!
+//! @return AM_HAL_STATUS_SUCCESS on success, AM_HAL_STATUS_FAIL on failure.
 //
 //*****************************************************************************
-extern uint32_t am_hal_tpiu_config(uint32_t ui32DbgTpiuClksel,
-                                   uint32_t ui32FFCR,
-                                   uint32_t ui32CSPSR,
-                                   uint32_t ui32PinProtocol,
-                                   uint32_t ui32SWOscaler);
+extern uint32_t am_hal_puf_get_uid(uint32_t *pui32Buffer, uint32_t ui32StartWord, uint32_t ui32NumWords);
 
 //*****************************************************************************
 //
-//! @brief Enables the TPIU
+//! @brief Retrieve entropy into a buffer.
 //!
-//! This function enables the ARM TPIU by setting the TPIU registers and then
-//! enabling the TPIU clock source in MCU control register.
+//! @param buffer Pointer to output buffer to receive entropy bytes.
+//! @param length Number of bytes requested to fill in buffer.
 //!
-//! @param ui32SetItmBaud - Deprecated. Instead use am_hal_itm_parameters_set().
+//! @return AM_HAL_STATUS_SUCCESS on success, AM_HAL_STATUS_FAIL on failure.
 //
 //*****************************************************************************
-extern uint32_t am_hal_tpiu_enable(uint32_t ui32DeprecatedSetItmBaud);
+extern uint32_t am_hal_puf_get_entropy(uint8_t *buffer, uint16_t length);
 
 //*****************************************************************************
 //
-//! @brief Disables the TPIU
+//! @brief Initialize the entropy peripheral (power on OTP).
 //!
-//! This function disables the ARM TPIU by disabling the TPIU clock source
-//! in MCU control register.
+//! @return AM_HAL_STATUS_SUCCESS on success, AM_HAL_STATUS_FAIL on failure.
 //
 //*****************************************************************************
-extern uint32_t am_hal_tpiu_disable(void);
+extern uint32_t am_hal_puf_entropy_init(void);
+
+//*****************************************************************************
+//
+//! @brief Deinitialize the entropy peripheral (power down OTP).
+//!
+//! @return AM_HAL_STATUS_SUCCESS on success, AM_HAL_STATUS_FAIL on failure.
+//
+//*****************************************************************************
+extern uint32_t am_hal_puf_entropy_deinit(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // AM_HAL_TPIU_H
+#endif // AM_HAL_PUF_H
+
 
 //*****************************************************************************
 //
@@ -138,4 +120,3 @@ extern uint32_t am_hal_tpiu_disable(void);
 //! @}
 //
 //*****************************************************************************
-
