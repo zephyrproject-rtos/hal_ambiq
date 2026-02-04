@@ -1,8 +1,12 @@
 //*****************************************************************************
 //
-//! @file system_apollo510L.h
+//! @file am_hal_mcu.h
 //!
-//! @brief Ambiq Apollo510L MCU specific functions.
+//! @brief Functions for accessing and configuring MCU specific HAL modules
+//!
+//! @addtogroup mcu_ap510L MCU Hal Modules
+//! @ingroup apollo330P_hal
+//! @{
 //
 //*****************************************************************************
 
@@ -37,45 +41,53 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
-#ifndef SYSTEM_APOLLO510L_H
-#define SYSTEM_APOLLO510L_H
+#ifndef AM_HAL_MCU_H
+#define AM_HAL_MCU_H
 
-#ifdef __cplusplus
-extern "C" {
+#include "hal/mcu/am_hal_mcu_sysctrl.h"
+#include "hal/mcu/am_hal_mcu_interrupt.h"
+
+#define am_hal_get_core_id()    (DSP_MUTEX0_MUTEX0_CPU)
+
+#ifdef __IAR_SYSTEMS_ICC__
+#define am_count_num_leading_zeros(n)                     __CLZ(n)
+#else
+#define am_count_num_leading_zeros(n)                     __builtin_clz(n)
 #endif
 
-#include <stdint.h>
 //
-// Exception / Interrupt Handler Function Prototype
+// The Arm6 compiler defines both GNUC and ARMCC_VERSION, so check Arm first.
+// Though not necessary, Arm5 and Arm6 can be differentiated with:
+// #if (defined (__ARMCC_VERSION)) && (__ARMCC_VERSION >= 6000000)
 //
-typedef void(*VECTOR_TABLE_Type)(void);
+#if (defined (__ARMCC_VERSION))
+#define COMPILER_VERSION                    ("ARMCC " STRINGIZE_VAL(__ARMCC_VERSION))
+#elif defined(__GNUC__)
+#define COMPILER_VERSION                    ("GCC " __VERSION__)
+#elif defined(__IAR_SYSTEMS_ICC__)
+#define COMPILER_VERSION                    __VERSION__
+#else
+#error "Unknown Compiler"
+#endif
 
-//
-// System Clock Frequency (Core Clock)
-//
-extern uint32_t SystemCoreClock;     // System Clock Frequency (Core Clock)
-
-//*****************************************************************************
-//
-// External function definitions
-//
-//*****************************************************************************
-//
-// Initialize the System and update the SystemCoreClock variable.
-//
-extern void SystemInit (void);
-//
-// Updates the SystemCoreClock with current core clock retrieved from CPU registers.
-//
-extern void SystemCoreClockUpdate (void);
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // SYSTEM_APOLLO510L_H
+//*****************************************************************************
+//
+// End Doxygen group.
+//! @}
+//
+//*****************************************************************************
+#endif // AM_HAL_MCU_H
 

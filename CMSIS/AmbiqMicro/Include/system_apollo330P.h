@@ -1,14 +1,14 @@
 //*****************************************************************************
 //
-//! @file system_apollo510L.h
+//! @file system_apollo330P.h
 //!
-//! @brief Ambiq Apollo510L MCU specific functions.
+//! @brief Ambiq Apollo330P MCU specific functions.
 //
 //*****************************************************************************
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -37,12 +37,12 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
-#ifndef SYSTEM_APOLLO510L_H
-#define SYSTEM_APOLLO510L_H
+#ifndef SYSTEM_APOLLO330P_H
+#define SYSTEM_APOLLO330P_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -77,5 +77,5 @@ extern void SystemCoreClockUpdate (void);
 }
 #endif
 
-#endif  // SYSTEM_APOLLO510L_H
+#endif  // SYSTEM_APOLLO330P_H
 

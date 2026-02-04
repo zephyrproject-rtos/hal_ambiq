@@ -2,13 +2,13 @@
 //
 //! @file am_mcu_apollo.h
 //!
-//! @brief Top Include for apollo510L class devices.
+//! @brief Top Include for apollo330P class devices.
 //!
 //! This file provides all the includes necessary for an apollo device.
 //!
 //! @addtogroup hal mcu
 //
-//! @defgroup apollo510L_hal apollo510L
+//! @defgroup apollo330P_hal apollo330P
 //! @ingroup hal
 //! @{
 //
@@ -45,7 +45,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -59,7 +59,7 @@ extern "C"
 
 //*****************************************************************************
 //
-//! AM_PART_APOLLO5_API indicates that this device uses the Apollo5 API.
+//! AM_PART_APOLLOxxx
 //
 //*****************************************************************************
 #define AM_PART_APOLLO330P_510L
@@ -93,8 +93,7 @@ extern "C"
 // Apollo CMSIS peripheral registers
 //
 //*****************************************************************************
-#include <arm_cmse.h>
-#include "apollo510L.h"
+#include "apollo330P.h"
 
 //*****************************************************************************
 //
@@ -137,7 +136,6 @@ extern "C"
 #include "hal/mcu/am_hal_clkgen.h"
 #include "hal/mcu/am_hal_cmdq.h"
 #include "hal/mcu/am_hal_debug.h"
-#include "hal/mcu/am_hal_dsi.h"
 #include "hal/mcu/am_hal_i3c.h"
 #include "hal/mcu/am_hal_iom.h"
 #include "hal/mcu/am_hal_ios.h"
@@ -188,11 +186,11 @@ extern "C"
 //
 // INFO includes
 //
-#include "regs/am_mcu_apollo510L_mraminfo0.h"
-#include "regs/am_mcu_apollo510L_mraminfo1.h"
-#include "regs/am_mcu_apollo510L_otpinfo0.h"
-#include "regs/am_mcu_apollo510L_otpinfo1.h"
-#include "regs/am_mcu_apollo510L_otpinfoc.h"
+#include "regs/am_mcu_apollo330P_mraminfo0.h"
+#include "regs/am_mcu_apollo330P_mraminfo1.h"
+#include "regs/am_mcu_apollo330P_otpinfo0.h"
+#include "regs/am_mcu_apollo330P_otpinfo1.h"
+#include "regs/am_mcu_apollo330P_otpinfoc.h"
 
 #ifdef __cplusplus
 }

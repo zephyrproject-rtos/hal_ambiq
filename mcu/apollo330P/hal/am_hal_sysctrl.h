@@ -1,15 +1,11 @@
 //*****************************************************************************
 //
-//! @file am_mcu_apollo.h
+//! @file am_hal_sysctrl.h
 //!
-//! @brief Top Include for apollo510L class devices.
+//! @brief Functions for interfacing with the M55 system control registers
 //!
-//! This file provides all the includes necessary for an apollo device.
-//!
-//! @addtogroup hal mcu
-//
-//! @defgroup apollo510L_hal apollo510L
-//! @ingroup hal
+//! @addtogroup sysctrl4_ap510L SYSCTRL - System Control
+//! @ingroup apollo330P_hal
 //! @{
 //
 //*****************************************************************************
@@ -45,12 +41,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
-
-#ifndef AM_MCU_APOLLO_H
-#define AM_MCU_APOLLO_H
+#ifndef AM_HAL_SYSCTRL_H
+#define AM_HAL_SYSCTRL_H
 
 #ifdef __cplusplus
 extern "C"
@@ -59,146 +54,105 @@ extern "C"
 
 //*****************************************************************************
 //
-//! AM_PART_APOLLO5_API indicates that this device uses the Apollo5 API.
+//! @name Definitions for sleep mode parameter
+//! @{
 //
 //*****************************************************************************
-#define AM_PART_APOLLO330P_510L
+typedef enum
+{
+  AM_HAL_SYSCTRL_SLEEP_NORMAL = 0,
+  AM_HAL_SYSCTRL_SLEEP_DEEP,
+  AM_HAL_SYSCTRL_SLEEP_DEEPER
+} am_hal_sysctrl_sleep_type_e;
+
+#define AM_HAL_SYSCTRL_SLEEP_DEEPMAX    AM_HAL_SYSCTRL_SLEEP_DEEPER
+//! @}
 
 //*****************************************************************************
 //
-//! AM_PART_APOLLO5_API indicates that this device uses the Apollo5 API.
+//! Definition of Global Power State enumeration
 //
 //*****************************************************************************
-#define AM_PART_APOLLO5_API     1
+typedef enum
+{
+  AM_HAL_SYSCTRL_WAKE,
+  AM_HAL_SYSCTRL_NORMALSLEEP,
+  AM_HAL_SYSCTRL_DEEPSLEEP
+} am_hal_sysctrl_power_state_e;
+
+#define SYNC_READ       0x47FF0000
 
 //*****************************************************************************
 //
-//! Define AM_CMSIS_REGS to indicate that CMSIS registers are supported.
+//! Write flush - This function will hold the bus until all queued write
+//! operations on System Bus have completed, thereby guaranteeing that all
+//! writes to APB have been flushed.
 //
 //*****************************************************************************
-#define AM_CMSIS_REGS           1
+#define am_hal_sysctrl_sysbus_write_flush()     AM_REGVAL(SYNC_READ)
 
 //*****************************************************************************
 //
-// C99
+//! Write flush - This function will return once all queued write
+//! operations have completed, thereby guaranteeing that all
+//! writes have been flushed.
+//! This works across all the buses - AXI and APB
 //
 //*****************************************************************************
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#define am_hal_sysctrl_bus_write_flush()        am_hal_cachectrl_dcache_invalidate(NULL, true)
 
 //*****************************************************************************
 //
-// Apollo CMSIS peripheral registers
+// Global Variables
 //
 //*****************************************************************************
-#include <arm_cmse.h>
-#include "apollo510L.h"
+extern bool g_bFrcBuckAct;
 
 //*****************************************************************************
 //
-// Global HAL
+// External function definitions
 //
 //*****************************************************************************
+//*****************************************************************************
 //
-// Define this macro to disable and remove parameter validation in functions
-// throughout the HAL.
+//! @brief Place the core into sleep, deepsleep or deepersleep.
+//!
+//! @param eSleepType - Normal or Deep, Deeper sleep.
+//!
+//! This function puts the MCU to sleep, deepsleep or deepersleep depending on eSleepType.
+//!
+//! Valid values for eSleepType are:
+//!
+//!     AM_HAL_SYSCTRL_SLEEP_NORMAL
+//!     AM_HAL_SYSCTRL_SLEEP_DEEP
+//!     AM_HAL_SYSCTRL_SLEEP_DEEPER
 //
-//#define AM_HAL_DISABLE_API_VALIDATION
+//*****************************************************************************
+extern void am_hal_sysctrl_sleep(am_hal_sysctrl_sleep_type_e eSleepType);
 
 //*****************************************************************************
 //
-// Registers
+//! @brief Control the buck state in deepsleep
+//!
+//! @param bFrcBuckAct - True for forcing buck active in deepsleep
+//!                    - False for not forcing buck active in deepsleep
+//!
+//! If you want to manually force the buck stay active in deepsleep mode,
+//! am_hal_sysctrl_force_buck_active_in_deepsleep must
+//! be called for setting g_bAppFrcBuckAct to true before
+//! calling am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP).
+//! If anyone of spotmgr and
+//! am_hal_sysctrl_force_buck_active_in_deepsleep forced buck stay active, buck
+//! will stay active in deepsleep.
 //
 //*****************************************************************************
-#include "regs/am_reg_base_addresses.h"
-#include "regs/am_reg_macros.h"
-#include "regs/am_reg.h"
-#include "regs/am_reg_jedec.h"
-
-//*****************************************************************************
-//
-// HAL
-//
-//*****************************************************************************
-#include "hal/am_hal_global.h"
-#include "hal/am_hal_pin.h"
-#include "hal/am_hal_status.h"
-#include "hal/am_hal_sysctrl.h"
-
-//
-// HAL MCU includes
-//
-#include "hal/mcu/am_hal_bootrom_helper.h"
-#include "hal/mcu/am_hal_cachectrl.h"
-#include "hal/mcu/am_hal_card_host.h"
-#include "hal/mcu/am_hal_card.h"
-#include "hal/mcu/am_hal_clkgen.h"
-#include "hal/mcu/am_hal_cmdq.h"
-#include "hal/mcu/am_hal_debug.h"
-#include "hal/mcu/am_hal_dsi.h"
-#include "hal/mcu/am_hal_i3c.h"
-#include "hal/mcu/am_hal_iom.h"
-#include "hal/mcu/am_hal_ios.h"
-#include "hal/mcu/am_hal_itm.h"
-#include "hal/mcu/am_hal_mcu.h"
-#include "hal/mcu/am_hal_mcuctrl.h"
-#include "hal/mcu/am_hal_mcu_sysctrl.h"
-#include "hal/mcu/am_hal_mpu.h"
-#include "hal/mcu/am_hal_mram.h"
-#include "hal/mcu/am_hal_mram_recovery.h"
-#include "hal/mcu/am_hal_mspi.h"
-#include "hal/mcu/am_hal_reset.h"
-#include "hal/mcu/am_hal_rtc.h"
-#include "hal/mcu/am_hal_sdhc.h"
-#include "hal/mcu/am_hal_secure_ota.h"
-#include "hal/mcu/am_hal_syspll.h"
-#include "hal/mcu/am_hal_systick.h"
-#include "hal/mcu/am_hal_tpiu.h"
-#include "hal/mcu/am_hal_uart.h"
-#include "hal/mcu/am_hal_uart_stream.h"
-
-//
-// HAL common includes
-//
-#include "hal/am_hal_access.h"
-#include "hal/am_hal_adc.h"
-#include "hal/am_hal_dcu.h"
-#include "hal/am_hal_gpio.h"
-#include "hal/am_hal_i2s.h"
-#include "hal/am_hal_info.h"
-#include "hal/am_hal_infoc.h"
-#include "hal/am_hal_pdm.h"
-#include "hal/am_hal_pwrctrl.h"
-#include "hal/am_hal_spotmgr.h"
-#include "hal/am_hal_queue.h"
-#include "hal/am_hal_security.h"
-#include "hal/am_hal_stimer.h"
-#include "hal/am_hal_timer.h"
-#include "hal/am_hal_usb.h"
-#include "hal/am_hal_usbcharger.h"
-#include "hal/am_hal_utils.h"
-#include "hal/am_hal_vcomp.h"
-#include "hal/am_hal_wdt.h"
-
-#include "hal/am_hal_clkmgr.h"
-#include "hal/am_hal_ipc_mbox.h"
-
-//
-// INFO includes
-//
-#include "regs/am_mcu_apollo510L_mraminfo0.h"
-#include "regs/am_mcu_apollo510L_mraminfo1.h"
-#include "regs/am_mcu_apollo510L_otpinfo0.h"
-#include "regs/am_mcu_apollo510L_otpinfo1.h"
-#include "regs/am_mcu_apollo510L_otpinfoc.h"
+extern void am_hal_sysctrl_force_buck_active_in_deepsleep(bool bFrcBuckAct);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // AM_MCU_APOLLO_H
+#endif // AM_HAL_SYSCTRL_H
 
 //*****************************************************************************
 //
@@ -206,3 +160,4 @@ extern "C"
 //! @}
 //
 //*****************************************************************************
+
