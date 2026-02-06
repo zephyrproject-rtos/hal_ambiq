@@ -2392,6 +2392,39 @@ am_hal_usb_ep0_state_reset(am_hal_usb_state_t *pState)
     am_hal_usb_xfer_reset(&pState->ep0_xfer);
 }
 
+void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
+{
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+    if (!AM_HAL_USB_CHK_HANDLE(pHandle) )
+    {
+        return AM_HAL_STATUS_INVALID_HANDLE;
+    }
+    if (AM_HAL_USB_CHK_EP_NUM(ui8EpAddr))
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+#endif
+    am_hal_usb_state_t *pState;
+    am_hal_usb_ep_xfer_t *pXfer;
+    uint8_t ui8EpNum, ui8EpDir;
+
+    pState = (am_hal_usb_state_t *)pHandle;
+    ui8EpNum = am_hal_usb_ep_number(ui8EpAddr);
+    ui8EpDir = am_hal_usb_ep_dir(ui8EpAddr);
+
+    if (ui8EpNum == 0)
+    {
+        pState->eEP0State = AM_HAL_USB_EP0_STATE_IDLE;
+        am_hal_usb_xfer_reset(&pState->ep0_xfer);
+    }
+    else
+    {
+        pXfer = &pState->ep_xfers[ui8EpNum - 1][ui8EpDir];
+        am_hal_usb_xfer_reset(pXfer);
+    }
+
+}
+
 //*****************************************************************************
 //
 // Complete the USB Transfer

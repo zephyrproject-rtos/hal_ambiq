@@ -1102,6 +1102,17 @@ extern uint32_t am_hal_usb_set_xfer_mode(void *pHandle, am_hal_usb_xfer_mode_e e
 //*****************************************************************************
 extern uint32_t am_hal_usb_enable_ep_double_buffer(void *pHandle, uint8_t epnum, am_hal_usb_xfer_dir_e dir, bool enable);
 
+//*****************************************************************************
+//
+//! @brief Reset USB endpoint state
+//!
+//! @param pHandle - the handle of initialized USB instance
+//! @param ui8EpAddr - USB endpoint address for state reset
+//!
+//
+//*****************************************************************************
+extern void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr);
+
 #ifdef __cplusplus
 }
 #endif
