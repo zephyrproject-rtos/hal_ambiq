@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p1p0-366b80e084 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #include <stdint.h>
@@ -120,12 +120,19 @@ static const uint8_t g_DeviceNameApollo4l[]   = "Apollo4 Lite";
 static const uint8_t g_DeviceNameApollo510[]   = "Apollo510";
 static const uint8_t g_DeviceNameApollo510B[]  = "Apollo510B";
 #endif // AM_ID_APOLLO510
+#if defined(AM_ID_APOLLO330P_510L)
+static const uint8_t g_DeviceNameApollo330P[] = "Apollo330P";
+static const uint8_t g_DeviceNameApollo510L[] = "Apollo510 Lite";
+#endif // AM_ID_APOLLO330P_510L
+#if defined(AM_ID_APOLLO510L_CM4)
+static const uint8_t g_DeviceNameApollo510L_cm4[] = "Apollo5 Lite CM4";
+#endif // AM_ID_APOLLO510L_CM4
 
 #ifdef AM_ID_PKGSTD
 //
 // Define pkg types for certain devices.
 //
-static const uint8_t g_PackageType[][4]       = { "SIP", "SIP2", "BGA", "CSP" };
+static const uint8_t g_PackageType[][5]       = { "SIP", "SIP2", "BGA", "CSP" };
 #endif
 
 static const uint8_t g_TempRange[][11] = { "Commercial", "Military", "Automotive", "Industrial" };
@@ -133,7 +140,7 @@ static const uint8_t g_ui8VendorNameAmbq[]    = "AMBQ";
 static const uint8_t g_ui8VendorNameUnknown[] = "????";
 static const uint8_t g_ui8DeviceNameUnknown[] = "Unknown device";
 
-#if !defined(AM_ID_APOLLO) && !defined(AM_ID_APOLLO2)
+#if !defined(AM_ID_APOLLO) && !defined(AM_ID_APOLLO2) && !defined(AM_ID_APOLLO510L_CM4)
 //*****************************************************************************
 // Return the major version of the chip rev.
 // Returns: 'A', 'B', 'C', ...
@@ -204,11 +211,11 @@ am_util_id_device(am_util_id_t *psIDDevice)
     //
     // Go get all the device (hardware) info from the HAL
     //
-#if defined(AM_PART_APOLLO3_API) || defined(AM_PART_APOLLO4_API) || defined(AM_PART_APOLLO5_API)
+#if defined(AM_PART_APOLLO) || defined(AM_PART_APOLLO2)
+    am_hal_mcuctrl_device_info_get(&psIDDevice->sMcuCtrlDevice);
+#else
     am_hal_mcuctrl_info_get(AM_HAL_MCUCTRL_INFO_DEVICEID, &psIDDevice->sMcuCtrlDevice);
     am_hal_mcuctrl_info_get(AM_HAL_MCUCTRL_INFO_FEATURES_AVAIL, &psIDDevice->sMcuCtrlFeature);
-#else
-    am_hal_mcuctrl_device_info_get(&psIDDevice->sMcuCtrlDevice);
 #endif
 
     //
@@ -355,6 +362,39 @@ am_util_id_device(am_util_id_t *psIDDevice)
             chiprev_set(psIDDevice, 1);
         }
 #endif // AM_ID_APOLLO510
+
+#if defined(AM_ID_APOLLO330P_510L)
+        if ( (ui32PN == AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO330P_510L)  &&
+             ((psIDDevice->sMcuCtrlDevice.ui32JedecPN & 0xFF0) == 0xE90)    &&
+             (revmaj_get(ui32ChipRev) == 'A') )
+        {
+            bool b330P = _FLD2VAL(MCUCTRL_CHIPPN_DEVTYPE, psIDDevice->sMcuCtrlDevice.ui32ChipPN) ? true : false;
+            if ( b330P )
+            {
+                psIDDevice->ui32Device = AM_UTIL_ID_APOLLO330P;
+                psIDDevice->pui8DeviceName = g_DeviceNameApollo330P;
+                chiprev_set(psIDDevice, 1);
+            }
+            else
+            {
+                psIDDevice->ui32Device = AM_UTIL_ID_APOLLO510L;
+                psIDDevice->pui8DeviceName = g_DeviceNameApollo510L;
+                chiprev_set(psIDDevice, 1);
+            }
+        }
+#endif // AM_ID_APOLLO330P_510L
+
+#if defined(AM_ID_APOLLO510L_CM4)
+        //if ( ( ui32PN == AM_UTIL_MCUCTRL_CHIP_INFO_PARTNUM_APOLLO510L_CM4)          &&
+        //          ((psIDDevice->sMcuCtrlDevice.ui32JedecPN & 0x0FF) == 0x0D2)   &&
+        //          ( revmaj_get(ui32ChipRev) == 'B' ) )
+        {
+            psIDDevice->ui32Device = AM_UTIL_ID_APOLLO510L_CM4;
+            psIDDevice->pui8DeviceName = g_DeviceNameApollo510L_cm4;
+            chiprev_set(psIDDevice, 1);
+        }
+#endif // AM_ID_APOLLO510L_CM4
+
     //
     // This section defines the package type
     //

@@ -103,7 +103,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p1p0-366b80e084 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -131,13 +131,19 @@
 //
 #define AM_NUM_STACK_RANGES 1
 
-#if defined(AM_PART_APOLLO510)
+#if defined(AM_PART_ATOMIQ11X_API)
+  #define AM_SP_LOW    DTCM_BASEADDR
+  #define AM_SP_HIGH   (DTCM_BASEADDR + DTCM_MAX_SIZE + SSRAM_MAX_SIZE)
+#elif defined(AM_PART_APOLLO510)
   #undef  AM_NUM_STACK_RANGES
   #define AM_NUM_STACK_RANGES  2
   #define AM_SP_LOW    ITCM_BASEADDR
   #define AM_SP_HIGH   (ITCM_BASEADDR + ITCM_MAX_SIZE)
   #define AM_SP_LOW2   DTCM_BASEADDR
   #define AM_SP_HIGH2  (DTCM_BASEADDR + DTCM_MAX_SIZE + SSRAM_MAX_SIZE)
+#elif defined(AM_PART_APOLLO330P_510L) || defined(AM_PART_APOLLO510L_CM4)
+  #define AM_SP_LOW    DTCM_BASEADDR
+  #define AM_SP_HIGH   (DTCM_BASEADDR + DTCM_MAX_SIZE + SSRAM_MAX_SIZE)
 #elif defined(AM_PART_APOLLO4B) || defined(AM_PART_APOLLO4P) || defined(AM_PART_APOLLO4L)
   #define AM_SP_LOW    SRAM_BASEADDR
   #define AM_SP_HIGH   (SRAM_BASEADDR + RAM_TOTAL_SIZE)
@@ -247,7 +253,7 @@ HardFault_Handler(void)
           "    mrsne  r0, psp\n");                       // e: bit2=1 indicating PSP stack
 #if !defined(AM_HF_NO_LOCAL_STACK)
     __asm("    ldr    r1, =gFaultStack\n");              // get address of the base of the temp_stack
-#if defined(AM_PART_APOLLO510)
+#if defined(AM_PART_ATOMIQ11X_API) || defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
     __asm("    MSR msplim, r1\n");                       // for Apollo5 (M55) set MSP stack limit register
 #endif
     __asm("    add    r1, r1, #512\n"                    // address of the top of the stack.
@@ -501,8 +507,7 @@ am_util_faultisr_collect_data(uint32_t *u32IsrSP)
         u32Mask >>= 1;
     }
 
-#if !defined(AM_PART_APOLLO510)
-    // No CPU register block in Apollo5
+#if !defined(AM_PART_ATOMIQ11X_API) && !defined(AM_PART_APOLLO510) && !defined(AM_PART_APOLLO330P_510L) // No CPU register block in Apollo5
     //
     // Print out any Apollo* Internal fault information - if any
     //
@@ -522,7 +527,7 @@ am_util_faultisr_collect_data(uint32_t *u32IsrSP)
     {
         am_util_stdio_printf("    SYS Fault Address: 0x%08X\n", sHalFaultData.ui32SYS);
     }
-#endif
+#endif  // !defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
 
     am_util_stdio_printf("\n\nDone with output. Entering infinite loop.\n\n");
 

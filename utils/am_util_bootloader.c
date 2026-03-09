@@ -85,7 +85,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p1p0-366b80e084 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #include <stdint.h>
@@ -116,7 +116,7 @@ const am_hal_gpio_pincfg_t g_AM_HAL_GPIO_INPUT_DISABLE =
 };
 #endif
 
-#if  defined(AM_PART_APOLLO510)
+#if  defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
 #define MRAM_SIZE (((MCUCTRL->SKU_b.SKUMRAMSIZE + 1) * 1024) * 1024)
 #endif
 
@@ -359,7 +359,7 @@ am_util_bootloader_flash_check(am_util_bootloader_image_t *psImage)
     //
     // Make sure the link address is in flash.
     //
-#if  defined(AM_PART_APOLLO510)
+#if  defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
     if ((ui32LinkAddress < AM_HAL_MRAM_ADDR) || (ui32LinkAddress > (AM_HAL_MRAM_ADDR + MRAM_SIZE - 4)) )
     {
         DPRINTF(("Link address outside of flash. 0x%08x\r\n", ui32LinkAddress));
@@ -399,7 +399,7 @@ am_util_bootloader_flash_check(am_util_bootloader_image_t *psImage)
     //
     // Make sure the stack is in SRAM.
     //
-#if  defined(AM_PART_APOLLO510)
+#if  defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
     if ((ui32StackPointer < DTCM_BASEADDR) || (ui32StackPointer >= AM_HAL_MRAM_SRAM_LARGEST_VALID_ADDR))
     {
         DPRINTF(("Stack not in SRAM 0x%08x\r\n", ui32StackPointer));
@@ -490,7 +490,7 @@ am_hal_bootloader_override_check(am_util_bootloader_image_t *psImage)
         // Temporarily configure the override pin as an input.
         //
 #if defined(AM_PART_APOLLO4B)  || defined(AM_PART_APOLLO4L)   || defined(AM_PART_APOLLO4P) ||   \
-    defined(AM_PART_APOLLO510)
+    defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
         am_hal_gpio_pinconfig(psImage->ui32OverrideGPIO, am_hal_gpio_pincfg_input);
 #else
 #if defined(AM_PART_APOLLO3) || defined(AM_PART_APOLLO3P)
@@ -503,7 +503,7 @@ am_hal_bootloader_override_check(am_util_bootloader_image_t *psImage)
         // If the override pin matches the specified polarity, force a failure.
         //
 #if defined(AM_PART_APOLLO4B)  || defined(AM_PART_APOLLO4L)   ||  defined(AM_PART_APOLLO4P) ||  \
-    defined(AM_PART_APOLLO510)
+    defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
         am_hal_gpio_state_read(psImage->ui32OverrideGPIO, AM_HAL_GPIO_INPUT_READ, &ui32OverridePin );
 #else
 #if defined(AM_PART_APOLLO3) || defined(AM_PART_APOLLO3P)
@@ -519,7 +519,7 @@ am_hal_bootloader_override_check(am_util_bootloader_image_t *psImage)
             // Make sure to disable the pin before continuing.
             //
 #if defined(AM_PART_APOLLO4B)  || defined(AM_PART_APOLLO4L)   || defined(AM_PART_APOLLO4P) ||   \
-    defined(AM_PART_APOLLO510)
+    defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
             am_hal_gpio_pinconfig(psImage->ui32OverrideGPIO, am_hal_gpio_pincfg_disabled);
 #else
 #if defined(AM_PART_APOLLO3) || defined(AM_PART_APOLLO3P)
@@ -543,7 +543,7 @@ am_hal_bootloader_override_check(am_util_bootloader_image_t *psImage)
         // boot.
         //
 #if defined(AM_PART_APOLLO4B)  || defined(AM_PART_APOLLO4L)   || defined(AM_PART_APOLLO4P) ||   \
-    defined(AM_PART_APOLLO510)
+    defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
             am_hal_gpio_pinconfig(psImage->ui32OverrideGPIO, am_hal_gpio_pincfg_disabled);
 #else
 #if defined(AM_PART_APOLLO3) || defined(AM_PART_APOLLO3P)
@@ -653,7 +653,7 @@ am_util_bootloader_flag_page_update(am_util_bootloader_image_t *psImage,
     //
     ui32Critical = am_hal_interrupt_master_disable();
 #if defined(AM_PART_APOLLO4B)  || defined(AM_PART_APOLLO4L)   || defined(AM_PART_APOLLO4P) ||   \
-    defined(AM_PART_APOLLO510)
+    defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
     uint32_t rc = am_hal_mram_main_program(AM_HAL_MRAM_PROGRAM_KEY,
                               (uint32_t *) psImage,
                               pui32FlagPage,
@@ -739,7 +739,7 @@ void
 am_util_bootloader_erase_flash_page(uint32_t ui32Addr)
 {
 #if !defined(AM_PART_APOLLO4B)  && !defined(AM_PART_APOLLO4L)   && !defined(AM_PART_APOLLO4P) &&    \
-    !defined(AM_PART_APOLLO510)
+    !defined(AM_PART_APOLLO510) && !defined(AM_PART_APOLLO330P_510L)
     uint32_t ui32Critical;
     uint32_t ui32CurrentPage, ui32CurrentBlock;
     //
@@ -793,7 +793,7 @@ am_util_bootloader_write_flash_within_page(uint32_t ui32WriteAddr,
     // Program the flash page with the data we just received.
     //
 #if defined(AM_PART_APOLLO4B)  || defined(AM_PART_APOLLO4L)   || defined(AM_PART_APOLLO4P) ||   \
-    defined(AM_PART_APOLLO510)
+    defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
     am_hal_mram_main_program(AM_HAL_MRAM_PROGRAM_KEY, pui32ReadAddr,
                               (uint32_t *)ui32WriteAddr, ui32NumWords);
 #else
@@ -839,7 +839,7 @@ am_util_bootloader_program_flash_page(uint32_t ui32WriteAddr,
     // Program the flash page with the data we just received.
     //
 #if defined(AM_PART_APOLLO4B)  || defined(AM_PART_APOLLO4L)   || defined(AM_PART_APOLLO4P) ||   \
-    defined(AM_PART_APOLLO510)
+    defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
     am_hal_mram_main_program(AM_HAL_MRAM_PROGRAM_KEY, pui32ReadAddr,
                               (uint32_t *)ui32WriteAddr, ui32WordsInBuffer);
 #else

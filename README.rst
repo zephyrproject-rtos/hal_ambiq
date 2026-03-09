@@ -22,7 +22,7 @@ released.
 URL
 ===
 
-   https://github.com/AmbiqMicro/ambiqhal_ambiq/tree/apollo510-dev
+   https://github.com/AmbiqMicro/hal_ambiq_internal
 
 Status
 ======
@@ -39,6 +39,10 @@ Status
 | Apollo4 Blue Plus      | v4.5.0                         |
 +------------------------+--------------------------------+
 | Apollo510              | v5.1.0                         |
++------------------------+--------------------------------+
+| Apollo510 Blue         | v5.1.0                         |
++------------------------+--------------------------------+
+| Apollo510 Lite         | v5.2.3                         |
 +------------------------+--------------------------------+
 
 Purpose
