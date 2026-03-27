@@ -2431,7 +2431,7 @@ am_hal_usb_ep0_state_reset(am_hal_usb_state_t *pState)
 }
 
 
-void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
+uint32_t am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
 {
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if (!AM_HAL_USB_CHK_HANDLE(pHandle) )
@@ -2462,6 +2462,7 @@ void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
         am_hal_usb_xfer_reset(pXfer);
     }
 
+    return AM_HAL_STATUS_SUCCESS;
 }
 
 //*****************************************************************************

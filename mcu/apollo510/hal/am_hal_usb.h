@@ -1096,7 +1096,7 @@ extern uint32_t am_hal_usb_enable_ep_double_buffer(void *pHandle, uint8_t epnum,
 //!
 //
 //*****************************************************************************
-extern void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr);
+extern uint32_t am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr);
 
 #ifdef __cplusplus
 }
