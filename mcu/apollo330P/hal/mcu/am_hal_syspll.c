@@ -48,7 +48,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -867,19 +867,6 @@ am_hal_syspll_enable(void *pHandle)
     {
         return AM_HAL_STATUS_SUCCESS;
     }
-
-    //
-    // Check and make sure SIMOBUCK is active.It is expected that SIMOBUCK
-    // init is triggered before syspll is enabled, hence SIMOBUCK should always
-    // be active other than in deep sleep state.
-    //
-    // if ((MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE != 1) ||
-    //     (MCUCTRL->VRCTRL_b.SIMOBUCKRSTB != 1) ||
-    //     (MCUCTRL->VRCTRL_b.SIMOBUCKPDNB != 1) ||
-    //     (MCUCTRL->VRCTRL_b.SIMOBUCKOVER != 1))
-    // {
-    //     return AM_HAL_STATUS_INVALID_OPERATION;
-    // }
 
     //
     // Enable the SystemPLL.

@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_GPIO_H
@@ -227,22 +227,27 @@ typedef enum
 } am_hal_gpio_drivestrength_e;
 
 //
-//! Extended drive strengths for very specific pads.
+//! Special drive strengths for very specific pads.
 //! Designated as relative full-driver strength.
-//! Certain pins can configure an extended drive strength.
-//! This matrix identifies those pins with extended drive strength configuration.
+//! Certain pins can configure a special drive strength.
+//! This matrix identifies those pins with special drive strength configuration.
 //! GPIOs: 0-4, 35-39, 65-77, 81, 112.
+//!
+//! Note: For high-speed pads, bit 12 (SR) must always be set to 1 if the
+//!       voltage is below 2.5V. On Apollo510L and Apollo330P device,
+//!       the high-speed pads max voltage is 2.2V. Therefore, only enum values
+//!       0x4-0x7 are valid (where bit 12 = 1).
+//!       Bits [11:10] select the drive strength pair (DS = 0-3).
 //
 typedef enum
 {
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_0P12X = 0x0,  // 0.12x output driver selected
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_0P25X = 0x1,  // 0.25x output driver selected
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_0P37X = 0x2,  // 0.37x output driver selected
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_0P5X  = 0x3,  // 0.5x  output driver selected
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_0P63X = 0x4,  // 0.63x output driver selected
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_0P75X = 0x5,  // 0.75x output driver selected
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_0P88X = 0x6,  // 0.88x output driver selected
-    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_1P0X  = 0x7   // 1.0x  output driver selected
+    //
+    // Settings 0-3 are omitted on purpose, please see the above note for more details.
+    //
+    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_3V3_BEST    = 0x4,  // PVT1 - ODT 50 ohm, optimal setting for 3.3V
+    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_1V8_BEST    = 0x5,  // PVT2 - ODT 50 ohm, optimal setting for 1.8V
+    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_1V2_BEST    = 0x6,  // PVT3 - ODT 50 ohm, optimal setting for 1.2V
+    AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_LOWEST_IMP  = 0x7   // Drive ODT 0 ohm, optimal impedance driver for all PVT
 } am_hal_gpio_drivestrength_ext_e;
 
 //

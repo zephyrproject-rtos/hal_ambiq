@@ -47,7 +47,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -76,7 +76,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -346,7 +346,7 @@ am_hal_sysctrl_sleep(am_hal_sysctrl_sleep_type_e eSleepType)
     //
     // Set SIMOBUCKOVER to 1 before entering deepsleep
     //
-    if(g_bIsTrimver2OrNewer && bReportedDeepSleep)
+    if ( g_bIsTrimver2OrNewer && bReportedDeepSleep )
     {
         MCUCTRL->VRCTRL_b.SIMOBUCKOVER = true;
     }
@@ -374,7 +374,7 @@ am_hal_sysctrl_sleep(am_hal_sysctrl_sleep_type_e eSleepType)
     //
     // Set SIMOBUCKOVER back to 0 immediately after exiting deepsleep
     //
-    if(g_bIsTrimver2OrNewer && bReportedDeepSleep)
+    if ( g_bIsTrimver2OrNewer && bReportedDeepSleep )
     {
         MCUCTRL->VRCTRL_b.SIMOBUCKOVER = false;
         am_hal_sysctrl_sysbus_write_flush();

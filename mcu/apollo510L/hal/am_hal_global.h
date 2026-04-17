@@ -11,7 +11,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_GLOBAL_H
@@ -274,6 +274,10 @@ typedef union
 //*****************************************************************************
 extern const    uint8_t  g_ui8HALcompiler[];
 extern const    am_hal_version_t g_ui32HALversion;
+#ifdef APOLLO5_FPGA
+extern uint32_t g_ui32FPGAfreqMHz;
+extern void am_hal_global_FPGAfreqSet(uint32_t ui32FPGAfreqMhz);
+#endif // APOLLO5_FPGA
 
 #if (defined (__ARMCC_VERSION)) && (__ARMCC_VERSION < 6000000)
 __asm void
@@ -281,7 +285,7 @@ am_hal_triple_read( uint32_t ui32TimerAddr, uint32_t ui32Data[]);
 #elif (defined (__ARMCC_VERSION)) && (__ARMCC_VERSION >= 6000000)
 void
 am_hal_triple_read(uint32_t ui32TimerAddr, uint32_t ui32Data[]);
-#elif defined(__GNUC__)
+#elif defined(__GNUC_STDC_INLINE__)
 __attribute__((naked))
 void
 am_hal_triple_read(uint32_t ui32TimerAddr, uint32_t ui32Data[]);

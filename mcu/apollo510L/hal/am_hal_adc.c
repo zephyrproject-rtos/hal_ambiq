@@ -60,7 +60,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -89,7 +89,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -283,11 +283,10 @@ static union
 // Global Variables.
 //
 //*****************************************************************************
-am_hal_adc_state_t             g_ADCState[AM_REG_ADC_NUM_MODULES];
-
-uint32_t                       g_ADCSlotsConfigured;
-
-bool     g_bDoADCadjust   = false;
+am_hal_adc_state_t  g_ADCState[AM_REG_ADC_NUM_MODULES];
+uint32_t            g_ADCSlotsConfigured;
+bool                g_bDoADCadjust   = false;
+static uint32_t     g_ui32TrimVerADC = 0;
 
 //*****************************************************************************
 //
@@ -1146,6 +1145,42 @@ am_hal_adc_control(void *pHandle,
                     fCalibration_temp    = priv_temp_trims.flt.fCalibrationTemperature;
                     fCalibration_voltage = priv_temp_trims.flt.fCalibrationVoltage;
                     fCalibration_offset  = priv_temp_trims.flt.fCalibrationOffset;
+
+                    if ( g_ui32TrimVerADC == 0 )
+                    {
+                        uint32_t ui32Ret;
+                        am_hal_mcuctrl_trimver_t sTrimVer;
+                        ui32Ret = am_hal_mcuctrl_trim_version_get(&sTrimVer.ui32trimver);
+                        if ( (ui32Ret != AM_HAL_STATUS_SUCCESS) || !sTrimVer.trimver_b.bTrimVerValid )
+                        {
+                            return AM_HAL_STATUS_FAIL;
+                        }
+
+                        g_ui32TrimVerADC = (sTrimVer.trimver_b.ui8TrimVerMaj << 8) | sTrimVer.trimver_b.ui8TrimVerMin;
+                    }
+
+                    if ( g_ui32TrimVerADC < 0x0304 )
+                    {
+                        //
+                        // Older trims require a modified temperature equation.
+                        // Compute the calibrated temperature via the equation:
+                        //      T = m * (Vmeas - Voff) - Toff
+                        // m     = AM_HAL_ADC_TEMPSENSOR_SLOPE_PRETRIM34 (degK / V)
+                        // Vmeas = The measured voltage (as based on the ADC code)
+                        // Voff  = Calibration offset (stored in volts)
+                        // Toff  = 1.15
+                        //
+                        fTemp  = (fVoltage - fCalibration_offset);
+                        fTemp *= AM_HAL_ADC_TEMPSENSOR_SLOPE_PRETRIM34;
+                        fTemp -= 1.15f;
+
+                        //
+                        // Give it back to the caller in Celsius.
+                        //
+                        pfArray[1] = fTemp - 273.15f;
+
+                        return AM_HAL_STATUS_SUCCESS;
+                    }
 
                     //
                     // Compute the temperature in K

@@ -44115,180 +44115,180 @@ typedef struct {                                /*!< (@ 0x40024000) WDT Structur
 #define SDIO_CLOCKCTRL_CLKEN_Pos          (0UL)                     /*!< CLKEN (Bit 0)                                         */
 #define SDIO_CLOCKCTRL_CLKEN_Msk          (0x1UL)                   /*!< CLKEN (Bitfield-Mask: 0x01)                           */
 /* ========================================================  INTSTAT  ======================================================== */
-#define SDIO_INTSTAT_VNDERRSTAT_Pos       (29UL)                    /*!< VNDERRSTAT (Bit 29)                                   */
-#define SDIO_INTSTAT_VNDERRSTAT_Msk       (0xe0000000UL)            /*!< VNDERRSTAT (Bitfield-Mask: 0x07)                      */
-#define SDIO_INTSTAT_TGTRESPERR_Pos       (28UL)                    /*!< TGTRESPERR (Bit 28)                                   */
-#define SDIO_INTSTAT_TGTRESPERR_Msk       (0x10000000UL)            /*!< TGTRESPERR (Bitfield-Mask: 0x01)                      */
-#define SDIO_INTSTAT_ADMAERROR_Pos        (25UL)                    /*!< ADMAERROR (Bit 25)                                    */
-#define SDIO_INTSTAT_ADMAERROR_Msk        (0x2000000UL)             /*!< ADMAERROR (Bitfield-Mask: 0x01)                       */
-#define SDIO_INTSTAT_AUTOCMDERROR_Pos     (24UL)                    /*!< AUTOCMDERROR (Bit 24)                                 */
-#define SDIO_INTSTAT_AUTOCMDERROR_Msk     (0x1000000UL)             /*!< AUTOCMDERROR (Bitfield-Mask: 0x01)                    */
-#define SDIO_INTSTAT_CURRENTLIMITERROR_Pos (23UL)                   /*!< CURRENTLIMITERROR (Bit 23)                            */
-#define SDIO_INTSTAT_CURRENTLIMITERROR_Msk (0x800000UL)             /*!< CURRENTLIMITERROR (Bitfield-Mask: 0x01)               */
-#define SDIO_INTSTAT_DATAENDBITERROR_Pos  (22UL)                    /*!< DATAENDBITERROR (Bit 22)                              */
-#define SDIO_INTSTAT_DATAENDBITERROR_Msk  (0x400000UL)              /*!< DATAENDBITERROR (Bitfield-Mask: 0x01)                 */
-#define SDIO_INTSTAT_DATACRCERROR_Pos     (21UL)                    /*!< DATACRCERROR (Bit 21)                                 */
-#define SDIO_INTSTAT_DATACRCERROR_Msk     (0x200000UL)              /*!< DATACRCERROR (Bitfield-Mask: 0x01)                    */
-#define SDIO_INTSTAT_DATATIMEOUTERROR_Pos (20UL)                    /*!< DATATIMEOUTERROR (Bit 20)                             */
-#define SDIO_INTSTAT_DATATIMEOUTERROR_Msk (0x100000UL)              /*!< DATATIMEOUTERROR (Bitfield-Mask: 0x01)                */
-#define SDIO_INTSTAT_COMMANDINDEXERROR_Pos (19UL)                   /*!< COMMANDINDEXERROR (Bit 19)                            */
-#define SDIO_INTSTAT_COMMANDINDEXERROR_Msk (0x80000UL)              /*!< COMMANDINDEXERROR (Bitfield-Mask: 0x01)               */
-#define SDIO_INTSTAT_COMMANDENDBITERROR_Pos (18UL)                  /*!< COMMANDENDBITERROR (Bit 18)                           */
-#define SDIO_INTSTAT_COMMANDENDBITERROR_Msk (0x40000UL)             /*!< COMMANDENDBITERROR (Bitfield-Mask: 0x01)              */
-#define SDIO_INTSTAT_COMMANDCRCERROR_Pos  (17UL)                    /*!< COMMANDCRCERROR (Bit 17)                              */
-#define SDIO_INTSTAT_COMMANDCRCERROR_Msk  (0x20000UL)               /*!< COMMANDCRCERROR (Bitfield-Mask: 0x01)                 */
-#define SDIO_INTSTAT_COMMANDTIMEOUTERROR_Pos (16UL)                 /*!< COMMANDTIMEOUTERROR (Bit 16)                          */
-#define SDIO_INTSTAT_COMMANDTIMEOUTERROR_Msk (0x10000UL)            /*!< COMMANDTIMEOUTERROR (Bitfield-Mask: 0x01)             */
-#define SDIO_INTSTAT_ERRORINTERRUPT_Pos   (15UL)                    /*!< ERRORINTERRUPT (Bit 15)                               */
-#define SDIO_INTSTAT_ERRORINTERRUPT_Msk   (0x8000UL)                /*!< ERRORINTERRUPT (Bitfield-Mask: 0x01)                  */
-#define SDIO_INTSTAT_BOOTTERMINATE_Pos    (14UL)                    /*!< BOOTTERMINATE (Bit 14)                                */
-#define SDIO_INTSTAT_BOOTTERMINATE_Msk    (0x4000UL)                /*!< BOOTTERMINATE (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSTAT_BOOTACKRCV_Pos       (13UL)                    /*!< BOOTACKRCV (Bit 13)                                   */
-#define SDIO_INTSTAT_BOOTACKRCV_Msk       (0x2000UL)                /*!< BOOTACKRCV (Bitfield-Mask: 0x01)                      */
-#define SDIO_INTSTAT_RETUNINGEVENT_Pos    (12UL)                    /*!< RETUNINGEVENT (Bit 12)                                */
-#define SDIO_INTSTAT_RETUNINGEVENT_Msk    (0x1000UL)                /*!< RETUNINGEVENT (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSTAT_INTC_Pos             (11UL)                    /*!< INTC (Bit 11)                                         */
-#define SDIO_INTSTAT_INTC_Msk             (0x800UL)                 /*!< INTC (Bitfield-Mask: 0x01)                            */
-#define SDIO_INTSTAT_INTB_Pos             (10UL)                    /*!< INTB (Bit 10)                                         */
-#define SDIO_INTSTAT_INTB_Msk             (0x400UL)                 /*!< INTB (Bitfield-Mask: 0x01)                            */
-#define SDIO_INTSTAT_INTA_Pos             (9UL)                     /*!< INTA (Bit 9)                                          */
-#define SDIO_INTSTAT_INTA_Msk             (0x200UL)                 /*!< INTA (Bitfield-Mask: 0x01)                            */
-#define SDIO_INTSTAT_CARDINTERRUPT_Pos    (8UL)                     /*!< CARDINTERRUPT (Bit 8)                                 */
-#define SDIO_INTSTAT_CARDINTERRUPT_Msk    (0x100UL)                 /*!< CARDINTERRUPT (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSTAT_CARDREMOVAL_Pos      (7UL)                     /*!< CARDREMOVAL (Bit 7)                                   */
-#define SDIO_INTSTAT_CARDREMOVAL_Msk      (0x80UL)                  /*!< CARDREMOVAL (Bitfield-Mask: 0x01)                     */
-#define SDIO_INTSTAT_CARDINSERTION_Pos    (6UL)                     /*!< CARDINSERTION (Bit 6)                                 */
-#define SDIO_INTSTAT_CARDINSERTION_Msk    (0x40UL)                  /*!< CARDINSERTION (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSTAT_BUFFERREADREADY_Pos  (5UL)                     /*!< BUFFERREADREADY (Bit 5)                               */
-#define SDIO_INTSTAT_BUFFERREADREADY_Msk  (0x20UL)                  /*!< BUFFERREADREADY (Bitfield-Mask: 0x01)                 */
-#define SDIO_INTSTAT_BUFFERWRITEREADY_Pos (4UL)                     /*!< BUFFERWRITEREADY (Bit 4)                              */
-#define SDIO_INTSTAT_BUFFERWRITEREADY_Msk (0x10UL)                  /*!< BUFFERWRITEREADY (Bitfield-Mask: 0x01)                */
-#define SDIO_INTSTAT_DMAINTERRUPT_Pos     (3UL)                     /*!< DMAINTERRUPT (Bit 3)                                  */
-#define SDIO_INTSTAT_DMAINTERRUPT_Msk     (0x8UL)                   /*!< DMAINTERRUPT (Bitfield-Mask: 0x01)                    */
-#define SDIO_INTSTAT_BLOCKGAPEVENT_Pos    (2UL)                     /*!< BLOCKGAPEVENT (Bit 2)                                 */
-#define SDIO_INTSTAT_BLOCKGAPEVENT_Msk    (0x4UL)                   /*!< BLOCKGAPEVENT (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSTAT_TRANSFERCOMPLETE_Pos (1UL)                     /*!< TRANSFERCOMPLETE (Bit 1)                              */
-#define SDIO_INTSTAT_TRANSFERCOMPLETE_Msk (0x2UL)                   /*!< TRANSFERCOMPLETE (Bitfield-Mask: 0x01)                */
-#define SDIO_INTSTAT_COMMANDCOMPLETE_Pos  (0UL)                     /*!< COMMANDCOMPLETE (Bit 0)                               */
-#define SDIO_INTSTAT_COMMANDCOMPLETE_Msk  (0x1UL)                   /*!< COMMANDCOMPLETE (Bitfield-Mask: 0x01)                 */
+#define SDIO0_INTSTAT_VNDERRSTAT_Pos       (29UL)                    /*!< VNDERRSTAT (Bit 29)                                   */
+#define SDIO0_INTSTAT_VNDERRSTAT_Msk       (0xe0000000UL)            /*!< VNDERRSTAT (Bitfield-Mask: 0x07)                      */
+#define SDIO0_INTSTAT_TGTRESPERR_Pos       (28UL)                    /*!< TGTRESPERR (Bit 28)                                   */
+#define SDIO0_INTSTAT_TGTRESPERR_Msk       (0x10000000UL)            /*!< TGTRESPERR (Bitfield-Mask: 0x01)                      */
+#define SDIO0_INTSTAT_ADMAERROR_Pos        (25UL)                    /*!< ADMAERROR (Bit 25)                                    */
+#define SDIO0_INTSTAT_ADMAERROR_Msk        (0x2000000UL)             /*!< ADMAERROR (Bitfield-Mask: 0x01)                       */
+#define SDIO0_INTSTAT_AUTOCMDERROR_Pos     (24UL)                    /*!< AUTOCMDERROR (Bit 24)                                 */
+#define SDIO0_INTSTAT_AUTOCMDERROR_Msk     (0x1000000UL)             /*!< AUTOCMDERROR (Bitfield-Mask: 0x01)                    */
+#define SDIO0_INTSTAT_CURRENTLIMITERROR_Pos (23UL)                   /*!< CURRENTLIMITERROR (Bit 23)                            */
+#define SDIO0_INTSTAT_CURRENTLIMITERROR_Msk (0x800000UL)             /*!< CURRENTLIMITERROR (Bitfield-Mask: 0x01)               */
+#define SDIO0_INTSTAT_DATAENDBITERROR_Pos  (22UL)                    /*!< DATAENDBITERROR (Bit 22)                              */
+#define SDIO0_INTSTAT_DATAENDBITERROR_Msk  (0x400000UL)              /*!< DATAENDBITERROR (Bitfield-Mask: 0x01)                 */
+#define SDIO0_INTSTAT_DATACRCERROR_Pos     (21UL)                    /*!< DATACRCERROR (Bit 21)                                 */
+#define SDIO0_INTSTAT_DATACRCERROR_Msk     (0x200000UL)              /*!< DATACRCERROR (Bitfield-Mask: 0x01)                    */
+#define SDIO0_INTSTAT_DATATIMEOUTERROR_Pos (20UL)                    /*!< DATATIMEOUTERROR (Bit 20)                             */
+#define SDIO0_INTSTAT_DATATIMEOUTERROR_Msk (0x100000UL)              /*!< DATATIMEOUTERROR (Bitfield-Mask: 0x01)                */
+#define SDIO0_INTSTAT_COMMANDINDEXERROR_Pos (19UL)                   /*!< COMMANDINDEXERROR (Bit 19)                            */
+#define SDIO0_INTSTAT_COMMANDINDEXERROR_Msk (0x80000UL)              /*!< COMMANDINDEXERROR (Bitfield-Mask: 0x01)               */
+#define SDIO0_INTSTAT_COMMANDENDBITERROR_Pos (18UL)                  /*!< COMMANDENDBITERROR (Bit 18)                           */
+#define SDIO0_INTSTAT_COMMANDENDBITERROR_Msk (0x40000UL)             /*!< COMMANDENDBITERROR (Bitfield-Mask: 0x01)              */
+#define SDIO0_INTSTAT_COMMANDCRCERROR_Pos  (17UL)                    /*!< COMMANDCRCERROR (Bit 17)                              */
+#define SDIO0_INTSTAT_COMMANDCRCERROR_Msk  (0x20000UL)               /*!< COMMANDCRCERROR (Bitfield-Mask: 0x01)                 */
+#define SDIO0_INTSTAT_COMMANDTIMEOUTERROR_Pos (16UL)                 /*!< COMMANDTIMEOUTERROR (Bit 16)                          */
+#define SDIO0_INTSTAT_COMMANDTIMEOUTERROR_Msk (0x10000UL)            /*!< COMMANDTIMEOUTERROR (Bitfield-Mask: 0x01)             */
+#define SDIO0_INTSTAT_ERRORINTERRUPT_Pos   (15UL)                    /*!< ERRORINTERRUPT (Bit 15)                               */
+#define SDIO0_INTSTAT_ERRORINTERRUPT_Msk   (0x8000UL)                /*!< ERRORINTERRUPT (Bitfield-Mask: 0x01)                  */
+#define SDIO0_INTSTAT_BOOTTERMINATE_Pos    (14UL)                    /*!< BOOTTERMINATE (Bit 14)                                */
+#define SDIO0_INTSTAT_BOOTTERMINATE_Msk    (0x4000UL)                /*!< BOOTTERMINATE (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSTAT_BOOTACKRCV_Pos       (13UL)                    /*!< BOOTACKRCV (Bit 13)                                   */
+#define SDIO0_INTSTAT_BOOTACKRCV_Msk       (0x2000UL)                /*!< BOOTACKRCV (Bitfield-Mask: 0x01)                      */
+#define SDIO0_INTSTAT_RETUNINGEVENT_Pos    (12UL)                    /*!< RETUNINGEVENT (Bit 12)                                */
+#define SDIO0_INTSTAT_RETUNINGEVENT_Msk    (0x1000UL)                /*!< RETUNINGEVENT (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSTAT_INTC_Pos             (11UL)                    /*!< INTC (Bit 11)                                         */
+#define SDIO0_INTSTAT_INTC_Msk             (0x800UL)                 /*!< INTC (Bitfield-Mask: 0x01)                            */
+#define SDIO0_INTSTAT_INTB_Pos             (10UL)                    /*!< INTB (Bit 10)                                         */
+#define SDIO0_INTSTAT_INTB_Msk             (0x400UL)                 /*!< INTB (Bitfield-Mask: 0x01)                            */
+#define SDIO0_INTSTAT_INTA_Pos             (9UL)                     /*!< INTA (Bit 9)                                          */
+#define SDIO0_INTSTAT_INTA_Msk             (0x200UL)                 /*!< INTA (Bitfield-Mask: 0x01)                            */
+#define SDIO0_INTSTAT_CARDINTERRUPT_Pos    (8UL)                     /*!< CARDINTERRUPT (Bit 8)                                 */
+#define SDIO0_INTSTAT_CARDINTERRUPT_Msk    (0x100UL)                 /*!< CARDINTERRUPT (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSTAT_CARDREMOVAL_Pos      (7UL)                     /*!< CARDREMOVAL (Bit 7)                                   */
+#define SDIO0_INTSTAT_CARDREMOVAL_Msk      (0x80UL)                  /*!< CARDREMOVAL (Bitfield-Mask: 0x01)                     */
+#define SDIO0_INTSTAT_CARDINSERTION_Pos    (6UL)                     /*!< CARDINSERTION (Bit 6)                                 */
+#define SDIO0_INTSTAT_CARDINSERTION_Msk    (0x40UL)                  /*!< CARDINSERTION (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSTAT_BUFFERREADREADY_Pos  (5UL)                     /*!< BUFFERREADREADY (Bit 5)                               */
+#define SDIO0_INTSTAT_BUFFERREADREADY_Msk  (0x20UL)                  /*!< BUFFERREADREADY (Bitfield-Mask: 0x01)                 */
+#define SDIO0_INTSTAT_BUFFERWRITEREADY_Pos (4UL)                     /*!< BUFFERWRITEREADY (Bit 4)                              */
+#define SDIO0_INTSTAT_BUFFERWRITEREADY_Msk (0x10UL)                  /*!< BUFFERWRITEREADY (Bitfield-Mask: 0x01)                */
+#define SDIO0_INTSTAT_DMAINTERRUPT_Pos     (3UL)                     /*!< DMAINTERRUPT (Bit 3)                                  */
+#define SDIO0_INTSTAT_DMAINTERRUPT_Msk     (0x8UL)                   /*!< DMAINTERRUPT (Bitfield-Mask: 0x01)                    */
+#define SDIO0_INTSTAT_BLOCKGAPEVENT_Pos    (2UL)                     /*!< BLOCKGAPEVENT (Bit 2)                                 */
+#define SDIO0_INTSTAT_BLOCKGAPEVENT_Msk    (0x4UL)                   /*!< BLOCKGAPEVENT (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSTAT_TRANSFERCOMPLETE_Pos (1UL)                     /*!< TRANSFERCOMPLETE (Bit 1)                              */
+#define SDIO0_INTSTAT_TRANSFERCOMPLETE_Msk (0x2UL)                   /*!< TRANSFERCOMPLETE (Bitfield-Mask: 0x01)                */
+#define SDIO0_INTSTAT_COMMANDCOMPLETE_Pos  (0UL)                     /*!< COMMANDCOMPLETE (Bit 0)                               */
+#define SDIO0_INTSTAT_COMMANDCOMPLETE_Msk  (0x1UL)                   /*!< COMMANDCOMPLETE (Bitfield-Mask: 0x01)                 */
 /* =======================================================  INTENABLE  ======================================================= */
-#define SDIO_INTENABLE_VENDORSPECIFICERRORSTATUSENABLE_Pos (29UL)   /*!< VENDORSPECIFICERRORSTATUSENABLE (Bit 29)              */
-#define SDIO_INTENABLE_VENDORSPECIFICERRORSTATUSENABLE_Msk (0xe0000000UL) /*!< VENDORSPECIFICERRORSTATUSENABLE (Bitfield-Mask: 0x07) */
-#define SDIO_INTENABLE_TGTRESPERRHOSTERRSTATEN_Pos (28UL)           /*!< TGTRESPERRHOSTERRSTATEN (Bit 28)                      */
-#define SDIO_INTENABLE_TGTRESPERRHOSTERRSTATEN_Msk (0x10000000UL)   /*!< TGTRESPERRHOSTERRSTATEN (Bitfield-Mask: 0x01)         */
-#define SDIO_INTENABLE_TUNINGERRORSTATUS_Pos (26UL)                 /*!< TUNINGERRORSTATUS (Bit 26)                            */
-#define SDIO_INTENABLE_TUNINGERRORSTATUS_Msk (0x4000000UL)          /*!< TUNINGERRORSTATUS (Bitfield-Mask: 0x01)               */
-#define SDIO_INTENABLE_ADMAERRORSTATUSENABLE_Pos (25UL)             /*!< ADMAERRORSTATUSENABLE (Bit 25)                        */
-#define SDIO_INTENABLE_ADMAERRORSTATUSENABLE_Msk (0x2000000UL)      /*!< ADMAERRORSTATUSENABLE (Bitfield-Mask: 0x01)           */
-#define SDIO_INTENABLE_AUTOCMD12ERRORSTATUSENABLE_Pos (24UL)        /*!< AUTOCMD12ERRORSTATUSENABLE (Bit 24)                   */
-#define SDIO_INTENABLE_AUTOCMD12ERRORSTATUSENABLE_Msk (0x1000000UL) /*!< AUTOCMD12ERRORSTATUSENABLE (Bitfield-Mask: 0x01)      */
-#define SDIO_INTENABLE_CURRENTLIMITERRORSTATUSENABLE_Pos (23UL)     /*!< CURRENTLIMITERRORSTATUSENABLE (Bit 23)                */
-#define SDIO_INTENABLE_CURRENTLIMITERRORSTATUSENABLE_Msk (0x800000UL) /*!< CURRENTLIMITERRORSTATUSENABLE (Bitfield-Mask: 0x01) */
-#define SDIO_INTENABLE_DATAENDBITERRORSTATUSENABLE_Pos (22UL)       /*!< DATAENDBITERRORSTATUSENABLE (Bit 22)                  */
-#define SDIO_INTENABLE_DATAENDBITERRORSTATUSENABLE_Msk (0x400000UL) /*!< DATAENDBITERRORSTATUSENABLE (Bitfield-Mask: 0x01)     */
-#define SDIO_INTENABLE_DATACRCERRORSTATUSENABLE_Pos (21UL)          /*!< DATACRCERRORSTATUSENABLE (Bit 21)                     */
-#define SDIO_INTENABLE_DATACRCERRORSTATUSENABLE_Msk (0x200000UL)    /*!< DATACRCERRORSTATUSENABLE (Bitfield-Mask: 0x01)        */
-#define SDIO_INTENABLE_DATATIMEOUTERRORSTATUSENABLE_Pos (20UL)      /*!< DATATIMEOUTERRORSTATUSENABLE (Bit 20)                 */
-#define SDIO_INTENABLE_DATATIMEOUTERRORSTATUSENABLE_Msk (0x100000UL) /*!< DATATIMEOUTERRORSTATUSENABLE (Bitfield-Mask: 0x01)   */
-#define SDIO_INTENABLE_COMMANDINDEXERRORSTATUSENABLE_Pos (19UL)     /*!< COMMANDINDEXERRORSTATUSENABLE (Bit 19)                */
-#define SDIO_INTENABLE_COMMANDINDEXERRORSTATUSENABLE_Msk (0x80000UL) /*!< COMMANDINDEXERRORSTATUSENABLE (Bitfield-Mask: 0x01)  */
-#define SDIO_INTENABLE_COMMANDENDBITERRORSTATUSENABLE_Pos (18UL)    /*!< COMMANDENDBITERRORSTATUSENABLE (Bit 18)               */
-#define SDIO_INTENABLE_COMMANDENDBITERRORSTATUSENABLE_Msk (0x40000UL) /*!< COMMANDENDBITERRORSTATUSENABLE (Bitfield-Mask: 0x01) */
-#define SDIO_INTENABLE_COMMANDCRCERRORSTATUSENABLE_Pos (17UL)       /*!< COMMANDCRCERRORSTATUSENABLE (Bit 17)                  */
-#define SDIO_INTENABLE_COMMANDCRCERRORSTATUSENABLE_Msk (0x20000UL)  /*!< COMMANDCRCERRORSTATUSENABLE (Bitfield-Mask: 0x01)     */
-#define SDIO_INTENABLE_COMMANDTIMEOUTERRORSTATUSENABLE_Pos (16UL)   /*!< COMMANDTIMEOUTERRORSTATUSENABLE (Bit 16)              */
-#define SDIO_INTENABLE_COMMANDTIMEOUTERRORSTATUSENABLE_Msk (0x10000UL) /*!< COMMANDTIMEOUTERRORSTATUSENABLE (Bitfield-Mask: 0x01) */
-#define SDIO_INTENABLE_FIXEDTO0_Pos       (15UL)                    /*!< FIXEDTO0 (Bit 15)                                     */
-#define SDIO_INTENABLE_FIXEDTO0_Msk       (0x8000UL)                /*!< FIXEDTO0 (Bitfield-Mask: 0x01)                        */
-#define SDIO_INTENABLE_BOOTTERMINATE_Pos  (14UL)                    /*!< BOOTTERMINATE (Bit 14)                                */
-#define SDIO_INTENABLE_BOOTTERMINATE_Msk  (0x4000UL)                /*!< BOOTTERMINATE (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTENABLE_BOOTACKRCVENABLE_Pos (13UL)                  /*!< BOOTACKRCVENABLE (Bit 13)                             */
-#define SDIO_INTENABLE_BOOTACKRCVENABLE_Msk (0x2000UL)              /*!< BOOTACKRCVENABLE (Bitfield-Mask: 0x01)                */
-#define SDIO_INTENABLE_RETUNINGEVENTSTATUSENABLE_Pos (12UL)         /*!< RETUNINGEVENTSTATUSENABLE (Bit 12)                    */
-#define SDIO_INTENABLE_RETUNINGEVENTSTATUSENABLE_Msk (0x1000UL)     /*!< RETUNINGEVENTSTATUSENABLE (Bitfield-Mask: 0x01)       */
-#define SDIO_INTENABLE_INTCSTATUSENABLE_Pos (11UL)                  /*!< INTCSTATUSENABLE (Bit 11)                             */
-#define SDIO_INTENABLE_INTCSTATUSENABLE_Msk (0x800UL)               /*!< INTCSTATUSENABLE (Bitfield-Mask: 0x01)                */
-#define SDIO_INTENABLE_INTBSTATUSENABLE_Pos (10UL)                  /*!< INTBSTATUSENABLE (Bit 10)                             */
-#define SDIO_INTENABLE_INTBSTATUSENABLE_Msk (0x400UL)               /*!< INTBSTATUSENABLE (Bitfield-Mask: 0x01)                */
-#define SDIO_INTENABLE_INTASTATUSENABLE_Pos (9UL)                   /*!< INTASTATUSENABLE (Bit 9)                              */
-#define SDIO_INTENABLE_INTASTATUSENABLE_Msk (0x200UL)               /*!< INTASTATUSENABLE (Bitfield-Mask: 0x01)                */
-#define SDIO_INTENABLE_CARDINTERRUPTSTATUSENABLE_Pos (8UL)          /*!< CARDINTERRUPTSTATUSENABLE (Bit 8)                     */
-#define SDIO_INTENABLE_CARDINTERRUPTSTATUSENABLE_Msk (0x100UL)      /*!< CARDINTERRUPTSTATUSENABLE (Bitfield-Mask: 0x01)       */
-#define SDIO_INTENABLE_CARDREMOVALSTATUSENABLE_Pos (7UL)            /*!< CARDREMOVALSTATUSENABLE (Bit 7)                       */
-#define SDIO_INTENABLE_CARDREMOVALSTATUSENABLE_Msk (0x80UL)         /*!< CARDREMOVALSTATUSENABLE (Bitfield-Mask: 0x01)         */
-#define SDIO_INTENABLE_CARDINSERTIONSTATUSENABLE_Pos (6UL)          /*!< CARDINSERTIONSTATUSENABLE (Bit 6)                     */
-#define SDIO_INTENABLE_CARDINSERTIONSTATUSENABLE_Msk (0x40UL)       /*!< CARDINSERTIONSTATUSENABLE (Bitfield-Mask: 0x01)       */
-#define SDIO_INTENABLE_BUFFERREADREADYSTATUSENABLE_Pos (5UL)        /*!< BUFFERREADREADYSTATUSENABLE (Bit 5)                   */
-#define SDIO_INTENABLE_BUFFERREADREADYSTATUSENABLE_Msk (0x20UL)     /*!< BUFFERREADREADYSTATUSENABLE (Bitfield-Mask: 0x01)     */
-#define SDIO_INTENABLE_BUFFERWRITEREADYSTATUSENABLE_Pos (4UL)       /*!< BUFFERWRITEREADYSTATUSENABLE (Bit 4)                  */
-#define SDIO_INTENABLE_BUFFERWRITEREADYSTATUSENABLE_Msk (0x10UL)    /*!< BUFFERWRITEREADYSTATUSENABLE (Bitfield-Mask: 0x01)    */
-#define SDIO_INTENABLE_DMAINTERRUPTSTATUSENABLE_Pos (3UL)           /*!< DMAINTERRUPTSTATUSENABLE (Bit 3)                      */
-#define SDIO_INTENABLE_DMAINTERRUPTSTATUSENABLE_Msk (0x8UL)         /*!< DMAINTERRUPTSTATUSENABLE (Bitfield-Mask: 0x01)        */
-#define SDIO_INTENABLE_BLOCKGAPEVENTSTATUSENABLE_Pos (2UL)          /*!< BLOCKGAPEVENTSTATUSENABLE (Bit 2)                     */
-#define SDIO_INTENABLE_BLOCKGAPEVENTSTATUSENABLE_Msk (0x4UL)        /*!< BLOCKGAPEVENTSTATUSENABLE (Bitfield-Mask: 0x01)       */
-#define SDIO_INTENABLE_TRANSFERCOMPLETESTATUSENABLE_Pos (1UL)       /*!< TRANSFERCOMPLETESTATUSENABLE (Bit 1)                  */
-#define SDIO_INTENABLE_TRANSFERCOMPLETESTATUSENABLE_Msk (0x2UL)     /*!< TRANSFERCOMPLETESTATUSENABLE (Bitfield-Mask: 0x01)    */
-#define SDIO_INTENABLE_COMMANDCOMPLETESTATUSENABLE_Pos (0UL)        /*!< COMMANDCOMPLETESTATUSENABLE (Bit 0)                   */
-#define SDIO_INTENABLE_COMMANDCOMPLETESTATUSENABLE_Msk (0x1UL)      /*!< COMMANDCOMPLETESTATUSENABLE (Bitfield-Mask: 0x01)     */
+#define SDIO0_INTENABLE_VENDORSPECIFICERRORSTATUSENABLE_Pos (29UL)   /*!< VENDORSPECIFICERRORSTATUSENABLE (Bit 29)              */
+#define SDIO0_INTENABLE_VENDORSPECIFICERRORSTATUSENABLE_Msk (0xe0000000UL) /*!< VENDORSPECIFICERRORSTATUSENABLE (Bitfield-Mask: 0x07) */
+#define SDIO0_INTENABLE_TGTRESPERRHOSTERRSTATEN_Pos (28UL)           /*!< TGTRESPERRHOSTERRSTATEN (Bit 28)                      */
+#define SDIO0_INTENABLE_TGTRESPERRHOSTERRSTATEN_Msk (0x10000000UL)   /*!< TGTRESPERRHOSTERRSTATEN (Bitfield-Mask: 0x01)         */
+#define SDIO0_INTENABLE_TUNINGERRORSTATUS_Pos (26UL)                 /*!< TUNINGERRORSTATUS (Bit 26)                            */
+#define SDIO0_INTENABLE_TUNINGERRORSTATUS_Msk (0x4000000UL)          /*!< TUNINGERRORSTATUS (Bitfield-Mask: 0x01)               */
+#define SDIO0_INTENABLE_ADMAERRORSTATUSENABLE_Pos (25UL)             /*!< ADMAERRORSTATUSENABLE (Bit 25)                        */
+#define SDIO0_INTENABLE_ADMAERRORSTATUSENABLE_Msk (0x2000000UL)      /*!< ADMAERRORSTATUSENABLE (Bitfield-Mask: 0x01)           */
+#define SDIO0_INTENABLE_AUTOCMD12ERRORSTATUSENABLE_Pos (24UL)        /*!< AUTOCMD12ERRORSTATUSENABLE (Bit 24)                   */
+#define SDIO0_INTENABLE_AUTOCMD12ERRORSTATUSENABLE_Msk (0x1000000UL) /*!< AUTOCMD12ERRORSTATUSENABLE (Bitfield-Mask: 0x01)      */
+#define SDIO0_INTENABLE_CURRENTLIMITERRORSTATUSENABLE_Pos (23UL)     /*!< CURRENTLIMITERRORSTATUSENABLE (Bit 23)                */
+#define SDIO0_INTENABLE_CURRENTLIMITERRORSTATUSENABLE_Msk (0x800000UL) /*!< CURRENTLIMITERRORSTATUSENABLE (Bitfield-Mask: 0x01) */
+#define SDIO0_INTENABLE_DATAENDBITERRORSTATUSENABLE_Pos (22UL)       /*!< DATAENDBITERRORSTATUSENABLE (Bit 22)                  */
+#define SDIO0_INTENABLE_DATAENDBITERRORSTATUSENABLE_Msk (0x400000UL) /*!< DATAENDBITERRORSTATUSENABLE (Bitfield-Mask: 0x01)     */
+#define SDIO0_INTENABLE_DATACRCERRORSTATUSENABLE_Pos (21UL)          /*!< DATACRCERRORSTATUSENABLE (Bit 21)                     */
+#define SDIO0_INTENABLE_DATACRCERRORSTATUSENABLE_Msk (0x200000UL)    /*!< DATACRCERRORSTATUSENABLE (Bitfield-Mask: 0x01)        */
+#define SDIO0_INTENABLE_DATATIMEOUTERRORSTATUSENABLE_Pos (20UL)      /*!< DATATIMEOUTERRORSTATUSENABLE (Bit 20)                 */
+#define SDIO0_INTENABLE_DATATIMEOUTERRORSTATUSENABLE_Msk (0x100000UL) /*!< DATATIMEOUTERRORSTATUSENABLE (Bitfield-Mask: 0x01)   */
+#define SDIO0_INTENABLE_COMMANDINDEXERRORSTATUSENABLE_Pos (19UL)     /*!< COMMANDINDEXERRORSTATUSENABLE (Bit 19)                */
+#define SDIO0_INTENABLE_COMMANDINDEXERRORSTATUSENABLE_Msk (0x80000UL) /*!< COMMANDINDEXERRORSTATUSENABLE (Bitfield-Mask: 0x01)  */
+#define SDIO0_INTENABLE_COMMANDENDBITERRORSTATUSENABLE_Pos (18UL)    /*!< COMMANDENDBITERRORSTATUSENABLE (Bit 18)               */
+#define SDIO0_INTENABLE_COMMANDENDBITERRORSTATUSENABLE_Msk (0x40000UL) /*!< COMMANDENDBITERRORSTATUSENABLE (Bitfield-Mask: 0x01) */
+#define SDIO0_INTENABLE_COMMANDCRCERRORSTATUSENABLE_Pos (17UL)       /*!< COMMANDCRCERRORSTATUSENABLE (Bit 17)                  */
+#define SDIO0_INTENABLE_COMMANDCRCERRORSTATUSENABLE_Msk (0x20000UL)  /*!< COMMANDCRCERRORSTATUSENABLE (Bitfield-Mask: 0x01)     */
+#define SDIO0_INTENABLE_COMMANDTIMEOUTERRORSTATUSENABLE_Pos (16UL)   /*!< COMMANDTIMEOUTERRORSTATUSENABLE (Bit 16)              */
+#define SDIO0_INTENABLE_COMMANDTIMEOUTERRORSTATUSENABLE_Msk (0x10000UL) /*!< COMMANDTIMEOUTERRORSTATUSENABLE (Bitfield-Mask: 0x01) */
+#define SDIO0_INTENABLE_FIXEDTO0_Pos       (15UL)                    /*!< FIXEDTO0 (Bit 15)                                     */
+#define SDIO0_INTENABLE_FIXEDTO0_Msk       (0x8000UL)                /*!< FIXEDTO0 (Bitfield-Mask: 0x01)                        */
+#define SDIO0_INTENABLE_BOOTTERMINATE_Pos  (14UL)                    /*!< BOOTTERMINATE (Bit 14)                                */
+#define SDIO0_INTENABLE_BOOTTERMINATE_Msk  (0x4000UL)                /*!< BOOTTERMINATE (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTENABLE_BOOTACKRCVENABLE_Pos (13UL)                  /*!< BOOTACKRCVENABLE (Bit 13)                             */
+#define SDIO0_INTENABLE_BOOTACKRCVENABLE_Msk (0x2000UL)              /*!< BOOTACKRCVENABLE (Bitfield-Mask: 0x01)                */
+#define SDIO0_INTENABLE_RETUNINGEVENTSTATUSENABLE_Pos (12UL)         /*!< RETUNINGEVENTSTATUSENABLE (Bit 12)                    */
+#define SDIO0_INTENABLE_RETUNINGEVENTSTATUSENABLE_Msk (0x1000UL)     /*!< RETUNINGEVENTSTATUSENABLE (Bitfield-Mask: 0x01)       */
+#define SDIO0_INTENABLE_INTCSTATUSENABLE_Pos (11UL)                  /*!< INTCSTATUSENABLE (Bit 11)                             */
+#define SDIO0_INTENABLE_INTCSTATUSENABLE_Msk (0x800UL)               /*!< INTCSTATUSENABLE (Bitfield-Mask: 0x01)                */
+#define SDIO0_INTENABLE_INTBSTATUSENABLE_Pos (10UL)                  /*!< INTBSTATUSENABLE (Bit 10)                             */
+#define SDIO0_INTENABLE_INTBSTATUSENABLE_Msk (0x400UL)               /*!< INTBSTATUSENABLE (Bitfield-Mask: 0x01)                */
+#define SDIO0_INTENABLE_INTASTATUSENABLE_Pos (9UL)                   /*!< INTASTATUSENABLE (Bit 9)                              */
+#define SDIO0_INTENABLE_INTASTATUSENABLE_Msk (0x200UL)               /*!< INTASTATUSENABLE (Bitfield-Mask: 0x01)                */
+#define SDIO0_INTENABLE_CARDINTERRUPTSTATUSENABLE_Pos (8UL)          /*!< CARDINTERRUPTSTATUSENABLE (Bit 8)                     */
+#define SDIO0_INTENABLE_CARDINTERRUPTSTATUSENABLE_Msk (0x100UL)      /*!< CARDINTERRUPTSTATUSENABLE (Bitfield-Mask: 0x01)       */
+#define SDIO0_INTENABLE_CARDREMOVALSTATUSENABLE_Pos (7UL)            /*!< CARDREMOVALSTATUSENABLE (Bit 7)                       */
+#define SDIO0_INTENABLE_CARDREMOVALSTATUSENABLE_Msk (0x80UL)         /*!< CARDREMOVALSTATUSENABLE (Bitfield-Mask: 0x01)         */
+#define SDIO0_INTENABLE_CARDINSERTIONSTATUSENABLE_Pos (6UL)          /*!< CARDINSERTIONSTATUSENABLE (Bit 6)                     */
+#define SDIO0_INTENABLE_CARDINSERTIONSTATUSENABLE_Msk (0x40UL)       /*!< CARDINSERTIONSTATUSENABLE (Bitfield-Mask: 0x01)       */
+#define SDIO0_INTENABLE_BUFFERREADREADYSTATUSENABLE_Pos (5UL)        /*!< BUFFERREADREADYSTATUSENABLE (Bit 5)                   */
+#define SDIO0_INTENABLE_BUFFERREADREADYSTATUSENABLE_Msk (0x20UL)     /*!< BUFFERREADREADYSTATUSENABLE (Bitfield-Mask: 0x01)     */
+#define SDIO0_INTENABLE_BUFFERWRITEREADYSTATUSENABLE_Pos (4UL)       /*!< BUFFERWRITEREADYSTATUSENABLE (Bit 4)                  */
+#define SDIO0_INTENABLE_BUFFERWRITEREADYSTATUSENABLE_Msk (0x10UL)    /*!< BUFFERWRITEREADYSTATUSENABLE (Bitfield-Mask: 0x01)    */
+#define SDIO0_INTENABLE_DMAINTERRUPTSTATUSENABLE_Pos (3UL)           /*!< DMAINTERRUPTSTATUSENABLE (Bit 3)                      */
+#define SDIO0_INTENABLE_DMAINTERRUPTSTATUSENABLE_Msk (0x8UL)         /*!< DMAINTERRUPTSTATUSENABLE (Bitfield-Mask: 0x01)        */
+#define SDIO0_INTENABLE_BLOCKGAPEVENTSTATUSENABLE_Pos (2UL)          /*!< BLOCKGAPEVENTSTATUSENABLE (Bit 2)                     */
+#define SDIO0_INTENABLE_BLOCKGAPEVENTSTATUSENABLE_Msk (0x4UL)        /*!< BLOCKGAPEVENTSTATUSENABLE (Bitfield-Mask: 0x01)       */
+#define SDIO0_INTENABLE_TRANSFERCOMPLETESTATUSENABLE_Pos (1UL)       /*!< TRANSFERCOMPLETESTATUSENABLE (Bit 1)                  */
+#define SDIO0_INTENABLE_TRANSFERCOMPLETESTATUSENABLE_Msk (0x2UL)     /*!< TRANSFERCOMPLETESTATUSENABLE (Bitfield-Mask: 0x01)    */
+#define SDIO0_INTENABLE_COMMANDCOMPLETESTATUSENABLE_Pos (0UL)        /*!< COMMANDCOMPLETESTATUSENABLE (Bit 0)                   */
+#define SDIO0_INTENABLE_COMMANDCOMPLETESTATUSENABLE_Msk (0x1UL)      /*!< COMMANDCOMPLETESTATUSENABLE (Bitfield-Mask: 0x01)     */
 /* ========================================================  INTSIG  ========================================================= */
-#define SDIO_INTSIG_VNDERREN_Pos          (29UL)                    /*!< VNDERREN (Bit 29)                                     */
-#define SDIO_INTSIG_VNDERREN_Msk          (0xe0000000UL)            /*!< VNDERREN (Bitfield-Mask: 0x07)                        */
-#define SDIO_INTSIG_TGTRESPEN_Pos         (28UL)                    /*!< TGTRESPEN (Bit 28)                                    */
-#define SDIO_INTSIG_TGTRESPEN_Msk         (0x10000000UL)            /*!< TGTRESPEN (Bitfield-Mask: 0x01)                       */
-#define SDIO_INTSIG_TUNINGERREN_Pos       (26UL)                    /*!< TUNINGERREN (Bit 26)                                  */
-#define SDIO_INTSIG_TUNINGERREN_Msk       (0x4000000UL)             /*!< TUNINGERREN (Bitfield-Mask: 0x01)                     */
-#define SDIO_INTSIG_ADMAERREN_Pos         (25UL)                    /*!< ADMAERREN (Bit 25)                                    */
-#define SDIO_INTSIG_ADMAERREN_Msk         (0x2000000UL)             /*!< ADMAERREN (Bitfield-Mask: 0x01)                       */
-#define SDIO_INTSIG_AUTOCMD12ERREN_Pos    (24UL)                    /*!< AUTOCMD12ERREN (Bit 24)                               */
-#define SDIO_INTSIG_AUTOCMD12ERREN_Msk    (0x1000000UL)             /*!< AUTOCMD12ERREN (Bitfield-Mask: 0x01)                  */
-#define SDIO_INTSIG_CURRLMTERREN_Pos      (23UL)                    /*!< CURRLMTERREN (Bit 23)                                 */
-#define SDIO_INTSIG_CURRLMTERREN_Msk      (0x800000UL)              /*!< CURRLMTERREN (Bitfield-Mask: 0x01)                    */
-#define SDIO_INTSIG_DATAENDERREN_Pos      (22UL)                    /*!< DATAENDERREN (Bit 22)                                 */
-#define SDIO_INTSIG_DATAENDERREN_Msk      (0x400000UL)              /*!< DATAENDERREN (Bitfield-Mask: 0x01)                    */
-#define SDIO_INTSIG_DATACRCERREN_Pos      (21UL)                    /*!< DATACRCERREN (Bit 21)                                 */
-#define SDIO_INTSIG_DATACRCERREN_Msk      (0x200000UL)              /*!< DATACRCERREN (Bitfield-Mask: 0x01)                    */
-#define SDIO_INTSIG_DATATOERROREN_Pos     (20UL)                    /*!< DATATOERROREN (Bit 20)                                */
-#define SDIO_INTSIG_DATATOERROREN_Msk     (0x100000UL)              /*!< DATATOERROREN (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSIG_CMDIDXERREN_Pos       (19UL)                    /*!< CMDIDXERREN (Bit 19)                                  */
-#define SDIO_INTSIG_CMDIDXERREN_Msk       (0x80000UL)               /*!< CMDIDXERREN (Bitfield-Mask: 0x01)                     */
-#define SDIO_INTSIG_CMDENDBITERREN_Pos    (18UL)                    /*!< CMDENDBITERREN (Bit 18)                               */
-#define SDIO_INTSIG_CMDENDBITERREN_Msk    (0x40000UL)               /*!< CMDENDBITERREN (Bitfield-Mask: 0x01)                  */
-#define SDIO_INTSIG_CMDCRCERREN_Pos       (17UL)                    /*!< CMDCRCERREN (Bit 17)                                  */
-#define SDIO_INTSIG_CMDCRCERREN_Msk       (0x20000UL)               /*!< CMDCRCERREN (Bitfield-Mask: 0x01)                     */
-#define SDIO_INTSIG_CMDTOERREN_Pos        (16UL)                    /*!< CMDTOERREN (Bit 16)                                   */
-#define SDIO_INTSIG_CMDTOERREN_Msk        (0x10000UL)               /*!< CMDTOERREN (Bitfield-Mask: 0x01)                      */
-#define SDIO_INTSIG_FIXED0_Pos            (15UL)                    /*!< FIXED0 (Bit 15)                                       */
-#define SDIO_INTSIG_FIXED0_Msk            (0x8000UL)                /*!< FIXED0 (Bitfield-Mask: 0x01)                          */
-#define SDIO_INTSIG_BOOTTERM_Pos          (14UL)                    /*!< BOOTTERM (Bit 14)                                     */
-#define SDIO_INTSIG_BOOTTERM_Msk          (0x4000UL)                /*!< BOOTTERM (Bitfield-Mask: 0x01)                        */
-#define SDIO_INTSIG_BOOTACKEN_Pos         (13UL)                    /*!< BOOTACKEN (Bit 13)                                    */
-#define SDIO_INTSIG_BOOTACKEN_Msk         (0x2000UL)                /*!< BOOTACKEN (Bitfield-Mask: 0x01)                       */
-#define SDIO_INTSIG_RETUNEEVENTEN_Pos     (12UL)                    /*!< RETUNEEVENTEN (Bit 12)                                */
-#define SDIO_INTSIG_RETUNEEVENTEN_Msk     (0x1000UL)                /*!< RETUNEEVENTEN (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSIG_INTCEN_Pos            (11UL)                    /*!< INTCEN (Bit 11)                                       */
-#define SDIO_INTSIG_INTCEN_Msk            (0x800UL)                 /*!< INTCEN (Bitfield-Mask: 0x01)                          */
-#define SDIO_INTSIG_INTBEN_Pos            (10UL)                    /*!< INTBEN (Bit 10)                                       */
-#define SDIO_INTSIG_INTBEN_Msk            (0x400UL)                 /*!< INTBEN (Bitfield-Mask: 0x01)                          */
-#define SDIO_INTSIG_INTAEN_Pos            (9UL)                     /*!< INTAEN (Bit 9)                                        */
-#define SDIO_INTSIG_INTAEN_Msk            (0x200UL)                 /*!< INTAEN (Bitfield-Mask: 0x01)                          */
-#define SDIO_INTSIG_CARDINTEN_Pos         (8UL)                     /*!< CARDINTEN (Bit 8)                                     */
-#define SDIO_INTSIG_CARDINTEN_Msk         (0x100UL)                 /*!< CARDINTEN (Bitfield-Mask: 0x01)                       */
-#define SDIO_INTSIG_CARDREMOVALEN_Pos     (7UL)                     /*!< CARDREMOVALEN (Bit 7)                                 */
-#define SDIO_INTSIG_CARDREMOVALEN_Msk     (0x80UL)                  /*!< CARDREMOVALEN (Bitfield-Mask: 0x01)                   */
-#define SDIO_INTSIG_CARDINSERTEN_Pos      (6UL)                     /*!< CARDINSERTEN (Bit 6)                                  */
-#define SDIO_INTSIG_CARDINSERTEN_Msk      (0x40UL)                  /*!< CARDINSERTEN (Bitfield-Mask: 0x01)                    */
-#define SDIO_INTSIG_BUFFERRDEN_Pos        (5UL)                     /*!< BUFFERRDEN (Bit 5)                                    */
-#define SDIO_INTSIG_BUFFERRDEN_Msk        (0x20UL)                  /*!< BUFFERRDEN (Bitfield-Mask: 0x01)                      */
-#define SDIO_INTSIG_BUFFERWREN_Pos        (4UL)                     /*!< BUFFERWREN (Bit 4)                                    */
-#define SDIO_INTSIG_BUFFERWREN_Msk        (0x10UL)                  /*!< BUFFERWREN (Bitfield-Mask: 0x01)                      */
-#define SDIO_INTSIG_DMAINTEN_Pos          (3UL)                     /*!< DMAINTEN (Bit 3)                                      */
-#define SDIO_INTSIG_DMAINTEN_Msk          (0x8UL)                   /*!< DMAINTEN (Bitfield-Mask: 0x01)                        */
-#define SDIO_INTSIG_BLOCKGAPEN_Pos        (2UL)                     /*!< BLOCKGAPEN (Bit 2)                                    */
-#define SDIO_INTSIG_BLOCKGAPEN_Msk        (0x4UL)                   /*!< BLOCKGAPEN (Bitfield-Mask: 0x01)                      */
-#define SDIO_INTSIG_XFERCMPEN_Pos         (1UL)                     /*!< XFERCMPEN (Bit 1)                                     */
-#define SDIO_INTSIG_XFERCMPEN_Msk         (0x2UL)                   /*!< XFERCMPEN (Bitfield-Mask: 0x01)                       */
-#define SDIO_INTSIG_CMDCMPEN_Pos          (0UL)                     /*!< CMDCMPEN (Bit 0)                                      */
-#define SDIO_INTSIG_CMDCMPEN_Msk          (0x1UL)                   /*!< CMDCMPEN (Bitfield-Mask: 0x01)                        */
+#define SDIO0_INTSIG_VNDERREN_Pos          (29UL)                    /*!< VNDERREN (Bit 29)                                     */
+#define SDIO0_INTSIG_VNDERREN_Msk          (0xe0000000UL)            /*!< VNDERREN (Bitfield-Mask: 0x07)                        */
+#define SDIO0_INTSIG_TGTRESPEN_Pos         (28UL)                    /*!< TGTRESPEN (Bit 28)                                    */
+#define SDIO0_INTSIG_TGTRESPEN_Msk         (0x10000000UL)            /*!< TGTRESPEN (Bitfield-Mask: 0x01)                       */
+#define SDIO0_INTSIG_TUNINGERREN_Pos       (26UL)                    /*!< TUNINGERREN (Bit 26)                                  */
+#define SDIO0_INTSIG_TUNINGERREN_Msk       (0x4000000UL)             /*!< TUNINGERREN (Bitfield-Mask: 0x01)                     */
+#define SDIO0_INTSIG_ADMAERREN_Pos         (25UL)                    /*!< ADMAERREN (Bit 25)                                    */
+#define SDIO0_INTSIG_ADMAERREN_Msk         (0x2000000UL)             /*!< ADMAERREN (Bitfield-Mask: 0x01)                       */
+#define SDIO0_INTSIG_AUTOCMD12ERREN_Pos    (24UL)                    /*!< AUTOCMD12ERREN (Bit 24)                               */
+#define SDIO0_INTSIG_AUTOCMD12ERREN_Msk    (0x1000000UL)             /*!< AUTOCMD12ERREN (Bitfield-Mask: 0x01)                  */
+#define SDIO0_INTSIG_CURRLMTERREN_Pos      (23UL)                    /*!< CURRLMTERREN (Bit 23)                                 */
+#define SDIO0_INTSIG_CURRLMTERREN_Msk      (0x800000UL)              /*!< CURRLMTERREN (Bitfield-Mask: 0x01)                    */
+#define SDIO0_INTSIG_DATAENDERREN_Pos      (22UL)                    /*!< DATAENDERREN (Bit 22)                                 */
+#define SDIO0_INTSIG_DATAENDERREN_Msk      (0x400000UL)              /*!< DATAENDERREN (Bitfield-Mask: 0x01)                    */
+#define SDIO0_INTSIG_DATACRCERREN_Pos      (21UL)                    /*!< DATACRCERREN (Bit 21)                                 */
+#define SDIO0_INTSIG_DATACRCERREN_Msk      (0x200000UL)              /*!< DATACRCERREN (Bitfield-Mask: 0x01)                    */
+#define SDIO0_INTSIG_DATATOERROREN_Pos     (20UL)                    /*!< DATATOERROREN (Bit 20)                                */
+#define SDIO0_INTSIG_DATATOERROREN_Msk     (0x100000UL)              /*!< DATATOERROREN (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSIG_CMDIDXERREN_Pos       (19UL)                    /*!< CMDIDXERREN (Bit 19)                                  */
+#define SDIO0_INTSIG_CMDIDXERREN_Msk       (0x80000UL)               /*!< CMDIDXERREN (Bitfield-Mask: 0x01)                     */
+#define SDIO0_INTSIG_CMDENDBITERREN_Pos    (18UL)                    /*!< CMDENDBITERREN (Bit 18)                               */
+#define SDIO0_INTSIG_CMDENDBITERREN_Msk    (0x40000UL)               /*!< CMDENDBITERREN (Bitfield-Mask: 0x01)                  */
+#define SDIO0_INTSIG_CMDCRCERREN_Pos       (17UL)                    /*!< CMDCRCERREN (Bit 17)                                  */
+#define SDIO0_INTSIG_CMDCRCERREN_Msk       (0x20000UL)               /*!< CMDCRCERREN (Bitfield-Mask: 0x01)                     */
+#define SDIO0_INTSIG_CMDTOERREN_Pos        (16UL)                    /*!< CMDTOERREN (Bit 16)                                   */
+#define SDIO0_INTSIG_CMDTOERREN_Msk        (0x10000UL)               /*!< CMDTOERREN (Bitfield-Mask: 0x01)                      */
+#define SDIO0_INTSIG_FIXED0_Pos            (15UL)                    /*!< FIXED0 (Bit 15)                                       */
+#define SDIO0_INTSIG_FIXED0_Msk            (0x8000UL)                /*!< FIXED0 (Bitfield-Mask: 0x01)                          */
+#define SDIO0_INTSIG_BOOTTERM_Pos          (14UL)                    /*!< BOOTTERM (Bit 14)                                     */
+#define SDIO0_INTSIG_BOOTTERM_Msk          (0x4000UL)                /*!< BOOTTERM (Bitfield-Mask: 0x01)                        */
+#define SDIO0_INTSIG_BOOTACKEN_Pos         (13UL)                    /*!< BOOTACKEN (Bit 13)                                    */
+#define SDIO0_INTSIG_BOOTACKEN_Msk         (0x2000UL)                /*!< BOOTACKEN (Bitfield-Mask: 0x01)                       */
+#define SDIO0_INTSIG_RETUNEEVENTEN_Pos     (12UL)                    /*!< RETUNEEVENTEN (Bit 12)                                */
+#define SDIO0_INTSIG_RETUNEEVENTEN_Msk     (0x1000UL)                /*!< RETUNEEVENTEN (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSIG_INTCEN_Pos            (11UL)                    /*!< INTCEN (Bit 11)                                       */
+#define SDIO0_INTSIG_INTCEN_Msk            (0x800UL)                 /*!< INTCEN (Bitfield-Mask: 0x01)                          */
+#define SDIO0_INTSIG_INTBEN_Pos            (10UL)                    /*!< INTBEN (Bit 10)                                       */
+#define SDIO0_INTSIG_INTBEN_Msk            (0x400UL)                 /*!< INTBEN (Bitfield-Mask: 0x01)                          */
+#define SDIO0_INTSIG_INTAEN_Pos            (9UL)                     /*!< INTAEN (Bit 9)                                        */
+#define SDIO0_INTSIG_INTAEN_Msk            (0x200UL)                 /*!< INTAEN (Bitfield-Mask: 0x01)                          */
+#define SDIO0_INTSIG_CARDINTEN_Pos         (8UL)                     /*!< CARDINTEN (Bit 8)                                     */
+#define SDIO0_INTSIG_CARDINTEN_Msk         (0x100UL)                 /*!< CARDINTEN (Bitfield-Mask: 0x01)                       */
+#define SDIO0_INTSIG_CARDREMOVALEN_Pos     (7UL)                     /*!< CARDREMOVALEN (Bit 7)                                 */
+#define SDIO0_INTSIG_CARDREMOVALEN_Msk     (0x80UL)                  /*!< CARDREMOVALEN (Bitfield-Mask: 0x01)                   */
+#define SDIO0_INTSIG_CARDINSERTEN_Pos      (6UL)                     /*!< CARDINSERTEN (Bit 6)                                  */
+#define SDIO0_INTSIG_CARDINSERTEN_Msk      (0x40UL)                  /*!< CARDINSERTEN (Bitfield-Mask: 0x01)                    */
+#define SDIO0_INTSIG_BUFFERRDEN_Pos        (5UL)                     /*!< BUFFERRDEN (Bit 5)                                    */
+#define SDIO0_INTSIG_BUFFERRDEN_Msk        (0x20UL)                  /*!< BUFFERRDEN (Bitfield-Mask: 0x01)                      */
+#define SDIO0_INTSIG_BUFFERWREN_Pos        (4UL)                     /*!< BUFFERWREN (Bit 4)                                    */
+#define SDIO0_INTSIG_BUFFERWREN_Msk        (0x10UL)                  /*!< BUFFERWREN (Bitfield-Mask: 0x01)                      */
+#define SDIO0_INTSIG_DMAINTEN_Pos          (3UL)                     /*!< DMAINTEN (Bit 3)                                      */
+#define SDIO0_INTSIG_DMAINTEN_Msk          (0x8UL)                   /*!< DMAINTEN (Bitfield-Mask: 0x01)                        */
+#define SDIO0_INTSIG_BLOCKGAPEN_Pos        (2UL)                     /*!< BLOCKGAPEN (Bit 2)                                    */
+#define SDIO0_INTSIG_BLOCKGAPEN_Msk        (0x4UL)                   /*!< BLOCKGAPEN (Bitfield-Mask: 0x01)                      */
+#define SDIO0_INTSIG_XFERCMPEN_Pos         (1UL)                     /*!< XFERCMPEN (Bit 1)                                     */
+#define SDIO0_INTSIG_XFERCMPEN_Msk         (0x2UL)                   /*!< XFERCMPEN (Bitfield-Mask: 0x01)                       */
+#define SDIO0_INTSIG_CMDCMPEN_Pos          (0UL)                     /*!< CMDCMPEN (Bit 0)                                      */
+#define SDIO0_INTSIG_CMDCMPEN_Msk          (0x1UL)                   /*!< CMDCMPEN (Bitfield-Mask: 0x01)                        */
 /* =========================================================  AUTO  ========================================================== */
 #define SDIO_AUTO_PRESETEN_Pos            (31UL)                    /*!< PRESETEN (Bit 31)                                     */
 #define SDIO_AUTO_PRESETEN_Msk            (0x80000000UL)            /*!< PRESETEN (Bitfield-Mask: 0x01)                        */
@@ -68151,324 +68151,324 @@ typedef enum {                                  /*!< SDIO_CLOCKCTRL_CLKEN       
 
 /* ========================================================  INTSTAT  ======================================================== */
 /* ===========================================  SDIO INTSTAT VNDERRSTAT [29..31]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSTAT_VNDERRSTAT                                                   */
-  SDIO_INTSTAT_VNDERRSTAT_READY        = 1,     /*!< READY : Ready                                                             */
-  SDIO_INTSTAT_VNDERRSTAT_NOTREADY     = 0,     /*!< NOTREADY : Not Ready                                                      */
-} SDIO_INTSTAT_VNDERRSTAT_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_VNDERRSTAT                                                   */
+  SDIO0_INTSTAT_VNDERRSTAT_READY        = 1,     /*!< READY : Ready                                                             */
+  SDIO0_INTSTAT_VNDERRSTAT_NOTREADY     = 0,     /*!< NOTREADY : Not Ready                                                      */
+} SDIO0_INTSTAT_VNDERRSTAT_Enum;
 
 /* ===========================================  SDIO INTSTAT TGTRESPERR [28..28]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSTAT_TGTRESPERR                                                   */
-  SDIO_INTSTAT_TGTRESPERR_NOERROR      = 0,     /*!< NOERROR : no error                                                        */
-  SDIO_INTSTAT_TGTRESPERR_ERROR        = 1,     /*!< ERROR : error                                                             */
-} SDIO_INTSTAT_TGTRESPERR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_TGTRESPERR                                                   */
+  SDIO0_INTSTAT_TGTRESPERR_NOERROR      = 0,     /*!< NOERROR : no error                                                        */
+  SDIO0_INTSTAT_TGTRESPERR_ERROR        = 1,     /*!< ERROR : error                                                             */
+} SDIO0_INTSTAT_TGTRESPERR_Enum;
 
 /* ============================================  SDIO INTSTAT ADMAERROR [25..25]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSTAT_ADMAERROR                                                    */
-  SDIO_INTSTAT_ADMAERROR_ERROR         = 1,     /*!< ERROR : Error                                                             */
-  SDIO_INTSTAT_ADMAERROR_NOERROR       = 0,     /*!< NOERROR : No error                                                        */
-} SDIO_INTSTAT_ADMAERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_ADMAERROR                                                    */
+  SDIO0_INTSTAT_ADMAERROR_ERROR         = 1,     /*!< ERROR : Error                                                             */
+  SDIO0_INTSTAT_ADMAERROR_NOERROR       = 0,     /*!< NOERROR : No error                                                        */
+} SDIO0_INTSTAT_ADMAERROR_Enum;
 
 /* ==========================================  SDIO INTSTAT AUTOCMDERROR [24..24]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_AUTOCMDERROR                                                 */
-  SDIO_INTSTAT_AUTOCMDERROR_NOERROR    = 0,     /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_AUTOCMDERROR_ERROR      = 1,     /*!< ERROR : Error                                                             */
-} SDIO_INTSTAT_AUTOCMDERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_AUTOCMDERROR                                                 */
+  SDIO0_INTSTAT_AUTOCMDERROR_NOERROR    = 0,     /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_AUTOCMDERROR_ERROR      = 1,     /*!< ERROR : Error                                                             */
+} SDIO0_INTSTAT_AUTOCMDERROR_Enum;
 
 /* ========================================  SDIO INTSTAT CURRENTLIMITERROR [23..23]  ======================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_CURRENTLIMITERROR                                            */
-  SDIO_INTSTAT_CURRENTLIMITERROR_NOERROR = 0,   /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_CURRENTLIMITERROR_ERROR = 1,     /*!< ERROR : Power Fail                                                        */
-} SDIO_INTSTAT_CURRENTLIMITERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_CURRENTLIMITERROR                                            */
+  SDIO0_INTSTAT_CURRENTLIMITERROR_NOERROR = 0,   /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_CURRENTLIMITERROR_ERROR = 1,     /*!< ERROR : Power Fail                                                        */
+} SDIO0_INTSTAT_CURRENTLIMITERROR_Enum;
 
 /* =========================================  SDIO INTSTAT DATAENDBITERROR [22..22]  ========================================= */
-typedef enum {                                  /*!< SDIO_INTSTAT_DATAENDBITERROR                                              */
-  SDIO_INTSTAT_DATAENDBITERROR_NOERROR = 0,     /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_DATAENDBITERROR_ERROR   = 1,     /*!< ERROR : Error                                                             */
-} SDIO_INTSTAT_DATAENDBITERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_DATAENDBITERROR                                              */
+  SDIO0_INTSTAT_DATAENDBITERROR_NOERROR = 0,     /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_DATAENDBITERROR_ERROR   = 1,     /*!< ERROR : Error                                                             */
+} SDIO0_INTSTAT_DATAENDBITERROR_Enum;
 
 /* ==========================================  SDIO INTSTAT DATACRCERROR [21..21]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_DATACRCERROR                                                 */
-  SDIO_INTSTAT_DATACRCERROR_NOERROR    = 0,     /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_DATACRCERROR_ERROR      = 1,     /*!< ERROR : Error                                                             */
-} SDIO_INTSTAT_DATACRCERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_DATACRCERROR                                                 */
+  SDIO0_INTSTAT_DATACRCERROR_NOERROR    = 0,     /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_DATACRCERROR_ERROR      = 1,     /*!< ERROR : Error                                                             */
+} SDIO0_INTSTAT_DATACRCERROR_Enum;
 
 /* ========================================  SDIO INTSTAT DATATIMEOUTERROR [20..20]  ========================================= */
-typedef enum {                                  /*!< SDIO_INTSTAT_DATATIMEOUTERROR                                             */
-  SDIO_INTSTAT_DATATIMEOUTERROR_NOERROR = 0,    /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_DATATIMEOUTERROR_ERROR  = 1,     /*!< ERROR : Timeout                                                           */
-} SDIO_INTSTAT_DATATIMEOUTERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_DATATIMEOUTERROR                                             */
+  SDIO0_INTSTAT_DATATIMEOUTERROR_NOERROR = 0,    /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_DATATIMEOUTERROR_ERROR  = 1,     /*!< ERROR : Timeout                                                           */
+} SDIO0_INTSTAT_DATATIMEOUTERROR_Enum;
 
 /* ========================================  SDIO INTSTAT COMMANDINDEXERROR [19..19]  ======================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_COMMANDINDEXERROR                                            */
-  SDIO_INTSTAT_COMMANDINDEXERROR_NOERROR = 0,   /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_COMMANDINDEXERROR_ERROR = 1,     /*!< ERROR : Error                                                             */
-} SDIO_INTSTAT_COMMANDINDEXERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_COMMANDINDEXERROR                                            */
+  SDIO0_INTSTAT_COMMANDINDEXERROR_NOERROR = 0,   /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_COMMANDINDEXERROR_ERROR = 1,     /*!< ERROR : Error                                                             */
+} SDIO0_INTSTAT_COMMANDINDEXERROR_Enum;
 
 /* =======================================  SDIO INTSTAT COMMANDENDBITERROR [18..18]  ======================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_COMMANDENDBITERROR                                           */
-  SDIO_INTSTAT_COMMANDENDBITERROR_NOERROR = 0,  /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_COMMANDENDBITERROR_ERROR = 1,    /*!< ERROR : Timeout                                                           */
-} SDIO_INTSTAT_COMMANDENDBITERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_COMMANDENDBITERROR                                           */
+  SDIO0_INTSTAT_COMMANDENDBITERROR_NOERROR = 0,  /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_COMMANDENDBITERROR_ERROR = 1,    /*!< ERROR : Timeout                                                           */
+} SDIO0_INTSTAT_COMMANDENDBITERROR_Enum;
 
 /* =========================================  SDIO INTSTAT COMMANDCRCERROR [17..17]  ========================================= */
-typedef enum {                                  /*!< SDIO_INTSTAT_COMMANDCRCERROR                                              */
-  SDIO_INTSTAT_COMMANDCRCERROR_NOERROR = 0,     /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_COMMANDCRCERROR_ERROR   = 1,     /*!< ERROR : End Bit Error Generated                                           */
-} SDIO_INTSTAT_COMMANDCRCERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_COMMANDCRCERROR                                              */
+  SDIO0_INTSTAT_COMMANDCRCERROR_NOERROR = 0,     /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_COMMANDCRCERROR_ERROR   = 1,     /*!< ERROR : End Bit Error Generated                                           */
+} SDIO0_INTSTAT_COMMANDCRCERROR_Enum;
 
 /* =======================================  SDIO INTSTAT COMMANDTIMEOUTERROR [16..16]  ======================================= */
-typedef enum {                                  /*!< SDIO_INTSTAT_COMMANDTIMEOUTERROR                                          */
-  SDIO_INTSTAT_COMMANDTIMEOUTERROR_NOERROR = 0, /*!< NOERROR : No Error                                                        */
-  SDIO_INTSTAT_COMMANDTIMEOUTERROR_ERROR = 1,   /*!< ERROR : CRC Error Generated                                               */
-} SDIO_INTSTAT_COMMANDTIMEOUTERROR_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_COMMANDTIMEOUTERROR                                          */
+  SDIO0_INTSTAT_COMMANDTIMEOUTERROR_NOERROR = 0, /*!< NOERROR : No Error                                                        */
+  SDIO0_INTSTAT_COMMANDTIMEOUTERROR_ERROR = 1,   /*!< ERROR : CRC Error Generated                                               */
+} SDIO0_INTSTAT_COMMANDTIMEOUTERROR_Enum;
 
 /* =========================================  SDIO INTSTAT ERRORINTERRUPT [15..15]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_ERRORINTERRUPT                                               */
-  SDIO_INTSTAT_ERRORINTERRUPT_NOERROR  = 0,     /*!< NOERROR : No Error.                                                       */
-  SDIO_INTSTAT_ERRORINTERRUPT_ERROR    = 1,     /*!< ERROR : Error.                                                            */
-} SDIO_INTSTAT_ERRORINTERRUPT_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_ERRORINTERRUPT                                               */
+  SDIO0_INTSTAT_ERRORINTERRUPT_NOERROR  = 0,     /*!< NOERROR : No Error.                                                       */
+  SDIO0_INTSTAT_ERRORINTERRUPT_ERROR    = 1,     /*!< ERROR : Error.                                                            */
+} SDIO0_INTSTAT_ERRORINTERRUPT_Enum;
 
 /* ==========================================  SDIO INTSTAT BOOTTERMINATE [14..14]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_BOOTTERMINATE                                                */
-  SDIO_INTSTAT_BOOTTERMINATE_OK        = 0,     /*!< OK : Boot operation is not terminated.                                    */
-  SDIO_INTSTAT_BOOTTERMINATE_BOOTTERM  = 1,     /*!< BOOTTERM : Boot operation is terminated                                   */
-} SDIO_INTSTAT_BOOTTERMINATE_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_BOOTTERMINATE                                                */
+  SDIO0_INTSTAT_BOOTTERMINATE_OK        = 0,     /*!< OK : Boot operation is not terminated.                                    */
+  SDIO0_INTSTAT_BOOTTERMINATE_BOOTTERM  = 1,     /*!< BOOTTERM : Boot operation is terminated                                   */
+} SDIO0_INTSTAT_BOOTTERMINATE_Enum;
 
 /* ===========================================  SDIO INTSTAT BOOTACKRCV [13..13]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSTAT_BOOTACKRCV                                                   */
-  SDIO_INTSTAT_BOOTACKRCV_NOACK        = 0,     /*!< NOACK : Boot ack is not received.                                         */
-  SDIO_INTSTAT_BOOTACKRCV_ACK          = 1,     /*!< ACK : Boot ack is received.                                               */
-} SDIO_INTSTAT_BOOTACKRCV_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_BOOTACKRCV                                                   */
+  SDIO0_INTSTAT_BOOTACKRCV_NOACK        = 0,     /*!< NOACK : Boot ack is not received.                                         */
+  SDIO0_INTSTAT_BOOTACKRCV_ACK          = 1,     /*!< ACK : Boot ack is received.                                               */
+} SDIO0_INTSTAT_BOOTACKRCV_Enum;
 
 /* ==========================================  SDIO INTSTAT RETUNINGEVENT [12..12]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_RETUNINGEVENT                                                */
-  SDIO_INTSTAT_RETUNINGEVENT_RETUNE    = 1,     /*!< RETUNE : ReTuning should be performed                                     */
-  SDIO_INTSTAT_RETUNINGEVENT_NORETUNE  = 0,     /*!< NORETUNE : ReTuning is not required                                       */
-} SDIO_INTSTAT_RETUNINGEVENT_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_RETUNINGEVENT                                                */
+  SDIO0_INTSTAT_RETUNINGEVENT_RETUNE    = 1,     /*!< RETUNE : ReTuning should be performed                                     */
+  SDIO0_INTSTAT_RETUNINGEVENT_NORETUNE  = 0,     /*!< NORETUNE : ReTuning is not required                                       */
+} SDIO0_INTSTAT_RETUNINGEVENT_Enum;
 
 /* ===========================================  SDIO INTSTAT CARDINTERRUPT [8..8]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_CARDINTERRUPT                                                */
-  SDIO_INTSTAT_CARDINTERRUPT_NOINT     = 0,     /*!< NOINT : No Card Interrupt                                                 */
-  SDIO_INTSTAT_CARDINTERRUPT_INT       = 1,     /*!< INT : Generate Card Interrupt                                             */
-} SDIO_INTSTAT_CARDINTERRUPT_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_CARDINTERRUPT                                                */
+  SDIO0_INTSTAT_CARDINTERRUPT_NOINT     = 0,     /*!< NOINT : No Card Interrupt                                                 */
+  SDIO0_INTSTAT_CARDINTERRUPT_INT       = 1,     /*!< INT : Generate Card Interrupt                                             */
+} SDIO0_INTSTAT_CARDINTERRUPT_Enum;
 
 /* ============================================  SDIO INTSTAT CARDREMOVAL [7..7]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSTAT_CARDREMOVAL                                                  */
-  SDIO_INTSTAT_CARDREMOVAL_STABLE      = 0,     /*!< STABLE : Card State Stable or Debouncing                                  */
-  SDIO_INTSTAT_CARDREMOVAL_REMOVED     = 1,     /*!< REMOVED : Card Removed                                                    */
-} SDIO_INTSTAT_CARDREMOVAL_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_CARDREMOVAL                                                  */
+  SDIO0_INTSTAT_CARDREMOVAL_STABLE      = 0,     /*!< STABLE : Card State Stable or Debouncing                                  */
+  SDIO0_INTSTAT_CARDREMOVAL_REMOVED     = 1,     /*!< REMOVED : Card Removed                                                    */
+} SDIO0_INTSTAT_CARDREMOVAL_Enum;
 
 /* ===========================================  SDIO INTSTAT CARDINSERTION [6..6]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_CARDINSERTION                                                */
-  SDIO_INTSTAT_CARDINSERTION_STABLE    = 0,     /*!< STABLE : Card State Stable or Debouncing                                  */
-  SDIO_INTSTAT_CARDINSERTION_INSERTED  = 1,     /*!< INSERTED : Card Inserted                                                  */
-} SDIO_INTSTAT_CARDINSERTION_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_CARDINSERTION                                                */
+  SDIO0_INTSTAT_CARDINSERTION_STABLE    = 0,     /*!< STABLE : Card State Stable or Debouncing                                  */
+  SDIO0_INTSTAT_CARDINSERTION_INSERTED  = 1,     /*!< INSERTED : Card Inserted                                                  */
+} SDIO0_INTSTAT_CARDINSERTION_Enum;
 
 /* ==========================================  SDIO INTSTAT BUFFERREADREADY [5..5]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_BUFFERREADREADY                                              */
-  SDIO_INTSTAT_BUFFERREADREADY_NOREADY = 0,     /*!< NOREADY : Not Ready to read Buffer.                                       */
-  SDIO_INTSTAT_BUFFERREADREADY_READY   = 1,     /*!< READY : Ready to read Buffer.                                             */
-} SDIO_INTSTAT_BUFFERREADREADY_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_BUFFERREADREADY                                              */
+  SDIO0_INTSTAT_BUFFERREADREADY_NOREADY = 0,     /*!< NOREADY : Not Ready to read Buffer.                                       */
+  SDIO0_INTSTAT_BUFFERREADREADY_READY   = 1,     /*!< READY : Ready to read Buffer.                                             */
+} SDIO0_INTSTAT_BUFFERREADREADY_Enum;
 
 /* =========================================  SDIO INTSTAT BUFFERWRITEREADY [4..4]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_BUFFERWRITEREADY                                             */
-  SDIO_INTSTAT_BUFFERWRITEREADY_NOTREADY = 0,   /*!< NOTREADY : Not Ready to Write Buffer.                                     */
-  SDIO_INTSTAT_BUFFERWRITEREADY_READY  = 1,     /*!< READY : Ready to Write Buffer.                                            */
-} SDIO_INTSTAT_BUFFERWRITEREADY_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_BUFFERWRITEREADY                                             */
+  SDIO0_INTSTAT_BUFFERWRITEREADY_NOTREADY = 0,   /*!< NOTREADY : Not Ready to Write Buffer.                                     */
+  SDIO0_INTSTAT_BUFFERWRITEREADY_READY  = 1,     /*!< READY : Ready to Write Buffer.                                            */
+} SDIO0_INTSTAT_BUFFERWRITEREADY_Enum;
 
 /* ===========================================  SDIO INTSTAT DMAINTERRUPT [3..3]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSTAT_DMAINTERRUPT                                                 */
-  SDIO_INTSTAT_DMAINTERRUPT_NOINT      = 0,     /*!< NOINT : No DMA Interrupt                                                  */
-  SDIO_INTSTAT_DMAINTERRUPT_INT        = 1,     /*!< INT : DMA Interrupt is Generated                                          */
-} SDIO_INTSTAT_DMAINTERRUPT_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_DMAINTERRUPT                                                 */
+  SDIO0_INTSTAT_DMAINTERRUPT_NOINT      = 0,     /*!< NOINT : No DMA Interrupt                                                  */
+  SDIO0_INTSTAT_DMAINTERRUPT_INT        = 1,     /*!< INT : DMA Interrupt is Generated                                          */
+} SDIO0_INTSTAT_DMAINTERRUPT_Enum;
 
 /* ===========================================  SDIO INTSTAT BLOCKGAPEVENT [2..2]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_BLOCKGAPEVENT                                                */
-  SDIO_INTSTAT_BLOCKGAPEVENT_NOEVENT   = 0,     /*!< NOEVENT : No Block Gap Event                                              */
-  SDIO_INTSTAT_BLOCKGAPEVENT_STOPPED   = 1,     /*!< STOPPED : Transaction stopped at Block Gap                                */
-} SDIO_INTSTAT_BLOCKGAPEVENT_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_BLOCKGAPEVENT                                                */
+  SDIO0_INTSTAT_BLOCKGAPEVENT_NOEVENT   = 0,     /*!< NOEVENT : No Block Gap Event                                              */
+  SDIO0_INTSTAT_BLOCKGAPEVENT_STOPPED   = 1,     /*!< STOPPED : Transaction stopped at Block Gap                                */
+} SDIO0_INTSTAT_BLOCKGAPEVENT_Enum;
 
 /* =========================================  SDIO INTSTAT TRANSFERCOMPLETE [1..1]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_TRANSFERCOMPLETE                                             */
-  SDIO_INTSTAT_TRANSFERCOMPLETE_NODATA = 0,     /*!< NODATA : No Data Transfer Complete                                        */
-  SDIO_INTSTAT_TRANSFERCOMPLETE_COMPLETE = 1,   /*!< COMPLETE : Data Transfer Complete                                         */
-} SDIO_INTSTAT_TRANSFERCOMPLETE_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_TRANSFERCOMPLETE                                             */
+  SDIO0_INTSTAT_TRANSFERCOMPLETE_NODATA = 0,     /*!< NODATA : No Data Transfer Complete                                        */
+  SDIO0_INTSTAT_TRANSFERCOMPLETE_COMPLETE = 1,   /*!< COMPLETE : Data Transfer Complete                                         */
+} SDIO0_INTSTAT_TRANSFERCOMPLETE_Enum;
 
 /* ==========================================  SDIO INTSTAT COMMANDCOMPLETE [0..0]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSTAT_COMMANDCOMPLETE                                              */
-  SDIO_INTSTAT_COMMANDCOMPLETE_NOCMP   = 0,     /*!< NOCMP : No Command Complete                                               */
-  SDIO_INTSTAT_COMMANDCOMPLETE_CMDCMP  = 1,     /*!< CMDCMP : Command Complete                                                 */
-} SDIO_INTSTAT_COMMANDCOMPLETE_Enum;
+typedef enum {                                  /*!< SDIO0_INTSTAT_COMMANDCOMPLETE                                              */
+  SDIO0_INTSTAT_COMMANDCOMPLETE_NOCMP   = 0,     /*!< NOCMP : No Command Complete                                               */
+  SDIO0_INTSTAT_COMMANDCOMPLETE_CMDCMP  = 1,     /*!< CMDCMP : Command Complete                                                 */
+} SDIO0_INTSTAT_COMMANDCOMPLETE_Enum;
 
 /* =======================================================  INTENABLE  ======================================================= */
 /* ========================================================  INTSIG  ========================================================= */
 /* ============================================  SDIO INTSIG TGTRESPEN [28..28]  ============================================= */
-typedef enum {                                  /*!< SDIO_INTSIG_TGTRESPEN                                                     */
-  SDIO_INTSIG_TGTRESPEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_TGTRESPEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_TGTRESPEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_TGTRESPEN                                                     */
+  SDIO0_INTSIG_TGTRESPEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_TGTRESPEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_TGTRESPEN_Enum;
 
 /* ===========================================  SDIO INTSIG TUNINGERREN [26..26]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSIG_TUNINGERREN                                                   */
-  SDIO_INTSIG_TUNINGERREN_MASKED       = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_TUNINGERREN_ENABLED      = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_TUNINGERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_TUNINGERREN                                                   */
+  SDIO0_INTSIG_TUNINGERREN_MASKED       = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_TUNINGERREN_ENABLED      = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_TUNINGERREN_Enum;
 
 /* ============================================  SDIO INTSIG ADMAERREN [25..25]  ============================================= */
-typedef enum {                                  /*!< SDIO_INTSIG_ADMAERREN                                                     */
-  SDIO_INTSIG_ADMAERREN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_ADMAERREN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_ADMAERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_ADMAERREN                                                     */
+  SDIO0_INTSIG_ADMAERREN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_ADMAERREN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_ADMAERREN_Enum;
 
 /* ==========================================  SDIO INTSIG AUTOCMD12ERREN [24..24]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_AUTOCMD12ERREN                                                */
-  SDIO_INTSIG_AUTOCMD12ERREN_MASKED    = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_AUTOCMD12ERREN_ENABLED   = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_AUTOCMD12ERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_AUTOCMD12ERREN                                                */
+  SDIO0_INTSIG_AUTOCMD12ERREN_MASKED    = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_AUTOCMD12ERREN_ENABLED   = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_AUTOCMD12ERREN_Enum;
 
 /* ===========================================  SDIO INTSIG CURRLMTERREN [23..23]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_CURRLMTERREN                                                  */
-  SDIO_INTSIG_CURRLMTERREN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CURRLMTERREN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CURRLMTERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CURRLMTERREN                                                  */
+  SDIO0_INTSIG_CURRLMTERREN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CURRLMTERREN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CURRLMTERREN_Enum;
 
 /* ===========================================  SDIO INTSIG DATAENDERREN [22..22]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_DATAENDERREN                                                  */
-  SDIO_INTSIG_DATAENDERREN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_DATAENDERREN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_DATAENDERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_DATAENDERREN                                                  */
+  SDIO0_INTSIG_DATAENDERREN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_DATAENDERREN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_DATAENDERREN_Enum;
 
 /* ===========================================  SDIO INTSIG DATACRCERREN [21..21]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_DATACRCERREN                                                  */
-  SDIO_INTSIG_DATACRCERREN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_DATACRCERREN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_DATACRCERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_DATACRCERREN                                                  */
+  SDIO0_INTSIG_DATACRCERREN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_DATACRCERREN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_DATACRCERREN_Enum;
 
 /* ==========================================  SDIO INTSIG DATATOERROREN [20..20]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_DATATOERROREN                                                 */
-  SDIO_INTSIG_DATATOERROREN_MASKED     = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_DATATOERROREN_ENABLED    = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_DATATOERROREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_DATATOERROREN                                                 */
+  SDIO0_INTSIG_DATATOERROREN_MASKED     = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_DATATOERROREN_ENABLED    = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_DATATOERROREN_Enum;
 
 /* ===========================================  SDIO INTSIG CMDIDXERREN [19..19]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSIG_CMDIDXERREN                                                   */
-  SDIO_INTSIG_CMDIDXERREN_MASKED       = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CMDIDXERREN_ENABLED      = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CMDIDXERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CMDIDXERREN                                                   */
+  SDIO0_INTSIG_CMDIDXERREN_MASKED       = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CMDIDXERREN_ENABLED      = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CMDIDXERREN_Enum;
 
 /* ==========================================  SDIO INTSIG CMDENDBITERREN [18..18]  ========================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_CMDENDBITERREN                                                */
-  SDIO_INTSIG_CMDENDBITERREN_MASKED    = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CMDENDBITERREN_ENABLED   = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CMDENDBITERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CMDENDBITERREN                                                */
+  SDIO0_INTSIG_CMDENDBITERREN_MASKED    = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CMDENDBITERREN_ENABLED   = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CMDENDBITERREN_Enum;
 
 /* ===========================================  SDIO INTSIG CMDCRCERREN [17..17]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSIG_CMDCRCERREN                                                   */
-  SDIO_INTSIG_CMDCRCERREN_MASKED       = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CMDCRCERREN_ENABLED      = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CMDCRCERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CMDCRCERREN                                                   */
+  SDIO0_INTSIG_CMDCRCERREN_MASKED       = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CMDCRCERREN_ENABLED      = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CMDCRCERREN_Enum;
 
 /* ============================================  SDIO INTSIG CMDTOERREN [16..16]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSIG_CMDTOERREN                                                    */
-  SDIO_INTSIG_CMDTOERREN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CMDTOERREN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CMDTOERREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CMDTOERREN                                                    */
+  SDIO0_INTSIG_CMDTOERREN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CMDTOERREN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CMDTOERREN_Enum;
 
 /* ==============================================  SDIO INTSIG FIXED0 [15..15]  ============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_FIXED0                                                        */
-  SDIO_INTSIG_FIXED0_MASKED            = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_FIXED0_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_FIXED0_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_FIXED0                                                        */
+  SDIO0_INTSIG_FIXED0_MASKED            = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_FIXED0_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_FIXED0_Enum;
 
 /* =============================================  SDIO INTSIG BOOTTERM [14..14]  ============================================= */
-typedef enum {                                  /*!< SDIO_INTSIG_BOOTTERM                                                      */
-  SDIO_INTSIG_BOOTTERM_MASKED          = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_BOOTTERM_ENABLED         = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_BOOTTERM_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_BOOTTERM                                                      */
+  SDIO0_INTSIG_BOOTTERM_MASKED          = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_BOOTTERM_ENABLED         = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_BOOTTERM_Enum;
 
 /* ============================================  SDIO INTSIG BOOTACKEN [13..13]  ============================================= */
-typedef enum {                                  /*!< SDIO_INTSIG_BOOTACKEN                                                     */
-  SDIO_INTSIG_BOOTACKEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_BOOTACKEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_BOOTACKEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_BOOTACKEN                                                     */
+  SDIO0_INTSIG_BOOTACKEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_BOOTACKEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_BOOTACKEN_Enum;
 
 /* ==========================================  SDIO INTSIG RETUNEEVENTEN [12..12]  =========================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_RETUNEEVENTEN                                                 */
-  SDIO_INTSIG_RETUNEEVENTEN_MASKED     = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_RETUNEEVENTEN_ENABLED    = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_RETUNEEVENTEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_RETUNEEVENTEN                                                 */
+  SDIO0_INTSIG_RETUNEEVENTEN_MASKED     = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_RETUNEEVENTEN_ENABLED    = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_RETUNEEVENTEN_Enum;
 
 /* ==============================================  SDIO INTSIG INTCEN [11..11]  ============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_INTCEN                                                        */
-  SDIO_INTSIG_INTCEN_MASKED            = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_INTCEN_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_INTCEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_INTCEN                                                        */
+  SDIO0_INTSIG_INTCEN_MASKED            = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_INTCEN_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_INTCEN_Enum;
 
 /* ==============================================  SDIO INTSIG INTBEN [10..10]  ============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_INTBEN                                                        */
-  SDIO_INTSIG_INTBEN_MASKED            = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_INTBEN_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_INTBEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_INTBEN                                                        */
+  SDIO0_INTSIG_INTBEN_MASKED            = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_INTBEN_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_INTBEN_Enum;
 
 /* ===============================================  SDIO INTSIG INTAEN [9..9]  =============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_INTAEN                                                        */
-  SDIO_INTSIG_INTAEN_MASKED            = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_INTAEN_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_INTAEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_INTAEN                                                        */
+  SDIO0_INTSIG_INTAEN_MASKED            = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_INTAEN_ENABLED           = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_INTAEN_Enum;
 
 /* =============================================  SDIO INTSIG CARDINTEN [8..8]  ============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_CARDINTEN                                                     */
-  SDIO_INTSIG_CARDINTEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CARDINTEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CARDINTEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CARDINTEN                                                     */
+  SDIO0_INTSIG_CARDINTEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CARDINTEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CARDINTEN_Enum;
 
 /* ===========================================  SDIO INTSIG CARDREMOVALEN [7..7]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSIG_CARDREMOVALEN                                                 */
-  SDIO_INTSIG_CARDREMOVALEN_MASKED     = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CARDREMOVALEN_ENABLED    = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CARDREMOVALEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CARDREMOVALEN                                                 */
+  SDIO0_INTSIG_CARDREMOVALEN_MASKED     = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CARDREMOVALEN_ENABLED    = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CARDREMOVALEN_Enum;
 
 /* ============================================  SDIO INTSIG CARDINSERTEN [6..6]  ============================================ */
-typedef enum {                                  /*!< SDIO_INTSIG_CARDINSERTEN                                                  */
-  SDIO_INTSIG_CARDINSERTEN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CARDINSERTEN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CARDINSERTEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CARDINSERTEN                                                  */
+  SDIO0_INTSIG_CARDINSERTEN_MASKED      = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CARDINSERTEN_ENABLED     = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CARDINSERTEN_Enum;
 
 /* =============================================  SDIO INTSIG BUFFERRDEN [5..5]  ============================================= */
-typedef enum {                                  /*!< SDIO_INTSIG_BUFFERRDEN                                                    */
-  SDIO_INTSIG_BUFFERRDEN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_BUFFERRDEN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_BUFFERRDEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_BUFFERRDEN                                                    */
+  SDIO0_INTSIG_BUFFERRDEN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_BUFFERRDEN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_BUFFERRDEN_Enum;
 
 /* =============================================  SDIO INTSIG BUFFERWREN [4..4]  ============================================= */
-typedef enum {                                  /*!< SDIO_INTSIG_BUFFERWREN                                                    */
-  SDIO_INTSIG_BUFFERWREN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_BUFFERWREN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_BUFFERWREN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_BUFFERWREN                                                    */
+  SDIO0_INTSIG_BUFFERWREN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_BUFFERWREN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_BUFFERWREN_Enum;
 
 /* ==============================================  SDIO INTSIG DMAINTEN [3..3]  ============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_DMAINTEN                                                      */
-  SDIO_INTSIG_DMAINTEN_MASKED          = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_DMAINTEN_ENABLED         = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_DMAINTEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_DMAINTEN                                                      */
+  SDIO0_INTSIG_DMAINTEN_MASKED          = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_DMAINTEN_ENABLED         = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_DMAINTEN_Enum;
 
 /* =============================================  SDIO INTSIG BLOCKGAPEN [2..2]  ============================================= */
-typedef enum {                                  /*!< SDIO_INTSIG_BLOCKGAPEN                                                    */
-  SDIO_INTSIG_BLOCKGAPEN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_BLOCKGAPEN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_BLOCKGAPEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_BLOCKGAPEN                                                    */
+  SDIO0_INTSIG_BLOCKGAPEN_MASKED        = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_BLOCKGAPEN_ENABLED       = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_BLOCKGAPEN_Enum;
 
 /* =============================================  SDIO INTSIG XFERCMPEN [1..1]  ============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_XFERCMPEN                                                     */
-  SDIO_INTSIG_XFERCMPEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_XFERCMPEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_XFERCMPEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_XFERCMPEN                                                     */
+  SDIO0_INTSIG_XFERCMPEN_MASKED         = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_XFERCMPEN_ENABLED        = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_XFERCMPEN_Enum;
 
 /* ==============================================  SDIO INTSIG CMDCMPEN [0..0]  ============================================== */
-typedef enum {                                  /*!< SDIO_INTSIG_CMDCMPEN                                                      */
-  SDIO_INTSIG_CMDCMPEN_MASKED          = 0,     /*!< MASKED : Masked                                                           */
-  SDIO_INTSIG_CMDCMPEN_ENABLED         = 1,     /*!< ENABLED : Enabled                                                         */
-} SDIO_INTSIG_CMDCMPEN_Enum;
+typedef enum {                                  /*!< SDIO0_INTSIG_CMDCMPEN                                                      */
+  SDIO0_INTSIG_CMDCMPEN_MASKED          = 0,     /*!< MASKED : Masked                                                           */
+  SDIO0_INTSIG_CMDCMPEN_ENABLED         = 1,     /*!< ENABLED : Enabled                                                         */
+} SDIO0_INTSIG_CMDCMPEN_Enum;
 
 /* =========================================================  AUTO  ========================================================== */
 /* ==============================================  SDIO AUTO PRESETEN [31..31]  ============================================== */

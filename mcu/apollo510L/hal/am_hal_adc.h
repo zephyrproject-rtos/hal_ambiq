@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_ADC_H
@@ -122,7 +122,8 @@
 //! @brief Default slope (in degK / V) of the temperature sensor.
 //
 // ****************************************************************************
-#define AM_HAL_ADC_TEMPSENSOR_SLOPE     290.0F
+#define AM_HAL_ADC_TEMPSENSOR_SLOPE             309.671F
+#define AM_HAL_ADC_TEMPSENSOR_SLOPE_PRETRIM34   320.942F
 
 // ****************************************************************************
 //

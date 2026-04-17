@@ -25,7 +25,7 @@
                             <img alt="Logo" src="../resources/am_logo.png" />
                         </td>
                         <td style="padding-left: 0.5em;">
-                            <div id="projectname">Apollo510  Register Documentation &#160;<span id="projectnumber">release_sdk5p1p0-7063330c5e</span></div>
+                            <div id="projectname">Apollo510  Register Documentation &#160;<span id="projectnumber">release_sdk5p2p0-440cb810d</span></div>
                         </td>
                     </tr>
                 </tbody>
@@ -416,7 +416,7 @@
                         </td>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
-                            <a class="el" href="#SCRATCH0" target="_self">SCRATCH0 - Scratch register that is not reset by any reset</a>
+                            <a class="el" href="#SCRATCH0" target="_self">SCRATCH0 - This register reserved for Ambiq INTERNAL use only. Do not modify.</a>
                         </td>
                     </tr>
 
@@ -427,7 +427,7 @@
                         </td>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
-                            <a class="el" href="#SCRATCH1" target="_self">SCRATCH1 - Scratch register that is not reset by any reset</a>
+                            <a class="el" href="#SCRATCH1" target="_self">SCRATCH1 - This register reserved for Ambiq INTERNAL use only. Do not modify.</a>
                         </td>
                     </tr>
 
@@ -6610,7 +6610,7 @@
 
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 id="SCRATCH0" class="panel-title">SCRATCH0 - Scratch register that is not reset by any reset</h3>
+                <h3 id="SCRATCH0" class="panel-title">SCRATCH0 - This register reserved for Ambiq INTERNAL use only. Do not modify.</h3>
             </div>
             <div class="panel-body">
                 <h3>Address:</h3>
@@ -6628,7 +6628,7 @@
 
                 </table>
                 <h3>Description:</h3>
-                <p>Scratch register that is not reset by any reset</p>
+                <p>This register reserved for Ambiq INTERNAL use only. Do not modify.</p>
                 <h3>Register Fields:</h3>
                 <table style="margin:10px" class="table table-bordered table-condensed">
                     <thead>
@@ -6703,7 +6703,7 @@
 
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 id="SCRATCH1" class="panel-title">SCRATCH1 - Scratch register that is not reset by any reset</h3>
+                <h3 id="SCRATCH1" class="panel-title">SCRATCH1 - This register reserved for Ambiq INTERNAL use only. Do not modify.</h3>
             </div>
             <div class="panel-body">
                 <h3>Address:</h3>
@@ -6721,7 +6721,7 @@
 
                 </table>
                 <h3>Description:</h3>
-                <p>Scratch register that is not reset by any reset</p>
+                <p>This register reserved for Ambiq INTERNAL use only. Do not modify.</p>
                 <h3>Register Fields:</h3>
                 <table style="margin:10px" class="table table-bordered table-condensed">
                     <thead>
@@ -16468,8 +16468,8 @@
                             <td>FREFSEL</td>
                             <td>RW</td>
                             <td>System PLL reference clock select, connected to PLL pin FREF<br><br>
-                                 XTAL32MHz            = 0x0 - Select high frequency crystal oscillator output (e.g. 32 MHz)<br>
-                             EXTREFCLK            = 0x1 - Select external reference clock (from GPIO)</td>
+                                 XTAL_HS              = 0x0 - Select high frequency crystal oscillator output. (Not available on the Apollo510B.)<br>
+                             EXTREFCLK            = 0x1 - Select external reference clock via GPIO15's EXTREFCLK  mux setting. Note for Apollo510B, the EXTREFCLK, which is a divide-by-4 of the BLE crystal frequency, must be selected as the System PLL reference clock.</td>
                         </tr>
 
                         <tr>
@@ -16739,7 +16739,7 @@
                             <td>27:16</td>
                             <td>FBDIV</td>
                             <td>RW</td>
-                            <td>System PLL feedback divide value, connected to PLL pin FBDIV[11:0]. Valid range is 4 to 960 in integer mode, 10 to 96 in fractional mode. Do not change FBDIV while the clock is in use as it can make the clock unstable. First disable the clock, change FBDIV, and then enable the clock<br><br>
+                            <td>System PLL feedback divide value, connected to PLL pin FBDIV[11:0]. Valid range is 10 to 960 in integer mode, 10 to 96 in fractional mode. Do not change FBDIV while the clock is in use as it can make the clock unstable. First disable the clock, change FBDIV, and then enable the clock<br><br>
                                 </td>
                         </tr>
 
@@ -17066,7 +17066,7 @@
             <small>
                 AmbiqSuite Register Documentation&nbsp;
                 <a href="http://www.ambiqmicro.com">
-                <img class="footer" src="../resources/ambiqmicro_logo.png" alt="Ambiq Micro"/></a>&nbsp&nbsp Copyright &copy; 2025&nbsp&nbsp<br />
+                <img class="footer" src="../resources/ambiqmicro_logo.png" alt="Ambiq Micro"/></a>&nbsp&nbsp Copyright &copy; 2026&nbsp&nbsp<br />
                 This documentation is licensed and distributed under the <a rel="license" href="http://opensource.org/licenses/BSD-3-Clause">BSD 3-Clause License</a>.&nbsp&nbsp<br/>
             </small>
         </div>

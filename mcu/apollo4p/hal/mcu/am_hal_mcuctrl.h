@@ -53,6 +53,7 @@
 #include "regs/am_reg_base_addresses.h"
 #include "regs/am_reg_mcu.h"
 #include "regs/am_reg_macros.h"
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -504,3 +505,4 @@ extern uint32_t am_hal_mcuctrl_info_get(am_hal_mcuctrl_infoget_e eInfoGet,
 //! @}
 //
 //*****************************************************************************
+

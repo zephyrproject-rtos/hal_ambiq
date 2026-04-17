@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -1111,7 +1111,7 @@ extern uint32_t am_hal_usb_enable_ep_double_buffer(void *pHandle, uint8_t epnum,
 //!
 //
 //*****************************************************************************
-extern void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr);
+extern uint32_t am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr);
 
 #ifdef __cplusplus
 }

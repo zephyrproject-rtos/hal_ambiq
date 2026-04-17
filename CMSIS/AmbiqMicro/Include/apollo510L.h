@@ -15200,8 +15200,7 @@ typedef struct {                                /*!< IOSLAVEFD0 Structure       
       __IOM uint32_t LSB        : 1;            /*!< This bit selects the transfer bit ordering.                               */
             uint32_t            : 1;
       __IOM uint32_t STARTRD    : 1;            /*!< This bit holds the cycle to initiate an I/O RAM read.                     */
-            uint32_t            : 3;
-      __IOM uint32_t I2CADDR    : 12;           /*!< 7-bit or 10-bit I2C device address.                                       */
+            uint32_t            : 15;
       __IOM uint32_t WRAPPTR    : 1;            /*!< Address pointer wrap mode enable.                                         */
             uint32_t            : 10;
       __IOM uint32_t IFCEN      : 1;            /*!< IOSLAVE interface enable.                                                 */
@@ -15345,7 +15344,7 @@ typedef struct {                                /*!< IOSLAVEFD0 Structure       
       __IOM uint32_t FOVFL      : 1;            /*!< FIFO Overflow interrupt.                                                  */
       __IOM uint32_t FUNDFL     : 1;            /*!< FIFO Underflow interrupt.                                                 */
       __IOM uint32_t FRDERR     : 1;            /*!< FIFO Read Error interrupt.                                                */
-      __IOM uint32_t GENAD      : 1;            /*!< I2C General Address interrupt.                                            */
+            uint32_t            : 1;
       __IOM uint32_t IOINTW     : 1;            /*!< IO Write interrupt.                                                       */
       __IOM uint32_t XCMPRF     : 1;            /*!< Transfer complete interrupt, read from FIFO space.                        */
       __IOM uint32_t XCMPRR     : 1;            /*!< Transfer complete interrupt, read from register space.                    */
@@ -15369,7 +15368,7 @@ typedef struct {                                /*!< IOSLAVEFD0 Structure       
       __IOM uint32_t FOVFL      : 1;            /*!< FIFO Overflow interrupt.                                                  */
       __IOM uint32_t FUNDFL     : 1;            /*!< FIFO Underflow interrupt.                                                 */
       __IOM uint32_t FRDERR     : 1;            /*!< FIFO Read Error interrupt.                                                */
-      __IOM uint32_t GENAD      : 1;            /*!< I2C General Address interrupt.                                            */
+            uint32_t            : 1;
       __IOM uint32_t IOINTW     : 1;            /*!< IO Write interrupt.                                                       */
       __IOM uint32_t XCMPRF     : 1;            /*!< Transfer complete interrupt, read from FIFO space.                        */
       __IOM uint32_t XCMPRR     : 1;            /*!< Transfer complete interrupt, read from register space.                    */
@@ -15393,7 +15392,7 @@ typedef struct {                                /*!< IOSLAVEFD0 Structure       
       __IOM uint32_t FOVFL      : 1;            /*!< FIFO Overflow interrupt.                                                  */
       __IOM uint32_t FUNDFL     : 1;            /*!< FIFO Underflow interrupt.                                                 */
       __IOM uint32_t FRDERR     : 1;            /*!< FIFO Read Error interrupt.                                                */
-      __IOM uint32_t GENAD      : 1;            /*!< I2C General Address interrupt.                                            */
+            uint32_t            : 1;
       __IOM uint32_t IOINTW     : 1;            /*!< IO Write interrupt.                                                       */
       __IOM uint32_t XCMPRF     : 1;            /*!< Transfer complete interrupt, read from FIFO space.                        */
       __IOM uint32_t XCMPRR     : 1;            /*!< Transfer complete interrupt, read from register space.                    */
@@ -15418,7 +15417,7 @@ typedef struct {                                /*!< IOSLAVEFD0 Structure       
       __IOM uint32_t FOVFL      : 1;            /*!< FIFO Overflow interrupt.                                                  */
       __IOM uint32_t FUNDFL     : 1;            /*!< FIFO Underflow interrupt.                                                 */
       __IOM uint32_t FRDERR     : 1;            /*!< FIFO Read Error interrupt.                                                */
-      __IOM uint32_t GENAD      : 1;            /*!< I2C General Address interrupt.                                            */
+            uint32_t            : 1;
       __IOM uint32_t IOINTW     : 1;            /*!< IO Write interrupt.                                                       */
       __IOM uint32_t XCMPRF     : 1;            /*!< Transfer complete interrupt, read from FIFO space.                        */
       __IOM uint32_t XCMPRR     : 1;            /*!< Transfer complete interrupt, read from register space.                    */
@@ -36166,8 +36165,6 @@ typedef struct {                                /*!< WDT Structure              
 #define IOSLAVEFD0_CFG_IFCEN_Msk          (0x80000000UL)            /*!< IFCEN (Bitfield-Mask: 0x01)                           */
 #define IOSLAVEFD0_CFG_WRAPPTR_Pos        (20UL)                    /*!< WRAPPTR (Bit 20)                                      */
 #define IOSLAVEFD0_CFG_WRAPPTR_Msk        (0x100000UL)              /*!< WRAPPTR (Bitfield-Mask: 0x01)                         */
-#define IOSLAVEFD0_CFG_I2CADDR_Pos        (8UL)                     /*!< I2CADDR (Bit 8)                                       */
-#define IOSLAVEFD0_CFG_I2CADDR_Msk        (0xfff00UL)               /*!< I2CADDR (Bitfield-Mask: 0xfff)                        */
 #define IOSLAVEFD0_CFG_STARTRD_Pos        (4UL)                     /*!< STARTRD (Bit 4)                                       */
 #define IOSLAVEFD0_CFG_STARTRD_Msk        (0x10UL)                  /*!< STARTRD (Bitfield-Mask: 0x01)                         */
 #define IOSLAVEFD0_CFG_LSB_Pos            (2UL)                     /*!< LSB (Bit 2)                                           */
@@ -36251,8 +36248,6 @@ typedef struct {                                /*!< WDT Structure              
 #define IOSLAVEFD0_INTEN_XCMPRF_Msk       (0x40UL)                  /*!< XCMPRF (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTEN_IOINTW_Pos       (5UL)                     /*!< IOINTW (Bit 5)                                        */
 #define IOSLAVEFD0_INTEN_IOINTW_Msk       (0x20UL)                  /*!< IOINTW (Bitfield-Mask: 0x01)                          */
-#define IOSLAVEFD0_INTEN_GENAD_Pos        (4UL)                     /*!< GENAD (Bit 4)                                         */
-#define IOSLAVEFD0_INTEN_GENAD_Msk        (0x10UL)                  /*!< GENAD (Bitfield-Mask: 0x01)                           */
 #define IOSLAVEFD0_INTEN_FRDERR_Pos       (3UL)                     /*!< FRDERR (Bit 3)                                        */
 #define IOSLAVEFD0_INTEN_FRDERR_Msk       (0x8UL)                   /*!< FRDERR (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTEN_FUNDFL_Pos       (2UL)                     /*!< FUNDFL (Bit 2)                                        */
@@ -36276,8 +36271,6 @@ typedef struct {                                /*!< WDT Structure              
 #define IOSLAVEFD0_INTSTAT_XCMPRF_Msk     (0x40UL)                  /*!< XCMPRF (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTSTAT_IOINTW_Pos     (5UL)                     /*!< IOINTW (Bit 5)                                        */
 #define IOSLAVEFD0_INTSTAT_IOINTW_Msk     (0x20UL)                  /*!< IOINTW (Bitfield-Mask: 0x01)                          */
-#define IOSLAVEFD0_INTSTAT_GENAD_Pos      (4UL)                     /*!< GENAD (Bit 4)                                         */
-#define IOSLAVEFD0_INTSTAT_GENAD_Msk      (0x10UL)                  /*!< GENAD (Bitfield-Mask: 0x01)                           */
 #define IOSLAVEFD0_INTSTAT_FRDERR_Pos     (3UL)                     /*!< FRDERR (Bit 3)                                        */
 #define IOSLAVEFD0_INTSTAT_FRDERR_Msk     (0x8UL)                   /*!< FRDERR (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTSTAT_FUNDFL_Pos     (2UL)                     /*!< FUNDFL (Bit 2)                                        */
@@ -36301,8 +36294,6 @@ typedef struct {                                /*!< WDT Structure              
 #define IOSLAVEFD0_INTCLR_XCMPRF_Msk      (0x40UL)                  /*!< XCMPRF (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTCLR_IOINTW_Pos      (5UL)                     /*!< IOINTW (Bit 5)                                        */
 #define IOSLAVEFD0_INTCLR_IOINTW_Msk      (0x20UL)                  /*!< IOINTW (Bitfield-Mask: 0x01)                          */
-#define IOSLAVEFD0_INTCLR_GENAD_Pos       (4UL)                     /*!< GENAD (Bit 4)                                         */
-#define IOSLAVEFD0_INTCLR_GENAD_Msk       (0x10UL)                  /*!< GENAD (Bitfield-Mask: 0x01)                           */
 #define IOSLAVEFD0_INTCLR_FRDERR_Pos      (3UL)                     /*!< FRDERR (Bit 3)                                        */
 #define IOSLAVEFD0_INTCLR_FRDERR_Msk      (0x8UL)                   /*!< FRDERR (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTCLR_FUNDFL_Pos      (2UL)                     /*!< FUNDFL (Bit 2)                                        */
@@ -36326,8 +36317,6 @@ typedef struct {                                /*!< WDT Structure              
 #define IOSLAVEFD0_INTSET_XCMPRF_Msk      (0x40UL)                  /*!< XCMPRF (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTSET_IOINTW_Pos      (5UL)                     /*!< IOINTW (Bit 5)                                        */
 #define IOSLAVEFD0_INTSET_IOINTW_Msk      (0x20UL)                  /*!< IOINTW (Bitfield-Mask: 0x01)                          */
-#define IOSLAVEFD0_INTSET_GENAD_Pos       (4UL)                     /*!< GENAD (Bit 4)                                         */
-#define IOSLAVEFD0_INTSET_GENAD_Msk       (0x10UL)                  /*!< GENAD (Bitfield-Mask: 0x01)                           */
 #define IOSLAVEFD0_INTSET_FRDERR_Pos      (3UL)                     /*!< FRDERR (Bit 3)                                        */
 #define IOSLAVEFD0_INTSET_FRDERR_Msk      (0x8UL)                   /*!< FRDERR (Bitfield-Mask: 0x01)                          */
 #define IOSLAVEFD0_INTSET_FUNDFL_Pos      (2UL)                     /*!< FUNDFL (Bit 2)                                        */
@@ -59998,7 +59987,6 @@ typedef enum {                                  /*!< IOSLAVEFD0_CFG_SPOL        
 
 /* =============================================  IOSLAVEFD0 CFG IFCSEL [0..0]  ============================================== */
 typedef enum {                                  /*!< IOSLAVEFD0_CFG_IFCSEL                                                     */
-  IOSLAVEFD0_CFG_IFCSEL_I2C            = 0,     /*!< I2C : Selects I2C interface for the IO Slave.                             */
   IOSLAVEFD0_CFG_IFCSEL_SPI            = 1,     /*!< SPI : Selects SPI interface for the IO Slave.                             */
 } IOSLAVEFD0_CFG_IFCSEL_Enum;
 

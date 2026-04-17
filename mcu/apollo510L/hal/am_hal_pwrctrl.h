@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -124,14 +124,6 @@ extern "C"
 //*****************************************************************************
 #define NO_TEMPSENSE_IN_DEEPSLEEP                       false
 
-//*****************************************************************************
-//
-//! Option for the TempCo power minimum power.
-//! The tempco algorithm is still being tuned for optimal operation, and hence
-//! it is possible that for certain temperature ranges, it does not yet get the
-//! most optimal settings (might increase power, when compared to without tempco).
-//
-//*****************************************************************************
 //*****************************************************************************
 //
 //! Enable VDDC TempCo

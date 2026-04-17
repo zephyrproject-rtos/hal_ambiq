@@ -975,6 +975,7 @@ extern uint32_t am_hal_uart_interrupt_status_get(void *pHandle,
 //
 //*****************************************************************************
 extern uint32_t am_hal_uart_interrupt_enable_get(void *pHandle, uint32_t *pui32IntMask);
+
 //*****************************************************************************
 //
 //! @brief transfer data between hardware and software queue in the background.
@@ -992,7 +993,14 @@ extern uint32_t am_hal_uart_interrupt_enable_get(void *pHandle, uint32_t *pui32I
 extern uint32_t am_hal_uart_interrupt_service(void *pHandle,
                                               uint32_t ui32Status);
 
-
+//*****************************************************************************
+//
+//! @brief DMA complete interrupt
+//!
+//! @param pHandle is the handle for the UART to operate on.
+//
+//*****************************************************************************
+extern void am_hal_uart_dma_transfer_complete(void *pHandle);
 #ifdef __cplusplus
 }
 #endif

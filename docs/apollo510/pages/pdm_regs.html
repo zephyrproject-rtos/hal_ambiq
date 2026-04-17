@@ -25,7 +25,7 @@
                             <img alt="Logo" src="../resources/am_logo.png" />
                         </td>
                         <td style="padding-left: 0.5em;">
-                            <div id="projectname">Apollo510  Register Documentation &#160;<span id="projectnumber">release_sdk5p1p0-7063330c5e</span></div>
+                            <div id="projectname">Apollo510  Register Documentation &#160;<span id="projectnumber">release_sdk5p2p0-440cb810d</span></div>
                         </td>
                     </tr>
                 </tbody>
@@ -310,39 +310,6 @@
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202000</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203000</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204000</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>PDM Control</p>
@@ -471,11 +438,11 @@
                             <td>RW</td>
                             <td>PDM Master Clock select (24.576MHz).<br><br>
                                  HFRC2_31MHz          = 0x0 - 31MHz sourced from the HFRC2<br>
-                             XTAL_HS              = 0x1 - High Frequency XTAL<br>
+                             XTAL_HS              = 0x1 - High Frequency XTAL. For Apollo510B, XTAL_HS is an invalid selection.<br>
                              HFRC_24MHz           = 0x2 - 24MHz sourced from the HFRC<br>
-                             XTAL_HS_DIV2         = 0x3 - High Frequency XTAL Divide by 2<br>
-                             XTAL_HS_DIV4         = 0x4 - High Frequency XTAL Divide by 4<br>
-                             EXTREFCLK            = 0x5 - External reference clock<br>
+                             XTAL_HS_DIV2         = 0x3 - High Frequency XTAL Divide by 2. For Apollo510B, XTAL_HS_DIV2 is an invalid selection.<br>
+                             XTAL_HS_DIV4         = 0x4 - High Frequency XTAL Divide by 4. For Apollo510B, XTAL_HS_DIV4 is an invalid selection.<br>
+                             EXTREFCLK            = 0x5 - On the 510B, EXTREFCLK is an internal clock which is a divide-by-4 of the BLE Controller's crystal frequency, BLE XTAL. BLE XTAL is specified to be 48 MHz, so the derived EXTREFCLK frequency is 12 MHz.<br>
                              OFF                  = 0x6 - Static 0</td>
                         </tr>
 
@@ -510,39 +477,6 @@ If multiple clocks are enabled, priority is HFRC2, HF XTAL, HFRC.<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201004</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202004</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203004</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204004</span>
                         </td>
                     </tr>
 
@@ -729,11 +663,9 @@ enum
                             <td>20:14</td>
                             <td>SINCRATE</td>
                             <td>RW</td>
-                            <td>Sinc decimation rate.
-SINC_RATE = OSR /2. OSR = Fsin / Fsout.
-Must be even.
-16 to 64 allowed.
-96 allowed for special configuration.<br><br>
+                            <td>Synchronous decimation rate.
+ SINC_RATE = OSR /2. OSR = Fsin / Fsout.
+ Even values between 16 and 64 allowed.<br><br>
                                 </td>
                         </tr>
 
@@ -817,39 +749,6 @@ MCLKDIV = (PDM_CLK /Fsin / (DIVMCLKQ + 1)) -1<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201008</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202008</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203008</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204008</span>
                         </td>
                     </tr>
 
@@ -1006,39 +905,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020200C</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020300C</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020400C</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>PDM to PCM Control</p>
@@ -1129,39 +995,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201010</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202010</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203010</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204010</span>
                         </td>
                     </tr>
 
@@ -1269,39 +1102,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202014</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203014</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204014</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>FIFO Read</p>
@@ -1392,39 +1192,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201018</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202018</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203018</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204018</span>
                         </td>
                     </tr>
 
@@ -1532,39 +1299,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020201C</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020301C</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020401C</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>FIFO Threshold</p>
@@ -1666,39 +1400,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201100</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202100</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203100</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204100</span>
                         </td>
                     </tr>
 
@@ -1850,39 +1551,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202104</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203104</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204104</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>Read bits from this register to discover the cause of a recent interrupt.</p>
@@ -2028,39 +1696,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201108</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202108</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203108</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204108</span>
                         </td>
                     </tr>
 
@@ -2212,39 +1847,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020210C</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020310C</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x4020410C</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>Write a 1 to a bit in this register to instantly generate an interrupt from this module. (Generally used for testing purposes).</p>
@@ -2393,39 +1995,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202140</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203140</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204140</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>DMA Trigger Enable</p>
@@ -2541,39 +2110,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202144</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203144</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204144</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>DMA Trigger Status</p>
@@ -2686,39 +2222,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201148</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202148</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203148</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204148</span>
                         </td>
                     </tr>
 
@@ -2906,39 +2409,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202154</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203154</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204154</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>DMA Target Address</p>
@@ -3029,39 +2499,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201158</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202158</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203158</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204158</span>
                         </td>
                     </tr>
 
@@ -3191,39 +2628,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202160</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203160</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204160</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>DMA Target Address</p>
@@ -3314,39 +2718,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         <td class="entry">
                             <span style="width:32px;display:inline-block;">&#160;</span>
                             <span class="h5">0x40201164</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202164</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203164</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204164</span>
                         </td>
                     </tr>
 
@@ -3454,39 +2825,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202168</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203168</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204168</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>Enable Next DMA Job</p>
@@ -3591,39 +2929,6 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
                         </td>
                     </tr>
 
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 1 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40202250</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 2 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40203250</span>
-                        </td>
-                    </tr>
-
-                    <tr id="row_0_0_">
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">Instance 3 Address:</span>
-                        </td>
-                        <td class="entry">
-                            <span style="width:32px;display:inline-block;">&#160;</span>
-                            <span class="h5">0x40204250</span>
-                        </td>
-                    </tr>
-
                 </table>
                 <h3>Description:</h3>
                 <p>DMA Total Transfer Count</p>
@@ -3718,7 +3023,7 @@ Fmclkq = Fpdmclk/(DIVMCLKQ+1).<br><br>
             <small>
                 AmbiqSuite Register Documentation&nbsp;
                 <a href="http://www.ambiqmicro.com">
-                <img class="footer" src="../resources/ambiqmicro_logo.png" alt="Ambiq Micro"/></a>&nbsp&nbsp Copyright &copy; 2025&nbsp&nbsp<br />
+                <img class="footer" src="../resources/ambiqmicro_logo.png" alt="Ambiq Micro"/></a>&nbsp&nbsp Copyright &copy; 2026&nbsp&nbsp<br />
                 This documentation is licensed and distributed under the <a rel="license" href="http://opensource.org/licenses/BSD-3-Clause">BSD 3-Clause License</a>.&nbsp&nbsp<br/>
             </small>
         </div>

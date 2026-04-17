@@ -45,11 +45,12 @@
 //! - @b Compare @b Channels: Configure up to 8 compare channels
 //! - @b Capture @b Channels: Set up input capture for external signals
 //! - @b Interrupts: Configure interrupt sources and handlers
+//
 //*****************************************************************************
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -78,7 +79,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -96,8 +97,8 @@ static bool g_bStimerConfigured = false;
 //
 static uint32_t g_ui32LastStimer[8] =
 {
-    0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE,
-    0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE, 0xFFFFFFFE
+    0xFFFFFFFD, 0xFFFFFFFD, 0xFFFFFFFD, 0xFFFFFFFD,
+    0xFFFFFFFD, 0xFFFFFFFD, 0xFFFFFFFD, 0xFFFFFFFD
 };
 
 static am_hal_clkmgr_clock_id_e
@@ -221,15 +222,20 @@ am_hal_stimer_is_running(void)
     //
     // Check the STIMER has been configured and is currently counting
     //
-    bRetVal = g_bStimerConfigured &&
-      ((STIMER->STCFG &
-       (STIMER_STCFG_CLKSEL_NOCLK | STIMER_STCFG_FREEZE_THAW | STIMER_STCFG_CLEAR_RUN)) ==
-       (STIMER_STCFG_FREEZE_THAW | STIMER_STCFG_CLEAR_RUN));
+	uint32_t ui32Cfg = STIMER->STCFG;
+
+	bRetVal = g_bStimerConfigured &&
+		((ui32Cfg & STIMER_STCFG_CLKSEL_Msk) !=
+			_VAL2FLD(STIMER_STCFG_CLKSEL, STIMER_STCFG_CLKSEL_NOCLK)) &&
+		((ui32Cfg & (STIMER_STCFG_FREEZE_Msk | STIMER_STCFG_CLEAR_Msk)) ==
+			(_VAL2FLD(STIMER_STCFG_FREEZE, STIMER_STCFG_FREEZE_THAW) |
+			_VAL2FLD(STIMER_STCFG_CLEAR, STIMER_STCFG_CLEAR_RUN)));
 
     AM_CRITICAL_END
 
     return bRetVal;
 }
+
 //*****************************************************************************
 //
 // Reset the current stimer block to power-up state.
@@ -363,9 +369,10 @@ am_hal_stimer_check_compare_delta_set(uint32_t ui32CmprInstance)
     // Take a snapshot of STIMER
     curTimer = am_hal_stimer_counter_get();
     // We cannot set COMPARE back to back
-    // Need to wait for previous write to complete, which takes 2 cycles
-    if ((curTimer != g_ui32LastStimer[ui32CmprInstance]) &&
-        (curTimer != (g_ui32LastStimer[ui32CmprInstance] + 1)))
+    // Need to wait for previous write to complete, which takes 3 cycles
+        if ((curTimer != g_ui32LastStimer[ui32CmprInstance]) &&
+            (curTimer != (g_ui32LastStimer[ui32CmprInstance] + 1)) &&
+            (curTimer != (g_ui32LastStimer[ui32CmprInstance] + 2)))
     {
         return true;
     }
@@ -386,7 +393,9 @@ am_hal_stimer_compare_delta_set(uint32_t ui32CmprInstance, uint32_t ui32Delta)
     uint32_t curTimer, curTimer0;
     uint32_t ui32Ret = AM_HAL_STATUS_SUCCESS;
 
+    //
     // Take a snapshot of STIMER at the beginning of the function
+    //
     curTimer = curTimer0 = am_hal_stimer_counter_get();
 
 #ifndef AM_HAL_DISABLE_API_VALIDATION
@@ -405,28 +414,36 @@ am_hal_stimer_compare_delta_set(uint32_t ui32CmprInstance, uint32_t ui32Delta)
 
     do
     {
+        //
         // We cannot set COMPARE back to back
-        // Need to wait for previous write to complete, which takes 2 cycles
+        // Need to wait for previous write to complete, which takes 3 cycles
+        //
         if ((curTimer != g_ui32LastStimer[ui32CmprInstance]) &&
-            (curTimer != (g_ui32LastStimer[ui32CmprInstance] + 1)))
+            (curTimer != (g_ui32LastStimer[ui32CmprInstance] + 1)) &&
+            (curTimer != (g_ui32LastStimer[ui32CmprInstance] + 2)))
         {
             //
             // Start a critical section.
             //
             AM_CRITICAL_BEGIN
             curTimer = am_hal_stimer_counter_get();
+
+            //
             // Adjust Delta
-            // It takes 2 STIMER clock cycles for writes to COMPARE to be effective
+            // It takes 3 STIMER clock cycles for writes to COMPARE to be effective
             // Also the interrupt itself is delayed by a cycle
             // This effectively means we need to adjust the delta by 3
             // Also adjust for the delay since we entered the function
+            //
             if (ui32Delta > (3 + (curTimer - curTimer0)))
             {
                 ui32Delta -= 3 + (curTimer - curTimer0);
             }
             else
             {
+                //
                 // Need to floor delta to 1
+                //
                 ui32Delta = 1;
                 ui32Ret = AM_HAL_STIMER_DELTA_TOO_SMALL;
             }
@@ -438,6 +455,7 @@ am_hal_stimer_compare_delta_set(uint32_t ui32CmprInstance, uint32_t ui32Delta)
             // Get a snapshot when we set COMPARE
             //
             g_ui32LastStimer[ui32CmprInstance] = am_hal_stimer_counter_get();
+
             //
             // End the critical section.
             //

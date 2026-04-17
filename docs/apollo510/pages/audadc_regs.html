@@ -25,7 +25,7 @@
                             <img alt="Logo" src="../resources/am_logo.png" />
                         </td>
                         <td style="padding-left: 0.5em;">
-                            <div id="projectname">Apollo510  Register Documentation &#160;<span id="projectnumber">release_sdk5p1p0-7063330c5e</span></div>
+                            <div id="projectname">Apollo510  Register Documentation &#160;<span id="projectnumber">release_sdk5p2p0-440cb810d</span></div>
                         </td>
                     </tr>
                 </tbody>
@@ -637,9 +637,9 @@
                             <td>Select the source and frequency for the ADC clock<br><br>
                                  HFRC_48MHz           = 0x0 - 48MHz clock sourced from the HFRC<br>
                              HFRC_48MHz_INV       = 0x1 - Inverted version of the 48MHz clock sourced from the HFRC<br>
-                             XTAL_HS              = 0x2 - High Frequency XTAL input (nominally 32 MHz)<br>
+                             XTAL_HS              = 0x2 - High Frequency XTAL input (Not available for Apollo510B)<br>
                              HFRC2_31MHz          = 0x3 - HFRC2 250MHz clock divided-by-8 (31.25MHz)<br>
-                             EXTREFCLK            = 0x4 - External reference clock input<br>
+                             EXTREFCLK            = 0x4 - On the 510B, EXTREFCLK is an internal clock which is a divide-by-4 of the BLE Controller's crystal frequency, BLE XTAL.  BLE XTAL is specified to be 48 MHz, so the derived EXTREFCLK frequency is 12 MHz.<br>
                              OFF                  = 0x5 - ADC clock is off; APB clock is HFRC_24MHz</td>
                         </tr>
 
@@ -6562,7 +6562,7 @@
             <small>
                 AmbiqSuite Register Documentation&nbsp;
                 <a href="http://www.ambiqmicro.com">
-                <img class="footer" src="../resources/ambiqmicro_logo.png" alt="Ambiq Micro"/></a>&nbsp&nbsp Copyright &copy; 2025&nbsp&nbsp<br />
+                <img class="footer" src="../resources/ambiqmicro_logo.png" alt="Ambiq Micro"/></a>&nbsp&nbsp Copyright &copy; 2026&nbsp&nbsp<br />
                 This documentation is licensed and distributed under the <a rel="license" href="http://opensource.org/licenses/BSD-3-Clause">BSD 3-Clause License</a>.&nbsp&nbsp<br/>
             </small>
         </div>

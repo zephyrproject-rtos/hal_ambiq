@@ -2,14 +2,16 @@
 //
 //! @file am_hal_pin.c
 //!
-//! @brief Function select information for Apollo510 GPIOs.
+//! @brief Function select information for Apollo330p_510l GPIOs.
 //!
-//! @addtogroup pin_ap510L Pin Functionality
+//! Date: 12/18/2025
+//!
+//! @addtogroup pin_func Pin Functionality
 //! @ingroup apollo330P_hal
 //! @{
 //!
 //! Purpose: This is a generated file that provides the function select (FUNCSEL)
-//! information for all GPIO pins on Apollo510 devices. It maps each pin to its
+//! information for all GPIO pins on Apollo330p_510l devices. It maps each pin to its
 //! available functions and is used by the HAL for pin configuration and
 //! multiplexing. Do not modify this file directly; regenerate it using the
 //! provided script if updates are needed.
@@ -37,14 +39,17 @@
 //!
 //! @section hal_pin_configuration Configuration
 //!
-//! - @b Scripted @b Generation: Use ambiqsuite/scripts/apollo5/generate_funcsel.py
+//! - @b Scripted @b Generation: Use ambiqsuite/scripts/apollo330P/generate_funcsel.py
 //! - @b Pin @b Definitions: Update pin definitions in the script as needed
 //! - @b Integration: Ensure this file is included in HAL and board builds
+//
+// This is a generated file, do not modify!
+//
 //*****************************************************************************
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -73,7 +78,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -83,7 +88,7 @@
 
 //*****************************************************************************
 //
-// GPIO function select table.
+//! GPIO function select table.
 //
 //*****************************************************************************
 const uint16_t am_hal_pin_fn_list[AM_HAL_PIN_TOTAL_GPIOS][AM_HAL_PIN_NUMFUNCS] =

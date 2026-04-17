@@ -48,7 +48,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -87,6 +87,8 @@
 
 #include "am_mcu_apollo.h"
 #include "mcu/am_hal_crm_private.h"
+
+//*****************************************************************************
 //
 //! For Apollo5, the USB controller is sending STATUS stage ACK automatically
 //! when DATA stage of CONTROL_TRANSFER is completed.
@@ -102,8 +104,8 @@
 //!       The USB controller will send STATUS ACK to USB Host regardless of the
 //!       selection.
 //
-// #define AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
-
+//*****************************************************************************
+#define AM_HAL_USB_CTRL_XFR_AUTO_STATUS_STATE_ACK
 
 //*****************************************************************
 //
@@ -2209,6 +2211,8 @@ am_hal_usb_dma_loading_fifo(USB_Type *pUSB, uint8_t ui8EpNum, uint8_t *pucBuf, u
         .eDir           = AM_HAL_USB_IN_DIR
     };
 
+    INCSRU_AutoSet_Set(pUSB);
+
     AM_HAL_USB_ENTER_CRITICAL;
 
     if ( g_bUSBDMA0Busy )
@@ -2392,7 +2396,8 @@ am_hal_usb_ep0_state_reset(am_hal_usb_state_t *pState)
     am_hal_usb_xfer_reset(&pState->ep0_xfer);
 }
 
-void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
+uint32_t
+am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
 {
 #ifndef AM_HAL_DISABLE_API_VALIDATION
     if (!AM_HAL_USB_CHK_HANDLE(pHandle) )
@@ -2422,7 +2427,7 @@ void am_hal_usb_ep_state_reset(void *pHandle, uint8_t ui8EpAddr)
         pXfer = &pState->ep_xfers[ui8EpNum - 1][ui8EpDir];
         am_hal_usb_xfer_reset(pXfer);
     }
-
+	return AM_HAL_STATUS_SUCCESS;
 }
 
 //*****************************************************************************
@@ -3912,7 +3917,7 @@ am_hal_usb_in_ep_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui
     }
 
     // In endpoint FIFO is empty
-    if ((INCSRL_FIFONotEmpty(pUSB) == 0) && pXfer->flags.busy)
+    if ((INTRINE_Get(pUSB) & (0x1 << ui8EpNum)) && (INCSRL_FIFONotEmpty(pUSB) == 0) && pXfer->flags.busy)
     {
         // Packet has been sent out
         if (pXfer->remaining == 0x0)
@@ -4198,6 +4203,14 @@ am_hal_usb_out_ep_dma1_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint
                 if (ui32XferLen != 0)
                 {
                     am_hal_usb_xfer_complete(pState, pXfer, ui8EpNum, ui32XferLen, USB_XFER_DONE, NULL);
+                }
+                else
+                {
+                    // Re-enable ADMA which was disabled above and clear
+                    // `OutPktRdy` so the hardware can continue receiving
+                    // the next packet.
+                    pUSB->ADMAEN |= (1 << (ui8EpNum + 4));
+                    OUTCSRL_OutPktRdy_Clear(pUSB);
                 }
 #endif // AM_HAL_USB_REPORT_ZLP
                 return;
@@ -4559,8 +4572,17 @@ am_hal_usb_interrupt_service(void *pHandle,
         if ( pUSB->DMACTRL_b.DMADIR == AM_HAL_USB_IN_DIR )
         {
             // Select the endpoint by index register
-            EP_INDEX_Set(pUSB, pUSB->DMACTRL_b.DMAEP);
-            INCSRL_InPktRdy_Set(pUSB);
+            uint8_t ui8EpNum = pUSB->DMACTRL_b.DMAEP;
+            EP_INDEX_Set(pUSB, ui8EpNum);
+
+            am_hal_usb_ep_xfer_t* pXfer = &pState->ep_xfers[ui8EpNum - 1][AM_HAL_USB_EP_DIR_IN];
+            uint16_t maxpacket = pState->epin_maxpackets[ui8EpNum - 1];
+
+            if (pXfer->len < maxpacket && pXfer->len > 0)
+            {
+                INCSRL_InPktRdy_Set(pUSB);
+            }
+
             INTRINE_Enable(pUSB, 0x1 << pUSB->DMACTRL_b.DMAEP);
         }
         else
