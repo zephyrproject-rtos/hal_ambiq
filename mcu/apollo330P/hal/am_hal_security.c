@@ -46,7 +46,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -75,12 +75,17 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision release_sdk5p2p0-440cb810d of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #include <stdint.h>
 #include <stdbool.h>
 #include "am_mcu_apollo.h"
+
+//
+// Enable debug output for CRC boundary splitting
+//
+//#define DEBUG_CRC_BOUNDARY
 
 //*****************************************************************************
 //  Local defines.
@@ -98,6 +103,33 @@
 // Globals
 //
 //*****************************************************************************
+
+//
+// Global variable to track CRC initialization state
+//
+static bool g_bCrcInitialized = false;
+
+//*****************************************************************************
+//
+// Set CRC initialization state to true
+//
+//*****************************************************************************
+void
+am_hal_crc_set_init(void)
+{
+    g_bCrcInitialized = true;
+}
+
+//*****************************************************************************
+//
+// Set CRC initialization state to false
+//
+//*****************************************************************************
+void
+am_hal_crc_finalize(void)
+{
+    g_bCrcInitialized = false;
+}
 
 //*****************************************************************************
 //
@@ -322,8 +354,12 @@ am_hal_crc32(uint32_t ui32StartAddr, uint32_t ui32SizeBytes, uint32_t *pui32Crc)
     //
     // Program the CRC engine to compute the crc
     //
-    ui32CRC32                 = 0xFFFFFFFF;
-    SECURITY->RESULT          = ui32CRC32;
+    if (g_bCrcInitialized == false)
+    {
+        ui32CRC32                 = 0xFFFFFFFF;
+        SECURITY->RESULT          = ui32CRC32;
+    }
+
     SECURITY->SRCADDR         = ui32StartAddr;
     SECURITY->LEN             = ui32SizeBytes;
     SECURITY->CTRL_b.FUNCTION = SECURITY_CTRL_FUNCTION_CRC32;
@@ -352,6 +388,192 @@ am_hal_crc32(uint32_t ui32StartAddr, uint32_t ui32SizeBytes, uint32_t *pui32Crc)
 
 } // am_hal_crc32()
 
+
+//*****************************************************************************
+//
+// Helper function to find the next problematic boundary that would be crossed
+//
+//*****************************************************************************
+uint32_t
+am_hal_crc_find_next_boundary(uint32_t ui32StartAddr, uint32_t ui32SizeBytes)
+{
+    uint32_t ui32EndAddr = ui32StartAddr + ui32SizeBytes - 1;
+    uint32_t ui32NextBoundary = ui32EndAddr + 1; // Default: no boundary crossed
+
+    //
+    // Check if we're in ITCM or DTCM and would cross a 4KB boundary
+    // Calculate 4KB boundaries relative to the start of the respective TCM
+    //
+    if ((
+#if ITCM_BASEADDR != 0  // Avoid compiler warning "pointless comparison of unsigned integer with zero"
+         (ui32StartAddr >= ITCM_BASEADDR) &&
+#endif
+                                             (ui32StartAddr <= ITCM_END)) ||
+        ((ui32StartAddr >= DTCM_BASEADDR) && (ui32StartAddr <= DTCM_END)))
+    {
+        //
+        // Find next 4KB boundary in TCM (simple and correct approach)
+        // ITCM 4KB boundaries: 0x00000000, 0x00001000, 0x00002000, etc.
+        // DTCM 4KB boundaries: 0x20000000, 0x20001000, 0x20002000, etc.
+        //
+        uint32_t ui32Current4KBBoundary = (ui32StartAddr & 0xFFFFF000) + 0x1000;
+
+        if (ui32EndAddr >= ui32Current4KBBoundary)
+        {
+            ui32NextBoundary = ui32Current4KBBoundary;
+        }
+    }
+
+    //
+    // Check major memory boundaries and select the closest one
+    //
+    if ((ui32StartAddr <= DTCM_END) && (ui32EndAddr >= SSRAM0_BASEADDR))
+    {
+        //
+        // Choose the closest boundary (4KB vs major boundary)
+        //
+        if (ui32NextBoundary > SSRAM0_BASEADDR)
+        {
+            ui32NextBoundary = SSRAM0_BASEADDR;
+        }
+    }
+    else if ((ui32StartAddr <= SSRAM0_END) && (ui32EndAddr >= SSRAM1_BASEADDR))
+    {
+        if (ui32NextBoundary > SSRAM1_BASEADDR)
+        {
+            ui32NextBoundary = SSRAM1_BASEADDR;
+        }
+    }
+    else if ((ui32StartAddr <= SSRAM1_END) && (ui32EndAddr >= SSRAM2_BASEADDR))
+    {
+        if (ui32NextBoundary > SSRAM2_BASEADDR)
+        {
+            ui32NextBoundary = SSRAM2_BASEADDR;
+        }
+    }
+
+    return ui32NextBoundary;
+}
+
+//*****************************************************************************
+//
+// CRC32 function with boundary crossing protection
+//
+//*****************************************************************************
+uint32_t
+am_hal_crc(uint32_t *pui32StartAddr, uint32_t ui32SizeBytes, uint32_t *pui32Crc)
+{
+#ifndef AM_HAL_DISABLE_API_VALIDATION
+    if ((pui32StartAddr == NULL) || (pui32Crc == NULL))
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+
+    //
+    // Word count validation (this check is technically redundant since word counts are always byte-aligned)
+    //
+    if ((ui32SizeBytes) & 0x3)
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+#endif // AM_HAL_DISABLE_API_VALIDATION
+    uint32_t ui32Status = AM_HAL_STATUS_SUCCESS;
+    uint32_t ui32CurrentAddr;
+    uint32_t ui32RemainingWords;
+    uint32_t ui32ChunkSizeBytes;
+    uint32_t ui32ChunkSizeWords;
+    uint32_t ui32NextBoundary;
+    uint32_t ui32CurrentCrc = 0xFFFFFFFF;
+
+    if ( SECURITY->CTRL_b.ENABLE )
+    {
+        SECURITY->CTRL_b.ENABLE = 0x00;
+        SECURITY->CTRL = 0x00;
+    }
+
+    ui32CurrentAddr = (uint32_t)pui32StartAddr;
+    ui32RemainingWords = ui32SizeBytes / 4;
+
+    //
+    // Process data in chunks, splitting at problematic boundaries
+    //
+    while (ui32RemainingWords > 0)
+    {
+        //
+        // Find the next problematic boundary (boundary detection works in bytes)
+        //
+        uint32_t ui32RemainingBytes = ui32RemainingWords * 4;
+        ui32NextBoundary = am_hal_crc_find_next_boundary(ui32CurrentAddr, ui32RemainingBytes);
+
+        //
+        // Determine chunk size - either to the boundary or remaining data
+        //
+        if (ui32NextBoundary < ui32CurrentAddr + ui32RemainingBytes)
+        {
+            //
+            // We hit a boundary, process up to the boundary
+            //
+            ui32ChunkSizeBytes = ui32NextBoundary - ui32CurrentAddr;
+        }
+        else
+        {
+            //
+            // No boundary crossed, process all remaining data
+            //
+            ui32ChunkSizeBytes = ui32RemainingBytes;
+        }
+
+        //
+        // Convert chunk size to words and validate word alignment
+        //
+        ui32ChunkSizeWords = ui32ChunkSizeBytes / 4;
+
+        //
+        // Only process if there's data in this chunk
+        //
+        if (ui32ChunkSizeWords > 0)
+        {
+            //
+            // Debug output to track boundary splitting
+            //
+#ifdef DEBUG_CRC_BOUNDARY
+            am_util_stdio_printf("CRC Chunk: addr=0x%08X, size=%d bytes (%d words), boundary=0x%08X, seed=0x%08X\n",
+                                ui32CurrentAddr, ui32ChunkSizeBytes, ui32ChunkSizeWords, ui32NextBoundary, ui32CurrentCrc);
+#endif
+
+            //
+            // Compute CRC on this chunk using seeded calculation
+            //
+            ui32Status = am_hal_crc32(ui32CurrentAddr, ui32ChunkSizeBytes, &ui32CurrentCrc);
+
+            if (ui32Status != AM_HAL_STATUS_SUCCESS)
+            {
+                return ui32Status;
+            }
+
+#ifdef DEBUG_CRC_BOUNDARY
+            am_util_stdio_printf("CRC Result: 0x%08X\n", ui32CurrentCrc);
+#endif
+            am_hal_crc_set_init();
+        }
+
+        //
+        // Move to next chunk
+        //
+        ui32CurrentAddr += ui32ChunkSizeBytes;
+        ui32RemainingWords -= ui32ChunkSizeWords;
+    }
+
+    am_hal_crc_finalize();
+
+    //
+    // Return the final CRC value
+    //
+    *pui32Crc = ui32CurrentCrc;
+
+    return ui32Status;
+}
+
 //*****************************************************************************
 //
 //! @brief  Hardcoded function - to Run supplied main program
@@ -374,7 +596,7 @@ bl_run_main(uint32_t *vtor)
         "   ldr     r3, [r0, #0]\n\t"   // Load the new stack pointer into R1 and the new reset vector into R2.
         "   ldr     r2, [r0, #4]\n\t"
         "   mov     sp, r3\n\t"         // Set the stack pointer for the new image.
-        "   bx      r2\n\t"            // Jump to the new reset vector.
+        "   bx      r2\n\t"             // Jump to the new reset vector.
     );
 }
 #elif defined(__GNUC_STDC_INLINE__)
@@ -390,7 +612,7 @@ bl_run_main(uint32_t *vtor)
         "   ldr     r3, [r0, #0]\n\t"   // Load the new stack pointer into R1 and the new reset vector into R2.
         "   ldr     r2, [r0, #4]\n\t"
         "   mov     sp, r3\n\t"         // Set the stack pointer for the new image.
-        "   bx      r2\n\t"            // Jump to the new reset vector.
+        "   bx      r2\n\t"             // Jump to the new reset vector.
     );
 }
 #elif defined(__IAR_SYSTEMS_ICC__)
@@ -404,7 +626,7 @@ bl_run_main(uint32_t *vtor)
           "    ldr     r3, [r0, #0]\n"   // Load the new stack pointer into R1 and the new reset vector into R2.
           "    ldr     r2, [r0, #4]\n"
           "    mov     sp, r3\n"         // Set the stack pointer for the new image.
-          "    bx      r2\n"            // Jump to the new reset vector.
+          "    bx      r2\n"             // Jump to the new reset vector.
           );
 }
 #else
@@ -413,19 +635,7 @@ bl_run_main(uint32_t *vtor)
 
 //*****************************************************************************
 //
-// @brief  Helper function to Perform exit operations for a secondary bootloader
-//
-// @param  pImage - The address of the image to give control to
-//
-// This function does the necessary security operations while exiting from a
-// a secondary bootloader program. If still open, it locks the infoc key region,
-// as well as further updates to the flash protection register.
-// It also checks if it needs to halt to honor a debugger request.
-// If an image address is specified, control is transferred to the same on exit.
-//
-// @return Returns AM_HAL_STATUS_SUCCESS on success, if no image address specified
-// If an image address is provided, a successful execution results in transfer to
-// the image - and this function does not return.
+// Helper function to Perform exit operations for a secondary bootloader
 //
 //*****************************************************************************
 uint32_t
@@ -438,7 +648,7 @@ am_hal_bootloader_exit(uint32_t *pImage, bool bEnableDebuggerOnExit)
     // CAUTION!!! - Cannot do RMW on BOOTLOADER register as all writable
     //              bits in this register are Write 1 to clear
     //
-    MCUCTRL->BOOTLOADER = _VAL2FLD(MCUCTRL_BOOTLOADER_PROTUNLOCK, MCUCTRL_BOOTLOADER_PROTUNLOCK_LOCK);
+    MCUCTRL->BOOTLOADER = _VAL2FLD(MCUCTRL_BOOTLOADER_PROTLOCK, MCUCTRL_BOOTLOADER_PROTLOCK_LOCK);
 
     //
     // Check if we need to halt (debugger request)
@@ -476,7 +686,7 @@ am_hal_bootloader_exit(uint32_t *pImage, bool bEnableDebuggerOnExit)
             uint32_t dhcsr = DCB->DSCSR;
 
             //
-            // Halt the core
+            // Halt the core and enable the debugger
             //
             DCB->DSCSR = (uint32_t)(0xA05FUL << 16) | (dhcsr & 0xFFFF) | 0x3;
 
