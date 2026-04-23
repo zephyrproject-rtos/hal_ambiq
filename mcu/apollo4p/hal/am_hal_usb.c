@@ -50,7 +50,6 @@
 #include <string.h>
 
 #include "am_mcu_apollo.h"
-#include "am_util_delay.h"
 
 //
 //! For Apollo4P, the USB controller is sending STATUS stage ACK automatically
