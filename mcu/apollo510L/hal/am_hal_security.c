@@ -392,6 +392,7 @@ am_hal_crc32(uint32_t ui32StartAddr, uint32_t ui32SizeBytes, uint32_t *pui32Crc)
 //*****************************************************************************
 //
 // Helper function to find the next problematic boundary that would be crossed
+// Apollo510L specific: No ITCM, single continuous SSRAM
 //
 //*****************************************************************************
 uint32_t
@@ -401,21 +402,11 @@ am_hal_crc_find_next_boundary(uint32_t ui32StartAddr, uint32_t ui32SizeBytes)
     uint32_t ui32NextBoundary = ui32EndAddr + 1; // Default: no boundary crossed
 
     //
-    // Check if we're in ITCM or DTCM and would cross a 4KB boundary
-    // Calculate 4KB boundaries relative to the start of the respective TCM
+    // Check if we're in DTCM and would cross a 4KB boundary
+    // DTCM 4KB boundaries: 0x20000000, 0x20001000, 0x20002000, etc.
     //
-    if ((
-#if ITCM_BASEADDR != 0  // Avoid compiler warning "pointless comparison of unsigned integer with zero"
-         (ui32StartAddr >= ITCM_BASEADDR) &&
-#endif
-                                             (ui32StartAddr <= ITCM_END)) ||
-        ((ui32StartAddr >= DTCM_BASEADDR) && (ui32StartAddr <= DTCM_END)))
+    if ((ui32StartAddr >= DTCM_BASEADDR) && (ui32StartAddr <= DTCM_END))
     {
-        //
-        // Find next 4KB boundary in TCM (simple and correct approach)
-        // ITCM 4KB boundaries: 0x00000000, 0x00001000, 0x00002000, etc.
-        // DTCM 4KB boundaries: 0x20000000, 0x20001000, 0x20002000, etc.
-        //
         uint32_t ui32Current4KBBoundary = (ui32StartAddr & 0xFFFFF000) + 0x1000;
 
         if (ui32EndAddr >= ui32Current4KBBoundary)
@@ -425,30 +416,16 @@ am_hal_crc_find_next_boundary(uint32_t ui32StartAddr, uint32_t ui32SizeBytes)
     }
 
     //
-    // Check major memory boundaries and select the closest one
+    // Check major memory boundary between DTCM and SSRAM
     //
-    if ((ui32StartAddr <= DTCM_END) && (ui32EndAddr >= SSRAM0_BASEADDR))
+    if ((ui32StartAddr <= DTCM_END) && (ui32EndAddr >= SSRAM_BASEADDR))
     {
         //
         // Choose the closest boundary (4KB vs major boundary)
         //
-        if (ui32NextBoundary > SSRAM0_BASEADDR)
+        if (ui32NextBoundary > SSRAM_BASEADDR)
         {
-            ui32NextBoundary = SSRAM0_BASEADDR;
-        }
-    }
-    else if ((ui32StartAddr <= SSRAM0_END) && (ui32EndAddr >= SSRAM1_BASEADDR))
-    {
-        if (ui32NextBoundary > SSRAM1_BASEADDR)
-        {
-            ui32NextBoundary = SSRAM1_BASEADDR;
-        }
-    }
-    else if ((ui32StartAddr <= SSRAM1_END) && (ui32EndAddr >= SSRAM2_BASEADDR))
-    {
-        if (ui32NextBoundary > SSRAM2_BASEADDR)
-        {
-            ui32NextBoundary = SSRAM2_BASEADDR;
+            ui32NextBoundary = SSRAM_BASEADDR;
         }
     }
 
@@ -648,7 +625,7 @@ am_hal_bootloader_exit(uint32_t *pImage, bool bEnableDebuggerOnExit)
     // CAUTION!!! - Cannot do RMW on BOOTLOADER register as all writable
     //              bits in this register are Write 1 to clear
     //
-    MCUCTRL->BOOTLOADER = _VAL2FLD(MCUCTRL_BOOTLOADER_PROTLOCK, MCUCTRL_BOOTLOADER_PROTLOCK_LOCK);
+    MCUCTRL->BOOTLOADER = _VAL2FLD(MCUCTRL_BOOTLOADER_PROTUNLOCK, MCUCTRL_BOOTLOADER_PROTUNLOCK_LOCK);
 
     //
     // Check if we need to halt (debugger request)

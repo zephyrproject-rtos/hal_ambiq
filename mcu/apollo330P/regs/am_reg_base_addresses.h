@@ -63,12 +63,14 @@
 //
 #define DTCM_BASEADDR                           (0x20000000UL)
 #define DTCM_MAX_SIZE                           (256UL * 1024UL)
+#define DTCM_END                                (DTCM_BASEADDR + DTCM_MAX_SIZE - 1)
 
 //
 // The Apollo5 maximum SSRAM space is 1.768MB.
 //
 #define SSRAM_BASEADDR                          (0x20080000)
 #define SSRAM_MAX_SIZE                          (1792UL * 1024UL)
+#define SSRAM_END                               (SSRAM_BASEADDR + SSRAM_MAX_SIZE - 1)
 
 // ****************************************************************************
 // MRAM Address Space

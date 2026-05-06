@@ -104,4 +104,8 @@ if(CONFIG_AMBIQ_HAL_USE_MRAM)
     zephyr_library_sources(hal/mcu/am_hal_mram.c)
 endif()
 
+if(CONFIG_CRC)
+    zephyr_library_sources(hal/am_hal_security.c)
+endif()
+
 zephyr_library_compile_options(-w)
