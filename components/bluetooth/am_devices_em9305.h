@@ -60,12 +60,29 @@ extern "C"
 //
 //*****************************************************************************
 
-#define EM9305_STS_CHK_CNT_MAX         10       //!< Check EM9305 status count
-#define WAIT_EM9305_RDY_TIMEOUT        12000    //!< EM9305 timeout value (1.2 sec)
-#define EM9305_BUFFER_SIZE             259      //!< Length of RX buffer
-#define EM9305_SPI_HEADER_TX           0x42     //!< SPI TX header byte
-#define EM9305_SPI_HEADER_RX           0x81     //!< SPI RX header byte
-#define EM9305_STS1_READY_VALUE        0xC0     //!< SPI Ready byte
+//
+//! Firmware image record: one contiguous region of the EM9305 NVM binary.
+//
+typedef struct {
+  const uint8_t *data;   //!< Pointer to image data
+  uint32_t length;       //!< Length of this record in bytes
+  uint32_t address;      //!< Target NVM address
+} ImageRecord;
+
+//
+//! NVM page descriptor used for per-page erase operations.
+//
+typedef struct {
+  uint8_t page;  //!< Page number within the area
+  uint8_t area;  //!< NVM area (0 = main, 1 = info)
+} NvmPage;
+
+#define EM9305_STS_CHK_CNT_MAX 10     //!< Check EM9305 status count
+#define WAIT_EM9305_RDY_TIMEOUT 12000 //!< EM9305 timeout value (1.2 sec)
+#define EM9305_BUFFER_SIZE 259        //!< Length of RX buffer
+#define EM9305_SPI_HEADER_TX 0x42     //!< SPI TX header byte
+#define EM9305_SPI_HEADER_RX 0x81     //!< SPI RX header byte
+#define EM9305_STS1_READY_VALUE 0xC0  //!< SPI Ready byte
 
 //
 //! Status codes for EM9305 operations
@@ -117,6 +134,14 @@ typedef struct
      *************************************************************************************
      */
     void (*reset)(void);
+
+    /**
+     *************************************************************************************
+    * @brief Full-duplex SPI exchange (required for NVM read / firmware version).
+    *
+    *************************************************************************************
+    */
+    bt_spi_transceive_fun transceive;
 } am_devices_em9305_callback_t;
 
 //*****************************************************************************
@@ -129,6 +154,20 @@ typedef struct
 //
 //*****************************************************************************
 uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb);
+
+//*****************************************************************************
+//
+//! @brief Read BLE firmware version from NVM info page 1 (matches AmbiqSuite
+//! API spelling).
+//!
+//! @param image_ver pointer to receive 32-bit version (A.B.C.D packed in BE
+//! order per legacy print).
+//!
+//! @return AM_DEVICES_EM9305_STATUS_SUCCESS on success, or another
+//! am_devices_em9305_status_t code.
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_get_fw_version(uint32_t *image_ver);
 
 //*****************************************************************************
 //
@@ -222,6 +261,39 @@ bool am_devices_em9305_get_spi_tx_status(void);
 //
 //*****************************************************************************
 void am_devices_em9305_controller_reset(void);
+
+//*****************************************************************************
+//
+//! @brief Register the CM (configuration mode) GPIO set function.
+//!
+//! Must be called before am_devices_em9305_init() if firmware update is used.
+//!
+//! @param set_cm - function to drive cm GPIO (true=assert, false=deassert)
+//
+//*****************************************************************************
+void am_devices_em9305_register_cm_gpio(void (*set_cm)(bool));
+
+//*****************************************************************************
+//
+//! @brief Update EM9305 firmware if the bundled image is newer.
+//!
+//! Stores references to the FW image records and erase page list then
+//! compares versions.  Called internally from am_devices_em9305_init() but
+//! exposed here for testing / forced updates.
+//!
+//! @param pFwImage     Array of ImageRecord pointers (from ble_fw_image_em9305.h)
+//! @param record_size  Number of records in pFwImage
+//! @param erase_pages  Array of NvmPage descriptors to erase
+//! @param erase_size   Number of entries in erase_pages
+//! @param image_ver    Version word of the bundled image
+//! @param force        true to update even if already at same version
+//!
+//! @return AM_DEVICES_EM9305_STATUS_SUCCESS on success
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_update_fw(ImageRecord **pFwImage, uint8_t record_size,
+                                     NvmPage *erase_pages, uint32_t erase_size,
+                                     uint32_t image_ver, bool force);
 
 #ifdef __cplusplus
 }
