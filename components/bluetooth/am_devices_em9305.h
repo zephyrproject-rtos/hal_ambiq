@@ -79,7 +79,30 @@ typedef struct {
 
 #define EM9305_STS_CHK_CNT_MAX 10     //!< Check EM9305 status count
 #define WAIT_EM9305_RDY_TIMEOUT 12000 //!< EM9305 timeout value (1.2 sec)
-#define EM9305_BUFFER_SIZE 259        //!< Length of RX buffer
+
+//
+//! Maximum single-packet HCI payload sizes for the EM9305 SPI transport.
+//!
+//! Host -> Controller (TX) worst case is an HCI Command:
+//!   1 H4 type + 3 byte HCI Command header + 255 byte parameter = 259.
+//!
+//! Controller -> Host (RX) worst case is an HCI Event:
+//!   1 H4 type + 2 byte HCI Event header + 255 byte parameter = 258.
+//!
+//! HCI ACL/ISO frames under LE-only configurations fit comfortably within
+//! the same bounds (with LE Data Length Extension the LL PDU payload is
+//! capped at 251 bytes).
+//
+#define EM9305_HCI_MAX_TX_LEN 259     //!< Max host->controller HCI packet (Command)
+#define EM9305_HCI_MAX_RX_LEN 258     //!< Max controller->host HCI packet (Event)
+
+//
+//! Single shared buffer length used by the HAL for both directions. Sized to
+//! the larger of TX/RX so existing static buffers cover either direction.
+//! Prefer EM9305_HCI_MAX_TX_LEN / EM9305_HCI_MAX_RX_LEN in new code.
+//
+#define EM9305_BUFFER_SIZE    EM9305_HCI_MAX_TX_LEN
+
 #define EM9305_SPI_HEADER_TX 0x42     //!< SPI TX header byte
 #define EM9305_SPI_HEADER_RX 0x81     //!< SPI RX header byte
 #define EM9305_STS1_READY_VALUE 0xC0  //!< SPI Ready byte
@@ -98,6 +121,7 @@ typedef enum
     AM_DEVICES_EM9305_DATA_LENGTH_ERROR,
     AM_DEVICES_EM9305_DATA_TRANSFER_ERROR,
     AM_DEVICES_EM9305_CMD_TRANSFER_ERROR,
+    AM_DEVICES_EM9305_CHECKSUM_ERROR,
 } am_devices_em9305_status_t;
 
 //
@@ -107,26 +131,18 @@ typedef enum
 typedef int (*bt_spi_transceive_fun)(void *tx, uint32_t tx_len, void *rx, uint32_t rx_len);
 
 //
-//! BLE controller function callback for SPI transmit
+//! Callback used to start/stop the 30 kHz signal required to enter EM9305
+//! configuration mode for firmware update. The signal source (e.g. CTIMER PWM)
+//! and target pin are board-specific and are owned by the HCI driver layer
+//! so that the device driver stays portable.
 //
-typedef int (*spi_transmit_fun)(uint8_t *data, uint16_t len);
+typedef void (*em9305_cm_pwm_ctrl_fun)(bool enable);
 
 //
 //! BLE controller callback structure
 //
 typedef struct
 {
-    /**
-     *************************************************************************************
-     * @brief Starts a data transmission via IOM
-     *
-     * @param[in]  data        Pointer to the TX buffer
-     * @param[in]  len         Size of the transmission
-     * @return                 Status of data transmission, 0 is success.
-     *************************************************************************************
-     */
-    spi_transmit_fun write;
-
     /**
      *************************************************************************************
      * @brief Reset the BLE controller via RESET GPIO.
@@ -137,7 +153,8 @@ typedef struct
 
     /**
      *************************************************************************************
-    * @brief Full-duplex SPI exchange (required for NVM read / firmware version).
+    * @brief Full-duplex SPI exchange used for both TX and RX (HCI commands,
+    *        responses, NVM read/write).
     *
     *************************************************************************************
     */
@@ -272,6 +289,39 @@ void am_devices_em9305_controller_reset(void);
 //
 //*****************************************************************************
 void am_devices_em9305_register_cm_gpio(void (*set_cm)(bool));
+
+//*****************************************************************************
+//
+//! @brief Register the CM (configuration mode) PWM start/stop callback.
+//!
+//! The EM9305 enters configuration mode when it samples a 30 kHz signal on
+//! the CM pad during boot. The signal source is board-specific (e.g. CTIMER
+//! PWM routed to a CT-capable pad) so the driver delegates the start/stop to
+//! a callback registered by the HCI driver layer.
+//!
+//! Must be called before am_devices_em9305_init() if firmware update is to be
+//! performed; if not registered, the firmware-update path returns an error.
+//!
+//! @param cm_pwm - function to start (true) or stop (false) the 30 kHz signal
+//
+//*****************************************************************************
+void am_devices_em9305_register_cm_pwm_ops(em9305_cm_pwm_ctrl_fun cm_pwm);
+
+//*****************************************************************************
+//
+//! @brief Enable or disable the EM9305 sleep option.
+//!
+//! Sends the vendor-specific HCI_VSC_SET_SLEEP_OPTION command (opcode 0xFC49)
+//! to the BLE controller. When sleep is enabled the controller may enter low
+//! power state between BLE activity, which is required for low-power BLE use
+//! cases.
+//!
+//! @param enable - true to enable controller sleep, false to disable
+//!
+//! @return AM_DEVICES_EM9305_STATUS_SUCCESS on success
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_sleep_set(bool enable);
 
 //*****************************************************************************
 //

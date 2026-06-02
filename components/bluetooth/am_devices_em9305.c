@@ -61,24 +61,34 @@ LOG_MODULE_REGISTER(am_devices_em9305, CONFIG_LOG_DEFAULT_LEVEL);
 int am_devices_em9305_blocking_write(uint8_t *pui8Values, uint16_t ui32NumBytes, bt_spi_transceive_fun transceive);
 bool am_devices_em9305_get_spi_tx_status(void);
 
-/* EM9305 NVM / HCI VSC definitions (aligned with AmbiqSuite am_devices_em9305)
+/* EM9305 NVM / HCI VSC definitions
  */
 #define EM9305_NVM_INFO_PAGE1_START_ADDR 0x402000U
 #define EM9305_FW_VER_NUM_LEN 4U
 #define EM9305_FW_VER_INVALID 0xFFFFFFFFU
+#define HCI_VSC_CRC_CALCULATE_OPCODE 0xFC4EU
+#define HCI_VSC_SET_SLEEP_OPTION_OPCODE 0xFC49U
 #define HCI_VSC_READ_AT_ADDRESS_OPCODE 0xFD01U
 #define HCI_VSC_WRITE_AT_ADDRESS_OPCODE 0xFD03U
 #define HCI_VSC_NVM_ERASE_NVM_MAIN_OPCODE 0xFD06U
 #define HCI_VSC_NVM_ERASE_PAGE_OPCODE 0xFD07U
+#define HCI_VSC_CRC_CALCULATE_CMD_LENGTH 8U
 #define HCI_VSC_NVM_ERASE_PAGE_CMD_LENGTH 2U
 #define HCI_VSC_NVM_ERASE_NVM_MAIN_CMD_LENGTH 0U
+#define HCI_VSC_SET_SLEEP_OPTION_CMD_LENGTH 1U
 #define AM_DEVICES_EM9305_HCI_CMD_PKT 0x01U
 #define EM9305_CMD_IRQ_WAIT_MS 5000U
 #define EM9305_ACTIVE_STATE_TIMEOUT_MS 5000U
-#define EM9305_FW_UPDATE_WRITE_PACKET_SIZE 128U
+/*
+ * EM9305 HCI VSC WRITE_AT_ADDRESS supports up to 248 bytes of payload per
+ * command (HCI param length is u8: 251 - 4 byte address field).
+ */
+#define EM9305_FW_UPDATE_WRITE_PACKET_SIZE 248U
 #define EM9305_NVM_INFO_READ_LEN 248U
 #define EM9305_NVM_INFO_AREA 1U
 #define EM9305_NVM_INFO_AREA_PAGE_1 1U
+#define EM9305_SPI_T_RDY_US 1U
+#define EM9305_SPI_RDY_LOW_DETECT_MAX_US 20U
 
 //*****************************************************************************
 //
@@ -111,6 +121,9 @@ static struct
     void (*cs_release)(void);
     void (*set_cm)(bool state);
 } g_gpio_ops;
+
+//! 30 kHz PWM start/stop callback for firmware-update CM entry
+static em9305_cm_pwm_ctrl_fun g_cm_pwm_ctrl;
 
 //! Firmware update image records (set by am_devices_em9305_update_fw)
 static ImageRecord **g_fw_image_records;
@@ -193,6 +206,67 @@ static void bt_em9305_cs_release(void)
 
 //*****************************************************************************
 //
+//! @brief Poll until the EM9305 RDY pin reaches the requested state.
+//
+//*****************************************************************************
+static bool em9305_poll_rdy(bool high)
+{
+    for (uint32_t i = 0; i < WAIT_EM9305_RDY_TIMEOUT; i++)
+    {
+        if (irq_pin_state() == high)
+        {
+            return true;
+        }
+
+        k_busy_wait(100);
+    }
+
+    return false;
+}
+
+//*****************************************************************************
+//
+//! @brief Wait for the EM9305 SPI-ready indication after CS assertion.
+//
+//*****************************************************************************
+static bool em9305_wait_spi_ready_for_header(void)
+{
+    if (irq_pin_state())
+    {
+        for (uint8_t t = 0; t < EM9305_SPI_RDY_LOW_DETECT_MAX_US; t++)
+        {
+            k_busy_wait(1);
+            if (!irq_pin_state())
+            {
+                break;
+            }
+        }
+    }
+
+    return em9305_poll_rdy(true);
+}
+
+//*****************************************************************************
+//
+//! @brief Assert CS and wait until the EM9305 is ready for a SPI header.
+//
+//*****************************************************************************
+static bool em9305_spi_begin(void)
+{
+    bt_em9305_cs_set();
+    k_busy_wait(EM9305_SPI_T_RDY_US);
+
+    if (em9305_wait_spi_ready_for_header())
+    {
+        return true;
+    }
+
+    bt_em9305_cs_release();
+    return false;
+}
+
+//*****************************************************************************
+//
 //! @brief Read one or more HCI packets from EM9305 over SPI (Apollo5 protocol).
 //
 //*****************************************************************************
@@ -219,10 +293,19 @@ static int em9305_spi_rcv(uint8_t *data, uint16_t size_max, uint16_t *len)
         uint8_t sStas[2] = {0};
         for (uint32_t i = 0; i < EM9305_STS_CHK_CNT_MAX; i++) 
         {
-            bt_em9305_cs_set();
+            if (!em9305_spi_begin())
+            {
+                if (*len != 0U)
+                {
+                    return AM_DEVICES_EM9305_STATUS_SUCCESS;
+                }
+                return AM_DEVICES_EM9305_NOT_READY;
+            }
+
             ret = g_transceive(sCommand, 2, sStas, 2);
             if (ret != AM_HAL_STATUS_SUCCESS) 
             {
+                bt_em9305_cs_release();
                 return AM_DEVICES_EM9305_CMD_TRANSFER_ERROR;
             }
             if ((sStas[0] == EM9305_STS1_READY_VALUE) && (sStas[1] != 0x00)) 
@@ -235,6 +318,10 @@ static int em9305_spi_rcv(uint8_t *data, uint16_t size_max, uint16_t *len)
         if ((sStas[0] != EM9305_STS1_READY_VALUE) || (sStas[1] == 0x00)) 
         {
             bt_em9305_cs_release();
+            if (*len != 0U)
+            {
+                return AM_DEVICES_EM9305_STATUS_SUCCESS;
+            }
             /* (0x00,0x00) and (0xC0,0x00) are common while the link wakes; avoid ERR spam. */
             if ((sStas[0] == 0U && sStas[1] == 0U) || (sStas[0] == EM9305_STS1_READY_VALUE && sStas[1] == 0U))
             {
@@ -377,30 +464,6 @@ uint32_t am_devices_em9305_get_fw_version(uint32_t *image_ver)
 
 //*****************************************************************************
 //
-//! @brief Wait for EM9305 to be ready.
-//
-//*****************************************************************************
-static void bt_em9305_wait_ready(void)
-{
-    uint16_t i;
-
-    for (i = 0; i < WAIT_EM9305_RDY_TIMEOUT; i++)
-    {
-        if (irq_pin_state())
-        {
-            break;
-        }
-        k_busy_wait(100);
-    }
-
-    if (i >= WAIT_EM9305_RDY_TIMEOUT)
-    {
-        LOG_WRN("EM9305 ready timeout after %d ms", WAIT_EM9305_RDY_TIMEOUT * 100 / 1000);
-    }
-}
-
-//*****************************************************************************
-//
 //! @brief End EM9305 TX transaction.
 //
 //*****************************************************************************
@@ -430,24 +493,14 @@ static uint8_t am_devices_em9305_tx_starts(bt_spi_transceive_fun transceive)
     // Indicates that a SPI transfer is in progress
     spiTxInProgress = true;
 
-    // Select the EM9305
-    bt_em9305_cs_set();
-
-    // Wait for EM9305 ready
-    bt_em9305_wait_ready();
-
-    // Check ready again
-    if (!irq_pin_state())
-    {
-        bt_em9305_cs_release();
-        spiTxInProgress = false;
-        LOG_ERR("wait em9305 ready timeout");
-        return 0;
-    }
-
     for (uint32_t i = 0; i < EM9305_STS_CHK_CNT_MAX; i++)
     {
-        bt_em9305_cs_set();
+        if (!em9305_spi_begin())
+        {
+            spiTxInProgress = false;
+            return 0;
+        }
+
         xact_st = transceive(sCommand, 2, sStas, 2);
         if (xact_st != AM_HAL_STATUS_SUCCESS) 
         {
@@ -494,7 +547,7 @@ int am_devices_em9305_blocking_write(uint8_t *pui8Values, uint16_t ui32NumBytes,
             if (em9305BufSize == 0x00)
             {
                 ui32ErrorStatus = AM_DEVICES_EM9305_RX_FULL;
-                LOG_ERR("EM9305_RX_FULL");
+                LOG_DBG("EM9305 RX full or not ready for TX");
                 am_devices_em9305_tx_ends();
                 break;
             }
@@ -622,14 +675,19 @@ static uint32_t fw_erase_nvm_main(void)
     return AM_DEVICES_EM9305_STATUS_SUCCESS;
 }
 
+#define EM9305_CM_MAX_RETRIES  5U
+#define EM9305_CM_PER_RETRY_MS 200U
+
 //*****************************************************************************
 //
 // Firmware update helper: Enter configuration mode.
-// Uses Apollo5 CTIMER 15 to generate a hardware 30kHz PWM on GPIO15 (CT15).
-// No CPU busy-wait: the timer runs autonomously while we poll with k_msleep.
 //
-// Timing: HFRC_DIV64 = 1.5 MHz -> period = 50 counts (33.3 µs = 30 kHz),
-//         compare1 = 25 (50 % duty cycle).
+// The EM9305 enters configuration mode when it samples a 30 kHz signal on the
+// CM pad while booting. The signal source (timer/PWM/pin routing) is
+// board-specific and is owned by the HCI driver layer through the
+// am_devices_em9305_register_cm_pwm_ops() callback. This routine simply
+// starts the signal, pulses RESET, waits for the "CM entered" event, then
+// stops the signal.
 //
 //*****************************************************************************
 static uint32_t fw_enter_cm_mode(void)
@@ -641,37 +699,19 @@ static uint32_t fw_enter_cm_mode(void)
     uint32_t st = AM_DEVICES_EM9305_STATUS_ERROR;
     uint8_t retry;
 
+    if (!g_cm_pwm_ctrl || !g_gpio_ops.set_reset)
+    {
+        LOG_ERR("EM9305: CM PWM or reset callback not registered");
+        return AM_DEVICES_EM9305_STATUS_ERROR;
+    }
+
     LOG_INF("EM9305: Entering configuration mode...");
 
-    /* --- Configure CTIMER 11 for 30kHz PWM (timers 14 and 15 are reserved) ---
-    * HFRC_DIV64: 96 MHz / 64 = 1.5 MHz
-    * Compare0 = 50  ??period = 50 / 1.5 MHz = 33.3 µs = 30 kHz
-    * Compare1 = 25  ??50 % duty cycle
-    */
-    am_hal_timer_config_t timer_cfg;
-
-    am_hal_timer_default_config_set(&timer_cfg);
-    timer_cfg.eFunction    = AM_HAL_TIMER_FN_PWM;
-    timer_cfg.eInputClock  = AM_HAL_TIMER_CLOCK_HFRC_DIV64; /* 1.5 MHz */
-    timer_cfg.ui32Compare0 = 50U;
-    timer_cfg.ui32Compare1 = 25U;
-    am_hal_timer_config(11U, &timer_cfg);
-
-    /* Route Timer 11 OUT0 to GPIO pad 15 via TIMER OUTCFG register */
-    am_hal_timer_output_config(15U, AM_HAL_TIMER_OUTPUT_TMR11_OUT0);
-
-    /* Switch GPIO pad 15 to CT function (FNCSEL = 6 = CT15_P15). */
-    am_hal_gpio_pincfg_t ct15_cfg = am_hal_gpio_pincfg_output;
-    ct15_cfg.GP.cfg_b.uFuncSel = 6U;
-    am_hal_gpio_pinconfig(15U, ct15_cfg);
-
-    /* Start 30kHz clock BEFORE the first reset pulse so EM9305 sees the
-    * signal from the moment it begins booting ??matches AmbiqSuite SDK
-    * generate_square_wave() which starts immediately after em9305_pulse_gpio_en(). */
-    am_hal_timer_enable(11U);
-
-#define EM9305_CM_MAX_RETRIES  5U
-#define EM9305_CM_PER_RETRY_MS 200U
+    /*
+     * Start the 30 kHz signal BEFORE the first reset pulse so the EM9305 sees
+     * the signal from the moment it begins booting; 
+     */
+    g_cm_pwm_ctrl(true);
 
     for (retry = 0; retry <= EM9305_CM_MAX_RETRIES; retry++)
     {
@@ -679,11 +719,12 @@ static uint32_t fw_enter_cm_mode(void)
         {
             LOG_WRN("EM9305: CM mode attempt %u timed out, retrying...", retry);
         }
-        /* Pulse EN/RST: assert LOW for 10 ms, then release HIGH ??EM9305 reboots */
+        /* Pulse RESET: assert for 10 ms, then release; EM9305 reboots. */
         g_gpio_ops.set_reset(true);
         k_msleep(10);
         g_gpio_ops.set_reset(false);
-        /* Poll for CM-entered event; 1 ms sleep keeps the scheduler running */
+
+        /* Poll for CM-entered event; 1 ms sleep keeps the scheduler running. */
         t0 = k_uptime_get_32();
         while ((k_uptime_get_32() - t0) < EM9305_CM_PER_RETRY_MS)
         {
@@ -706,13 +747,15 @@ static uint32_t fw_enter_cm_mode(void)
     }
 
 cm_done:
-    /* Stop the 30kHz clock; restore GPIO pad 15 to push-pull output LOW */
-    am_hal_timer_disable(11U);
-    am_hal_gpio_pinconfig(15U, am_hal_gpio_pincfg_output);
-    am_hal_gpio_state_write(15U, AM_HAL_GPIO_OUTPUT_CLEAR);
+    /* Stop the 30 kHz signal; HCI driver layer is responsible for restoring
+     * any Zephyr-managed GPIO/pinctrl state on the CM pad.
+     */
+    g_cm_pwm_ctrl(false);
+
     if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
     {
-        LOG_ERR("EM9305: Timeout waiting for CM mode event after %u attempts", EM9305_CM_MAX_RETRIES + 1U);
+        LOG_ERR("EM9305: Timeout waiting for CM mode event after %u attempts",
+                EM9305_CM_MAX_RETRIES + 1U);
     }
 
     return st;
@@ -787,12 +830,109 @@ static uint32_t fw_update_version(uint32_t image_ver)
 
 //*****************************************************************************
 //
+// Firmware update helper: HCI VSC CRC32 over an EM9305 NVM range.
+//
+//*****************************************************************************
+static uint32_t fw_crc32_request(uint32_t start_addr, uint32_t end_addr, uint32_t *crc)
+{
+    uint8_t cmd[12];
+    static uint8_t resp[EM9305_BUFFER_SIZE];
+    uint16_t resp_len = 0;
+    uint32_t st;
+
+    if (!crc)
+    {
+        return AM_DEVICES_EM9305_STATUS_ERROR;
+    }
+
+    cmd[0] = AM_DEVICES_EM9305_HCI_CMD_PKT;
+    sys_put_le16(HCI_VSC_CRC_CALCULATE_OPCODE, &cmd[1]);
+    cmd[3] = HCI_VSC_CRC_CALCULATE_CMD_LENGTH;
+    sys_put_le32(start_addr, &cmd[4]);
+    sys_put_le32(end_addr, &cmd[8]);
+
+    st = em9305_command_write(cmd, sizeof(cmd), resp, sizeof(resp), &resp_len);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        return st;
+    }
+    if (resp_len < (7U + 4U) || resp[6] != 0U)
+    {
+        LOG_ERR("EM9305: CRC calc command failed, status=0x%02x",
+                (resp_len >= 7U) ? resp[6] : 0xFFU);
+        return AM_DEVICES_EM9305_CMD_TRANSFER_ERROR;
+    }
+
+    *crc = sys_get_le32(&resp[7]);
+    return AM_DEVICES_EM9305_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
+// Firmware update helper: verify every image record by comparing the host
+// computed CRC against the on-device CRC. Returns CHECKSUM_ERROR on mismatch.
+//
+//*****************************************************************************
+static uint32_t fw_verify_image(void)
+{
+    LOG_INF("EM9305: Verifying firmware CRC...");
+
+    for (uint8_t i = 0; i < g_fw_image_record_size; i++)
+    {
+        const uint8_t *data = g_fw_image_records[i]->data;
+        uint32_t addr       = g_fw_image_records[i]->address;
+        uint32_t len        = g_fw_image_records[i]->length;
+        uint32_t actual_crc = 0;
+        uint32_t expected_crc = 0;
+        uint32_t st;
+
+        st = fw_crc32_request(addr, addr + len, &actual_crc);
+        if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            LOG_ERR("EM9305: CRC request failed at 0x%08x (status %u)",
+                    (unsigned int)addr, (unsigned int)st);
+            return st;
+        }
+
+        st = am_hal_crc32((uint32_t)data, len, &expected_crc);
+        if (st != AM_HAL_STATUS_SUCCESS)
+        {
+            LOG_ERR("EM9305: am_hal_crc32 failed at 0x%08x (status %u)",
+                    (unsigned int)addr, (unsigned int)st);
+            return AM_DEVICES_EM9305_CHECKSUM_ERROR;
+        }
+
+        if (actual_crc != expected_crc)
+        {
+            LOG_ERR("EM9305: CRC mismatch at 0x%08x-0x%08x: device=0x%08x host=0x%08x",
+                    (unsigned int)addr, (unsigned int)(addr + len),
+                    (unsigned int)actual_crc, (unsigned int)expected_crc);
+            return AM_DEVICES_EM9305_CHECKSUM_ERROR;
+        }
+    }
+
+    LOG_INF("EM9305: Firmware CRC verified");
+    return AM_DEVICES_EM9305_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
 //! @brief Register the CM GPIO set function for firmware update.
 //
 //*****************************************************************************
 void am_devices_em9305_register_cm_gpio(void (*set_cm)(bool))
 {
     g_gpio_ops.set_cm = set_cm;
+}
+
+//*****************************************************************************
+//
+//! @brief Register the CM PWM start/stop callback for firmware update.
+//
+//*****************************************************************************
+void am_devices_em9305_register_cm_pwm_ops(em9305_cm_pwm_ctrl_fun cm_pwm)
+{
+    g_cm_pwm_ctrl = cm_pwm;
 }
 
 //*****************************************************************************
@@ -847,6 +987,16 @@ uint32_t am_devices_em9305_update_fw(ImageRecord **pFwImage, uint8_t record_size
     {
         goto exit_cm;
     }
+    /* Verify on-device CRC matches the host-computed CRC for every record.
+     * This catches silent bit-flips on the SPI bus or partial writes that
+     * the per-command VSC status byte cannot detect.
+     */
+    st = fw_verify_image();
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: firmware CRC verification failed");
+        goto exit_cm;
+    }
     /* Update version in NVM info page */
     st = fw_update_version(image_ver);
     if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
@@ -880,13 +1030,12 @@ uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb)
     uint8_t buf[EM9305_BUFFER_SIZE];
     uint32_t t0;
 
-    if (!cb || !cb->write || !cb->reset || !cb->transceive)
+    if (!cb || !cb->reset || !cb->transceive)
     {
         return AM_DEVICES_EM9305_STATUS_ERROR;
     }
 
     // Register the callback functions
-    g_Em9305cb.write = cb->write;
     g_Em9305cb.reset = cb->reset;
     g_Em9305cb.transceive = cb->transceive;
     g_transceive = cb->transceive;
@@ -1003,7 +1152,9 @@ bool am_devices_em9305_check_active_state_event(uint8_t *data, uint16_t len)
 {
     bool ret = false;
 
-    if (memcmp(data, active_state_entered_evt, sizeof(active_state_entered_evt)) == 0)
+    if ((data != NULL) &&
+        (len >= sizeof(active_state_entered_evt)) &&
+        (memcmp(data, active_state_entered_evt, sizeof(active_state_entered_evt)) == 0))
     {
         LOG_INF("EM9305 enter active state");
         Em9305status_ok = true;
@@ -1073,10 +1224,16 @@ uint32_t am_devices_em9305_deinit(void)
     Em9305status_ok = false;
 
     // Clear callback structure
-    g_Em9305cb.write = NULL;
     g_Em9305cb.reset = NULL;
     g_Em9305cb.transceive = NULL;
     g_transceive = NULL;
+
+    // Clear firmware-update state so a subsequent init() does not see stale
+    // pointers to image data that may have been unmapped/freed.
+    g_fw_image_records = NULL;
+    g_fw_image_record_size = 0;
+    g_fw_erase_pages = NULL;
+    g_fw_erase_pages_size = 0;
 
     LOG_INF("EM9305 deinitialized");
 
@@ -1087,19 +1244,55 @@ uint32_t am_devices_em9305_deinit(void)
 //
 //! @brief Reset the EM9305 controller.
 //!
-//! This function performs a hardware reset sequence on the EM9305 controller.
+//! Single pulse: assert RESET, wait, release. 
 //
 //*****************************************************************************
 void am_devices_em9305_controller_reset(void)
 {
-    // Reset the controller
-    am_devices_em9305_set_reset_state(false);
+    am_devices_em9305_set_reset_state(true);   /* assert */
+    k_sleep(K_MSEC(2));
+    am_devices_em9305_set_reset_state(false);  /* release */
+}
 
-    // Take controller out of reset
-    k_sleep(K_MSEC(2));
-    am_devices_em9305_set_reset_state(true);
-    k_sleep(K_MSEC(2));
-    am_devices_em9305_set_reset_state(false);
+//*****************************************************************************
+//
+//! @brief Enable or disable EM9305 sleep mode via VSC.
+//!
+//! Sends HCI_VSC_SET_SLEEP_OPTION (opcode 0xFC49) with a single byte payload.
+//! The EM9305 must be in active state (init complete) before calling this.
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_sleep_set(bool enable)
+{
+    uint8_t cmd[5];
+    static uint8_t resp[EM9305_BUFFER_SIZE];
+    uint16_t resp_len = 0;
+    uint32_t st;
+
+    if (!g_transceive)
+    {
+        return AM_DEVICES_EM9305_STATUS_ERROR;
+    }
+
+    cmd[0] = AM_DEVICES_EM9305_HCI_CMD_PKT;
+    sys_put_le16(HCI_VSC_SET_SLEEP_OPTION_OPCODE, &cmd[1]);
+    cmd[3] = HCI_VSC_SET_SLEEP_OPTION_CMD_LENGTH;
+    cmd[4] = enable ? 1U : 0U;
+
+    st = em9305_command_write(cmd, sizeof(cmd), resp, sizeof(resp), &resp_len);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        return st;
+    }
+    if (resp_len < 7U || resp[6] != 0U)
+    {
+        LOG_ERR("EM9305: sleep_set(%d) failed, status=0x%02x",
+                enable, (resp_len >= 7U) ? resp[6] : 0xFFU);
+        return AM_DEVICES_EM9305_CMD_TRANSFER_ERROR;
+    }
+
+    LOG_DBG("EM9305: sleep %s", enable ? "enabled" : "disabled");
+    return AM_DEVICES_EM9305_STATUS_SUCCESS;
 }
 
 //*****************************************************************************
