@@ -96,11 +96,6 @@ typedef struct {
 #define EM9305_HCI_MAX_TX_LEN 259     //!< Max host->controller HCI packet (Command)
 #define EM9305_HCI_MAX_RX_LEN 258     //!< Max controller->host HCI packet (Event)
 
-//
-//! Single shared buffer length used by the HAL for both directions. Sized to
-//! the larger of TX/RX so existing static buffers cover either direction.
-//! Prefer EM9305_HCI_MAX_TX_LEN / EM9305_HCI_MAX_RX_LEN in new code.
-//
 #define EM9305_BUFFER_SIZE    EM9305_HCI_MAX_TX_LEN
 
 #define EM9305_SPI_HEADER_TX 0x42     //!< SPI TX header byte
@@ -122,6 +117,7 @@ typedef enum
     AM_DEVICES_EM9305_DATA_TRANSFER_ERROR,
     AM_DEVICES_EM9305_CMD_TRANSFER_ERROR,
     AM_DEVICES_EM9305_CHECKSUM_ERROR,
+    AM_DEVICES_EM9305_TX_PARTIAL,
 } am_devices_em9305_status_t;
 
 //
@@ -174,8 +170,7 @@ uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb);
 
 //*****************************************************************************
 //
-//! @brief Read BLE firmware version from NVM info page 1 (matches AmbiqSuite
-//! API spelling).
+//! @brief Read BLE firmware version from NVM info page 1.
 //!
 //! @param image_ver pointer to receive 32-bit version (A.B.C.D packed in BE
 //! order per legacy print).
@@ -344,6 +339,25 @@ uint32_t am_devices_em9305_sleep_set(bool enable);
 uint32_t am_devices_em9305_update_fw(ImageRecord **pFwImage, uint8_t record_size,
                                      NvmPage *erase_pages, uint32_t erase_size,
                                      uint32_t image_ver, bool force);
+
+//*****************************************************************************
+//
+//! @brief Program the EM9305 HF crystal trim value into NVM info page 2.
+//!
+//! The trim value occupies bits 12:7 of REG_RF_XO_SEQ_DIG.  The controller
+//! uses the record in NVM info page 3 by default; a valid record in info
+//! page 2 overrides it, so the custom trim is written to page 2.  This
+//! enters configuration mode and resets the controller, then waits for it to
+//! return to active state.
+//!
+//! @param trim_value   6-bit trim value to program.
+//! @param force_update when false, skip the update if the live register
+//!                     already holds the requested trim value.
+//!
+//! @return AM_DEVICES_EM9305_STATUS_SUCCESS on success.
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_crystal_trim_set(uint8_t trim_value, bool force_update);
 
 #ifdef __cplusplus
 }

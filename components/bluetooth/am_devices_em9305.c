@@ -89,6 +89,13 @@ bool am_devices_em9305_get_spi_tx_status(void);
 #define EM9305_NVM_INFO_AREA_PAGE_1 1U
 #define EM9305_SPI_T_RDY_US 1U
 #define EM9305_SPI_RDY_LOW_DETECT_MAX_US 20U
+/*
+ * Max number of 1 ms waits to let the controller drain its host->controller
+ * FIFO after a mid-packet TX stall.  ~1 s is far longer than the controller
+ * needs to consume a buffered chunk; if it is still wedged after this the
+ * link is dead and the caller escalates to radio recovery.
+ */
+#define EM9305_TX_MIDPKT_STALL_RETRY_MAX 1000U
 
 //*****************************************************************************
 //
@@ -450,7 +457,7 @@ static uint32_t read_data_cmd(uint32_t address, uint8_t *data_out, uint8_t data_
 
 //*****************************************************************************
 //
-//! @brief Read BLE firmware version from NVM (same mechanism as AmbiqSuite).
+//! @brief Read BLE firmware version from NVM.
 //
 //*****************************************************************************
 uint32_t am_devices_em9305_get_fw_version(uint32_t *image_ver)
@@ -538,43 +545,63 @@ int am_devices_em9305_blocking_write(uint8_t *pui8Values, uint16_t ui32NumBytes,
     int ret = -ENOTSUP;
     static uint8_t data[EM9305_BUFFER_SIZE];
     uint8_t em9305BufSize = 0;
+    uint32_t stall_retries = 0;
 
-    if (ui32NumBytes <= EM9305_BUFFER_SIZE)
+    if (ui32NumBytes > EM9305_BUFFER_SIZE)
     {
-        for (uint32_t i = 0; i < ui32NumBytes;)
+        LOG_ERR("%s: error (STATUS ERROR) Packet Too Large", __func__);
+        return AM_DEVICES_EM9305_DATA_LENGTH_ERROR;
+    }
+
+    for (uint32_t i = 0; i < ui32NumBytes;)
+    {
+        em9305BufSize = am_devices_em9305_tx_starts(transceive);
+        if (em9305BufSize == 0x00)
         {
-            em9305BufSize = am_devices_em9305_tx_starts(transceive);
-            if (em9305BufSize == 0x00)
+            am_devices_em9305_tx_ends();
+
+            if (i == 0U)
             {
                 ui32ErrorStatus = AM_DEVICES_EM9305_RX_FULL;
-                LOG_DBG("EM9305 RX full or not ready for TX");
+                LOG_DBG("EM9305 RX full or not ready for TX (sent 0/%u)",
+                        (unsigned int)ui32NumBytes);
+                break;
+            }
+
+            if (++stall_retries > EM9305_TX_MIDPKT_STALL_RETRY_MAX)
+            {
+                ui32ErrorStatus = AM_DEVICES_EM9305_TX_PARTIAL;
+                LOG_ERR("EM9305 TX wedged mid-packet (%u/%u) after %u ms; HCI stream lost",
+                        (unsigned int)i, (unsigned int)ui32NumBytes,
+                        (unsigned int)EM9305_TX_MIDPKT_STALL_RETRY_MAX);
+                break;
+            }
+            k_msleep(1);
+            continue;
+        }
+
+        /* Controller has FIFO space again — reset the mid-packet stall budget. */
+        stall_retries = 0;
+
+        uint32_t len = (em9305BufSize < (ui32NumBytes - i)) ? em9305BufSize : (ui32NumBytes - i);
+        if (len > 0)
+        {
+            memcpy(data, pui8Values + i, len);
+
+            // Write to the IOM / transmit the message
+            ret = transceive(data, len, NULL, 0);
+            if (ret != AM_HAL_STATUS_SUCCESS)
+            {
+                ui32ErrorStatus = (i > 0U) ? AM_DEVICES_EM9305_TX_PARTIAL
+                                           : AM_DEVICES_EM9305_DATA_TRANSFER_ERROR;
+                LOG_ERR("%s: transceive ret= %d (sent %u/%u)", __func__, ret,
+                        (unsigned int)i, (unsigned int)ui32NumBytes);
                 am_devices_em9305_tx_ends();
                 break;
             }
-            uint32_t len = (em9305BufSize < (ui32NumBytes - i)) ? em9305BufSize : (ui32NumBytes - i);
-            // Check again if there is room to send more data
-            if ((len > 0) && (em9305BufSize))
-            {
-                memcpy(data, pui8Values + i, len);
-                i += len;
-
-                // Write to the IOM
-                // Transmit the message
-                ret = transceive(data, len, NULL, 0);
-
-                if (ret != AM_HAL_STATUS_SUCCESS)
-                {
-                    ui32ErrorStatus = AM_DEVICES_EM9305_DATA_TRANSFER_ERROR;
-                    LOG_ERR("%s: ret= %d", __func__, ret);
-                }
-            }
-            am_devices_em9305_tx_ends();
+            i += len;
         }
-    }
-    else
-    {
-        ui32ErrorStatus = AM_DEVICES_EM9305_DATA_LENGTH_ERROR;
-        LOG_ERR("%s: error (STATUS ERROR) Packet Too Large", __func__);
+        am_devices_em9305_tx_ends();
     }
 
     return ui32ErrorStatus;
@@ -751,7 +778,6 @@ cm_done:
      * any Zephyr-managed GPIO/pinctrl state on the CM pad.
      */
     g_cm_pwm_ctrl(false);
-
     if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
     {
         LOG_ERR("EM9305: Timeout waiting for CM mode event after %u attempts",
@@ -917,6 +943,49 @@ static uint32_t fw_verify_image(void)
 
 //*****************************************************************************
 //
+// Firmware update helper: return true only if every image record already
+// stored in EM9305 NVM matches the bundled image (device CRC32 == host CRC32).
+//
+// Must be called while the EM9305 is in configuration mode (the CRC VSC is
+// served there).  On any comms/CRC-calc failure this returns false so the
+// caller (re)programs rather than trusting an unverified device — this is the
+// safe choice for an auto-update path and catches a NVM that is the "right"
+// version but was left corrupt by an interrupted prior flash.
+//
+//*****************************************************************************
+static bool fw_check_programmed(void)
+{
+    for (uint8_t i = 0; i < g_fw_image_record_size; i++)
+    {
+        const uint8_t *data = g_fw_image_records[i]->data;
+        uint32_t addr       = g_fw_image_records[i]->address;
+        uint32_t len        = g_fw_image_records[i]->length;
+        uint32_t actual_crc = 0;
+        uint32_t expected_crc = 0;
+
+        if (fw_crc32_request(addr, addr + len, &actual_crc) != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            LOG_INF("EM9305: device CRC read failed at 0x%08x; will reprogram",
+                    (unsigned int)addr);
+            return false;
+        }
+        if (am_hal_crc32((uint32_t)data, len, &expected_crc) != AM_HAL_STATUS_SUCCESS)
+        {
+            return false;
+        }
+        if (actual_crc != expected_crc)
+        {
+            LOG_INF("EM9305: NVM image differs at 0x%08x (device=0x%08x host=0x%08x)",
+                    (unsigned int)addr, (unsigned int)actual_crc, (unsigned int)expected_crc);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//*****************************************************************************
+//
 //! @brief Register the CM GPIO set function for firmware update.
 //
 //*****************************************************************************
@@ -975,6 +1044,18 @@ uint32_t am_devices_em9305_update_fw(ImageRecord **pFwImage, uint8_t record_size
     {
         return st;
     }
+    
+    if (!force && fw_check_programmed())
+    {
+        LOG_INF("EM9305: NVM already matches bundled image, skipping flash");
+        
+        st = fw_update_version(image_ver);
+        if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            LOG_ERR("EM9305: version refresh failed");
+        }
+        goto exit_cm;
+    }
     /* Erase NVM main area */
     st = fw_erase_nvm_main();
     if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
@@ -987,10 +1068,7 @@ uint32_t am_devices_em9305_update_fw(ImageRecord **pFwImage, uint8_t record_size
     {
         goto exit_cm;
     }
-    /* Verify on-device CRC matches the host-computed CRC for every record.
-     * This catches silent bit-flips on the SPI bus or partial writes that
-     * the per-command VSC status byte cannot detect.
-     */
+    /* Verify on-device CRC matches the host-computed CRC for every record */
     st = fw_verify_image();
     if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
     {
@@ -1018,27 +1096,21 @@ exit_cm:
 
 //*****************************************************************************
 //
-//! @brief Initialize the BLE controller driver.
-//!
-//! @param cb pointer of BLE Controller callback
-//!
-//! @return Status of initialization
+// Pulse RESET and block until the EM9305 posts its "active state entered"
+// vendor event ({0x04,0xFF,0x01,0x01}) or the timeout elapses.  Centralises
+// the bring-up handshake so init and the crystal-trim reset use identical
+// logic.
 //
 //*****************************************************************************
-uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb)
+static uint32_t em9305_reset_and_wait_active(void)
 {
     uint8_t buf[EM9305_BUFFER_SIZE];
     uint32_t t0;
 
-    if (!cb || !cb->reset || !cb->transceive)
+    if (!g_Em9305cb.reset)
     {
         return AM_DEVICES_EM9305_STATUS_ERROR;
     }
-
-    // Register the callback functions
-    g_Em9305cb.reset = cb->reset;
-    g_Em9305cb.transceive = cb->transceive;
-    g_transceive = cb->transceive;
 
     Em9305status_ok = false;
     g_Em9305cb.reset();
@@ -1059,17 +1131,181 @@ uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb)
             if (rv == AM_DEVICES_EM9305_STATUS_SUCCESS && plen > 0)
             {
                 am_devices_em9305_check_active_state_event(buf, plen);
-            } 
+            }
             else if (rv == AM_DEVICES_EM9305_NO_DATA_TX)
             {
                 k_msleep(1);
             }
-        } 
+        }
         else
         {
             k_msleep(1);
         }
     }
+
+    return AM_DEVICES_EM9305_STATUS_SUCCESS;
+}
+
+#if defined(CONFIG_BT_AMBIQ_EM9305_HF_CRYSTAL_CUSTOM_TRIM)
+
+/* EM9305 HF-crystal trim register and NVM info-page layout.
+ * The trim value lives in bits 12:7 of REG_RF_XO_SEQ_DIG.
+ * At boot the controller uses the record in NVM info page 3;
+ * If info page 2 holds a valid record it overrides page 3, so the
+ * custom trim is written to page 2.
+ */
+#define REG_RF_XO_SEQ_DIG_ADDR         0xF04B88U
+#define REG_RF_XO_SEQ_DIG_INFO_P3_ADDR 0x407CA0U
+#define REG_RF_XO_SEQ_DIG_INFO_P2_ADDR 0x405C80U
+#define REG_RF_XO_SEQ_DIG_LEN          8U
+#define NVM_INFO_P2_LEN_WORDS          2U
+#define EM9305_NVM_INFO_AREA_PAGE_2    2U
+
+//*****************************************************************************
+//
+// Crystal-trim helper: write the updated REG_RF_XO_SEQ_DIG record (length +
+// CRC + 8-byte register record) into NVM info page 2.
+//
+//*****************************************************************************
+static uint32_t fw_update_info_page2_seq_dig(const uint8_t *seq_dig)
+{
+    uint8_t payload[4U + 4U + REG_RF_XO_SEQ_DIG_LEN];
+    uint32_t crc = 0;
+
+    if (am_hal_crc32((uint32_t)seq_dig, REG_RF_XO_SEQ_DIG_LEN, &crc) != AM_HAL_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: trim CRC calc failed");
+        return AM_DEVICES_EM9305_CHECKSUM_ERROR;
+    }
+
+    sys_put_le32(NVM_INFO_P2_LEN_WORDS, &payload[0]);
+    sys_put_le32(crc, &payload[4]);
+    memcpy(&payload[8], seq_dig, REG_RF_XO_SEQ_DIG_LEN);
+
+    return fw_write_data_cmd(REG_RF_XO_SEQ_DIG_INFO_P2_ADDR, payload, (uint8_t)sizeof(payload));
+}
+
+//*****************************************************************************
+//
+//! @brief Program the EM9305 HF-crystal trim value into NVM info page 2.
+//!
+//! @param trim_value   6-bit trim value to program.
+//! @param force_update when false, skip if the active register already holds
+//!                     the requested value.
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_crystal_trim_set(uint8_t trim_value, bool force_update)
+{
+    uint8_t seq_dig[REG_RF_XO_SEQ_DIG_LEN] = {0};
+    uint32_t st;
+
+    if (!force_update)
+    {
+        /* Read the live register (active mode) and compare the current trim. */
+        st = read_data_cmd(REG_RF_XO_SEQ_DIG_ADDR, seq_dig, REG_RF_XO_SEQ_DIG_LEN);
+        if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            LOG_WRN("EM9305: read trim register failed");
+            return st;
+        }
+
+        uint8_t trim_orig = (uint8_t)((seq_dig[0] >> 7) | ((seq_dig[1] & 0x1FU) << 1));
+
+        if (trim_orig == trim_value)
+        {
+            LOG_INF("EM9305: HF crystal trim already 0x%02x", trim_value);
+            return AM_DEVICES_EM9305_STATUS_SUCCESS;
+        }
+        LOG_INF("EM9305: updating HF crystal trim 0x%02x -> 0x%02x", trim_orig, trim_value);
+    }
+
+    /* Programming NVM info page 2 requires configuration mode. */
+    st = fw_enter_cm_mode();
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: trim update could not enter CM");
+        return st;
+    }
+
+    st = read_data_cmd(REG_RF_XO_SEQ_DIG_INFO_P3_ADDR, seq_dig, REG_RF_XO_SEQ_DIG_LEN);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: read seq_dig from info page 3 failed");
+        goto trim_exit_cm;
+    }
+
+    seq_dig[4] &= (uint8_t)~(1U << 7);
+    seq_dig[5] &= (uint8_t)~0x1FU;
+    seq_dig[4] |= (uint8_t)((trim_value & 0x01U) << 7);
+    seq_dig[5] |= (uint8_t)((trim_value >> 1) & 0x1FU);
+
+    st = fw_erase_page_cmd((uint8_t)EM9305_NVM_INFO_AREA, (uint8_t)EM9305_NVM_INFO_AREA_PAGE_2);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: erase info page 2 failed");
+        goto trim_exit_cm;
+    }
+
+    st = fw_update_info_page2_seq_dig(seq_dig);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: write info page 2 failed");
+        goto trim_exit_cm;
+    }
+
+trim_exit_cm:
+    if (g_gpio_ops.set_cm)
+    {
+        g_gpio_ops.set_cm(false);
+    }
+
+    if (st == AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        st = em9305_reset_and_wait_active();
+    }
+
+    return st;
+}
+#endif /* CONFIG_BT_AMBIQ_EM9305_HF_CRYSTAL_CUSTOM_TRIM */
+
+//*****************************************************************************
+//
+//! @brief Initialize the BLE controller driver.
+//!
+//! @param cb pointer of BLE Controller callback
+//!
+//! @return Status of initialization
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb)
+{
+    if (!cb || !cb->reset || !cb->transceive)
+    {
+        return AM_DEVICES_EM9305_STATUS_ERROR;
+    }
+
+    // Register the callback functions
+    g_Em9305cb.reset = cb->reset;
+    g_Em9305cb.transceive = cb->transceive;
+    g_transceive = cb->transceive;
+
+    if (em9305_reset_and_wait_active() != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        return AM_DEVICES_EM9305_STATUS_ERROR;
+    }
+
+#if defined(CONFIG_BT_AMBIQ_EM9305_HF_CRYSTAL_CUSTOM_TRIM)
+    {
+        uint32_t trim_st = am_devices_em9305_crystal_trim_set(
+            (uint8_t)CONFIG_BT_AMBIQ_EM9305_HF_CRYSTAL_TRIM_VALUE, false);
+
+        if (trim_st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            LOG_WRN("EM9305: HF crystal trim set failed (status %u), continuing",
+                    (unsigned int)trim_st);
+        }
+    }
+#endif /* CONFIG_BT_AMBIQ_EM9305_HF_CRYSTAL_CUSTOM_TRIM */
 
     uint32_t image_version = 0;
     uint32_t ui32Status = am_devices_em9305_get_fw_version(&image_version);
@@ -1097,35 +1333,10 @@ uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb)
         LOG_INF("EM9305: FW update done, resetting controller");
 
         /* Reset and wait for active state again */
-        Em9305status_ok = false;
-        g_Em9305cb.reset();
-
-        t0 = k_uptime_get_32();
-        while (!Em9305status_ok)
+        if (em9305_reset_and_wait_active() != AM_DEVICES_EM9305_STATUS_SUCCESS)
         {
-          if ((k_uptime_get_32() - t0) > EM9305_ACTIVE_STATE_TIMEOUT_MS)
-          {
-            LOG_ERR("EM9305 active state timeout after FW update");
-            return AM_DEVICES_EM9305_STATUS_ERROR;
-          }
-          if (irq_pin_state())
-          {
-            uint16_t plen = 0;
-            int rv = em9305_spi_rcv(buf, EM9305_BUFFER_SIZE, &plen);
-
-            if (rv == AM_DEVICES_EM9305_STATUS_SUCCESS && plen > 0)
-            {
-              am_devices_em9305_check_active_state_event(buf, plen);
-            } 
-            else if (rv == AM_DEVICES_EM9305_NO_DATA_TX) 
-            {
-              k_msleep(1);
-            }
-          }
-          else
-          {
-            k_msleep(1);
-          }
+          LOG_ERR("EM9305 active state timeout after FW update");
+          return AM_DEVICES_EM9305_STATUS_ERROR;
         }
       }
       else
