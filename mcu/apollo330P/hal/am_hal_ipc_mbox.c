@@ -45,7 +45,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -122,7 +122,7 @@ static am_hal_ipc_mbox_init_state_e g_IpcMboxInitState = AM_HAL_IPC_MBOX_INIT_ST
 static am_hal_ipc_mbox_handler_t ipcMbox_pfnHandlers[AM_HAL_IPC_MBOX_SIGNAL_MSG_END
                                                    - AM_HAL_IPC_MBOX_SIGNAL_MSG_START];
 static void *ipcMbox_pvIrqArgs[AM_HAL_IPC_MBOX_SIGNAL_MSG_END - AM_HAL_IPC_MBOX_SIGNAL_MSG_START];
-
+bool g_bMoxMsgPending = false;
 //*****************************************************************************
 //
 // Set IPC mailbox DSP to MCU interrupt threshold.
@@ -313,10 +313,22 @@ uint32_t am_hal_ipc_mbox_data_read(uint32_t *data, uint32_t len)
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
 
+    AM_CRITICAL_BEGIN
     for (uint32_t i = 0; i < len; i++)
     {
         data[i] = CM55IPC->D2MDATA;
     }
+
+    //For clock request usage case,after the CM55 requests the clock on/off, it continuously polls until the RSS ACK is received.
+    //Upon receiving the request, the RSS ouput the clock and returns an ACK, then it sends the sleep duration and enters deep sleep.
+    if ( (data[0] == AM_HAL_IPC_MBOX_SIGNAL_MSG_RFXTAL_ON_RSP)  ||
+         (data[0] == AM_HAL_IPC_MBOX_SIGNAL_MSG_RFXTAL_OFF_RSP) ||
+         (data[0] == AM_HAL_IPC_MBOX_SIGNAL_MSG_RFXTAL_CONFIG_RSP) )
+    {
+        g_bMoxMsgPending = false;
+        am_hal_sysctrl_ipc_pending_notify(g_bMoxMsgPending);
+    }
+    AM_CRITICAL_END
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -332,6 +344,7 @@ uint32_t am_hal_ipc_mbox_data_flush(uint32_t *data)
 
     CHECK_MBOX_INIT_STATE();
 
+    AM_CRITICAL_BEGIN
     for (uint32_t i = 0; i < IPC_MBOX_FIFO_MAX_DEPTH; i++)
     {
         if (CM55IPC->STATUS_b.D2MEMPTY)
@@ -347,6 +360,7 @@ uint32_t am_hal_ipc_mbox_data_flush(uint32_t *data)
             data[i] = buf;
         }
     }
+    AM_CRITICAL_END
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -370,10 +384,16 @@ uint32_t am_hal_ipc_mbox_data_write(uint32_t *data, uint32_t len)
         return AM_HAL_STATUS_INVALID_OPERATION;
     }
 
+    AM_CRITICAL_BEGIN
+    //Disable the LP mode until the next sleep duration notification is received.
+    g_bMoxMsgPending = true;
+    am_hal_sysctrl_ipc_pending_notify(g_bMoxMsgPending);
     for (uint32_t i = 0; i < len; i++)
     {
         CM55IPC->M2DDATA = data[i];
     }
+    am_hal_sysctrl_sysbus_write_flush();
+    AM_CRITICAL_END
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -514,20 +534,11 @@ void am_hal_ipc_mbox_msg_handler(void)
 
 //*****************************************************************************
 //
-// IPC mailbox data ISR
+// IPC mailbox error interrupt handler
 //
 //*****************************************************************************
-void am_ipc_pend_msg_isr(void)
-{
-    am_hal_ipc_mbox_msg_handler();
-}
-
-//*****************************************************************************
-//
-// IPC mailbox error ISR
-//
-//*****************************************************************************
-void am_ipc_err_isr(void)
+void
+am_hal_ipc_mbox_err_handler(void)
 {
     uint32_t ui32Status;
 

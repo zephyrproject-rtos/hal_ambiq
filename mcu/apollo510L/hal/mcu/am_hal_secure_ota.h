@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -237,7 +237,6 @@ typedef struct
 } am_hal_otadesc_t;
 
 // Reserved magic numbers allowed to be used by customer's own bootloader
-//#define AM_IMAGE_MAGIC_CUST(x)   ((((x) & 0xF0) == 0xC0) && ((x) != 0xC0) && ((x) != 0xCC) && ((x) != 0xCB) && ((x) != 0xCF))
 #define AM_IMAGE_MAGIC_CUST(x)   (((x) == AM_IMAGE_MAGIC_INFO0)         ||  \
                                   ((x) == AM_IMAGE_MAGIC_SECURE)        ||  \
                                   ((x) == AM_IMAGE_MAGIC_NONSECURE)     ||  \

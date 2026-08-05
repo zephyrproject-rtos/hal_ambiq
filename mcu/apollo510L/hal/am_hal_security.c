@@ -612,7 +612,19 @@ bl_run_main(uint32_t *vtor)
 
 //*****************************************************************************
 //
-// Helper function to Perform exit operations for a secondary bootloader
+// @brief  Helper function to Perform exit operations for a secondary bootloader
+//
+// @param  pImage - The address of the image to give control to
+//
+// This function does the necessary security operations while exiting from a
+// a secondary bootloader program. If still open, it locks the infoc key region,
+// as well as further updates to the flash protection register.
+// It also checks if it needs to halt to honor a debugger request.
+// If an image address is specified, control is transferred to the same on exit.
+//
+// @return Returns AM_HAL_STATUS_SUCCESS on success, if no image address specified
+// If an image address is provided, a successful execution results in transfer to
+// the image - and this function does not return.
 //
 //*****************************************************************************
 uint32_t

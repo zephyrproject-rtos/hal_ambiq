@@ -2,7 +2,7 @@
 //
 //! @file am_mcu_apollo.h
 //!
-//! @brief Top Include for Apollo510 class devices.
+//! @brief Top include for Apollo510 class devices.
 //!
 //! This file provides all the includes necessary for an apollo device.
 //!
@@ -13,14 +13,14 @@
 //! @{
 //!
 //! Purpose: This module provides the primary hardware abstraction layer
-//! header for Apollo510 class devices, including all necessary includes
-//! for ARM architecture features, security extensions, and vector
-//! processing capabilities. It enables comprehensive access to device
-//! peripherals, system configuration, and hardware-specific features
-//! for embedded applications requiring Apollo510 functionality. The
-//! module supports ARM Security Extensions (CMSE), M-Profile Vector
-//! Extension (MVE/Helium), and provides the foundation for all
-//! Apollo510 HAL modules and system integration.
+//! header for the SoC, including all necessary includes for ARM architecture
+//! features, security extensions, and vector processing capabilities.
+//! It enables comprehensive access to device peripherals, system configuration,
+//! and hardware-specific features for embedded applications requiring SoC
+//! functionality.
+//! The  module supports ARM Security Extensions (CMSE), M-Profile Vector
+//! Extension (MVE/Helium), and provides the foundation for all SoC HAL
+//! modules and system integration.
 //
 //*****************************************************************************
 
@@ -55,7 +55,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -70,6 +70,10 @@
 //
 //*****************************************************************************
 #include <arm_cmse.h>               // Include ARM Security Extensions
+
+#ifdef __ZEPHYR__
+#define AM_HAL_SKIP_NO_MVE_WARNING	1
+#endif
 
 #if   (__ARM_FEATURE_MVE & 3) == 3  // MVE integer and floating point intrinsics available
 #include <arm_mve.h>                // Include M-Profile Vector Extension aka Helium

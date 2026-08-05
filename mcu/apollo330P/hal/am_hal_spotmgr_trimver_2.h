@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_SPOTMGR_TRIMVER_2_H
@@ -51,6 +51,15 @@
 extern "C"
 {
 #endif
+
+//*****************************************************************************
+//
+//! @brief Timer interrupt service for spotmgr trimver2.
+//!
+//! @return None.
+//
+//*****************************************************************************
+extern void am_hal_spotmgr_trimver_2_internal_timer_interrupt_service(void);
 
 //*****************************************************************************
 //

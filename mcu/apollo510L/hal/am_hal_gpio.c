@@ -46,7 +46,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -75,7 +75,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -179,6 +179,39 @@ gpionum_intreg_index_get(uint32_t ui32Gpionum,
 
 //*****************************************************************************
 //
+// High Speed GPIO feature:
+// 1. Support extended drive strength for these pads. The high speed pads max
+//    voltage is 2.2V, so bit 12 (SR) must always be set to 1; only extended
+//    drive strength enum values 0x4-0x7 (AM_HAL_GPIO_PIN_DRIVESTRENGTH_EXT_*)
+//    are valid.
+// 2. Only support 50K pullup/pulldown configuration whether in Deeper Sleep or not.
+// This matrix identifies high speed GPIOs.
+// GPIOs: 0-4, 35-39, 65-77, 81, 112.
+//
+static const uint32_t
+g_ui32CfgDSExt[((AM_HAL_PIN_VIRTUAL_FIRST - 1) + 32) / 32] =
+{
+    0x0000001F,     //  31:0,   set   4:0
+    0x000000F8,     //  63:32,  set  39:35
+    0x00023FFE,     //  95:64,  set  81,77:65
+    0x00010000,     // 127:96,  set  112
+};
+
+//
+// Pins that allow pullup/pulldown configuration in deeper sleep.
+// GPIOs: 0-4, 7, 22-120.
+//
+static const uint32_t
+g_ui32CfgDeeperSleep[((AM_HAL_PIN_VIRTUAL_FIRST - 1) + 32) / 32] =
+{
+    0xFFC0009F,
+    0xFFFFFFFF,
+    0xFFFFFFFF,
+    0xFFFFFFFF,
+};
+
+//*****************************************************************************
+//
 // Return the current configuration of a pin.
 //
 //*****************************************************************************
@@ -202,6 +235,28 @@ am_hal_gpio_pinconfig_get(uint32_t ui32GpioNum, am_hal_gpio_pincfg_t* psGpioCfg)
 
     psGpioCfg->GP.cfg = pui32Config[ui32GpioNum];
 
+    //
+    // For high-speed pads, am_hal_gpio_pinconfig() stores the 50K pull-up as
+    // raw hardware value 2 in the ePullup/eDeeperSleepCfg fields.
+    // Reverse-translate that back to AM_HAL_GPIO_PIN_PULLUP_50K so that the
+    // returned config can be passed directly to am_hal_gpio_pinconfig() without
+    // triggering AM_HAL_STATUS_INVALID_OPERATION.
+    //
+    uint32_t udx = ui32GpioNum / 32;
+    uint32_t umsk = 1 << (ui32GpioNum % 32);
+
+    if ( (g_ui32CfgDSExt[udx] & umsk) != 0 )
+    {
+        if ( psGpioCfg->GP.cfg_b.ePullup == 2 )
+        {
+            psGpioCfg->GP.cfg_b.ePullup = AM_HAL_GPIO_PIN_PULLUP_50K;
+        }
+        if ( psGpioCfg->GP.cfg_b.eDeeperSleepCfg == 2 )
+        {
+            psGpioCfg->GP.cfg_b.eDeeperSleepCfg = AM_HAL_GPIO_PIN_PULLUP_50K;
+        }
+    }
+
     return AM_HAL_STATUS_SUCCESS;
 
 } // am_hal_gpio_pinconfig_get()
@@ -211,39 +266,6 @@ am_hal_gpio_pinconfig_get(uint32_t ui32GpioNum, am_hal_gpio_pincfg_t* psGpioCfg)
 // Configure the function of a single pin.
 //
 //*****************************************************************************
-#ifndef AM_HAL_DISABLE_API_VALIDATION
-//
-// High Speed GPIO feature:
-// 1.Support extended drive strength when config slew rate bit, for these pins, the
-// Slew Rate bit is overloaded to act as a third DS bit.
-// 2.Only support 50K pullup/pulldown configuration whether in Deeper Sleep or not.
-// This matrix identifies high speed GPIOs.
-// GPIOs: 0-4, 35-39, 65-77, 81, 112.
-//
-static const uint32_t
-g_ui32CfgDSExt[((AM_HAL_PIN_VIRTUAL_FIRST - 1) + 32) / 32] =
-{
-    0x0000001F,     //  31:0,   set   4:0
-    0x000000F8,     //  63:32,  set  39:35
-    0x00023FFE,     //  95:64,  set  81,77:65
-    0x00010000,     // 127:96,  set  112
-};
-
-//
-// Apollo510L allows pullup/pulldown configuration in deeper sleep for the following
-// (non-virtual) pins.
-// GPIOs: 0-4, 7, 22-120.
-//
-static const uint32_t
-g_ui32CfgDeeperSleep[((AM_HAL_PIN_VIRTUAL_FIRST - 1) + 32) / 32] =
-{
-    0xFFC0009F,
-    0xFFFFFFFF,
-    0xFFFFFFFF,
-    0xFFFFFFFF,
-};
-#endif // AM_HAL_DISABLE_API_VALIDATION
-
 uint32_t
 am_hal_gpio_pinconfig(uint32_t ui32GpioNum, const am_hal_gpio_pincfg_t sGpioCfg)
 {

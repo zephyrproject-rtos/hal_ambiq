@@ -48,7 +48,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -113,6 +113,12 @@ g_am_hal_mcuctrl_sku_mram_size[AM_HAL_MCUCTRL_SKU_MRAM_SIZE_N] =
      1024,
      2048,
 };
+
+//
+// Save the return value from am_hal_mcuctrl_trim_version_get().
+//
+//
+static am_hal_mcuctrl_trimver_t g_sTrimVerComplete = {0xFFFFFFFF};
 
 // ****************************************************************************
 //
@@ -375,6 +381,12 @@ am_hal_mcuctrl_trim_version_get(uint32_t *pui32TrimVersion)
         return AM_HAL_STATUS_INVALID_ARG;
     }
 
+    if ( g_sTrimVerComplete.ui32trimver != 0xFFFFFFFF )
+    {
+        *pui32TrimVersion = g_sTrimVerComplete.ui32trimver;
+        return AM_HAL_STATUS_SUCCESS;
+    }
+
     //
     // Get trim information from the Apollo330P device.
     // For Apollo330P, this data is stored in INFO1 and is typically encoded
@@ -420,6 +432,11 @@ am_hal_mcuctrl_trim_version_get(uint32_t *pui32TrimVersion)
     }
 
     *pui32TrimVersion = sTrimVersion.ui32trimver;
+
+    //
+    // Save the complete trim version info
+    //
+    g_sTrimVerComplete.ui32trimver = sTrimVersion.ui32trimver;
 
     return ui32Ret;
 } // am_hal_mcuctrl_trim_version_get()

@@ -45,7 +45,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 // ****************************************************************************
 
@@ -173,7 +173,31 @@ static am_hal_spotmgr_tempco_range_e g_eCurTempRangeStatic = AM_HAL_SPOTMGR_TEMP
 
 //*****************************************************************************
 //
-//! @brief Update SCMCNTRCTRL1 FORCELP field
+//! Timer interrupt service for spotmgr
+//
+//*****************************************************************************
+void
+am_hal_spotmgr_trimver_2_internal_timer_interrupt_service(void)
+{
+    AM_CRITICAL_BEGIN
+
+    //
+    // Clear the flag on timeout.
+    //
+    g_bCm4Sleep = false;
+
+    //
+    // Clear interrupt status for this timer.
+    // Disable timer.
+    //
+    am_hal_spotmgr_timer_stop();
+
+    AM_CRITICAL_END
+}
+
+//*****************************************************************************
+//
+//! @brief Determine the buck state in deepsleep by setting g_bFrcBuckAct
 //!
 //! @param ui32PwrState - Target power state.
 //!
@@ -181,23 +205,29 @@ static am_hal_spotmgr_tempco_range_e g_eCurTempRangeStatic = AM_HAL_SPOTMGR_TEMP
 //
 //*****************************************************************************
 static inline void
-spotmgr_forcelp_update(uint32_t ui32PwrState)
+spotmgr_buck_deepsleep_state_determine(uint32_t ui32PwrState)
 {
     //
-    // Force simobuck into active(FORCELP = 0) if:
+    // Force simobuck into active if:
     // 1. Any peripheral on (Power State != 0)
     // 2. Temperature > 50C
     // 3. SYSPLL is Enabled
+    // 4. In PS0, only NETAOL is ON and CM4 is not going to sleep
     //
     if ((ui32PwrState != 0) ||
         (g_eCurTempRangeStatic == AM_HAL_SPOTMGR_TEMPCO_RANGE_HIGH) ||
         (g_bSysPllEnableStatic))
     {
-        SCM->SCMCNTRCTRL1_b.FORCELP = 0;
+        g_bFrcBuckAct = true;
+    }
+    else if ((PWRCTRL->DEVPWREN_b.PWRENNETAOL == PWRCTRL_DEVPWREN_PWRENNETAOL_ON) &&
+             (!g_bCm4Sleep))
+    {
+        g_bFrcBuckAct = true;
     }
     else
     {
-        SCM->SCMCNTRCTRL1_b.FORCELP = 1;
+        g_bFrcBuckAct = false;
     }
 }
 
@@ -210,7 +240,6 @@ spotmgr_forcelp_update(uint32_t ui32PwrState)
 static inline uint32_t
 transition_sequence_0(uint32_t ui32PwrState, uint32_t ui32CurPwrState)
 {
-    spotmgr_forcelp_update(ui32PwrState);
     MCUCTRL->SIMOBUCK7_b.VDDCRXCOMPTRIMMINUS = DEFAULT_VDDCRXCOMPTRIMMINUS_PS1_2;
     MCUCTRL->SIMOBUCK6_b.VDDFRXCOMPTRIMMINUS = DEFAULT_VDDFRXCOMPTRIMMINUS_PS1;
     am_hal_delay_us(STEP_UP_VDDC_VDDF_DELAY_IN_US);
@@ -233,7 +262,6 @@ transition_sequence_1(uint32_t ui32PwrState, uint32_t ui32CurPwrState)
     //
     // Disable peripheral, then apply the trims below
     //
-    spotmgr_forcelp_update(ui32PwrState);
     MCUCTRL->SIMOBUCK7_b.VDDCRXCOMPTRIMMINUS = g_sSpotMgrINFO1regs.sPowerState0Trims.PWRSTATE0TRIM_b.VDDCRXCOMPTRIMMINUS;
     MCUCTRL->SIMOBUCK6_b.VDDFRXCOMPTRIMMINUS = g_sSpotMgrINFO1regs.sPowerState0Trims.PWRSTATE0TRIM_b.VDDFRXCOMPTRIMMINUS;
 
@@ -249,7 +277,6 @@ transition_sequence_1(uint32_t ui32PwrState, uint32_t ui32CurPwrState)
 static inline uint32_t
 transition_sequence_2(uint32_t ui32PwrState, uint32_t ui32CurPwrState)
 {
-    spotmgr_forcelp_update(ui32PwrState);
     MCUCTRL->SIMOBUCK7_b.VDDCRXCOMPTRIMMINUS = DEFAULT_VDDCRXCOMPTRIMMINUS_PS1_2;
     am_hal_delay_us(STEP_UP_VDDC_VDDF_DELAY_IN_US);
     //
@@ -271,7 +298,6 @@ transition_sequence_3(uint32_t ui32PwrState, uint32_t ui32CurPwrState)
     //
     // Disable peripheral, then apply the trims below
     //
-    spotmgr_forcelp_update(ui32PwrState);
     MCUCTRL->SIMOBUCK7_b.VDDCRXCOMPTRIMMINUS = g_sSpotMgrINFO1regs.sPowerState0Trims.PWRSTATE0TRIM_b.VDDCRXCOMPTRIMMINUS;
 
     return AM_HAL_STATUS_SUCCESS;
@@ -423,78 +449,6 @@ spotmgr_power_trims_update(uint32_t ui32PwrState, uint32_t ui32CurPwrState)
 
 //*****************************************************************************
 //
-//! @brief Determine the buck state in deepsleep by setting g_bFrcBuckAct
-//!
-//! @param psPwrStatus    - Pointer of current power status.
-//!
-//! @return None.
-//
-//*****************************************************************************
-static void
-spotmgr_buck_deepsleep_state_determine(am_hal_spotmgr_power_status_t * psPwrStatus)
-{
-    //
-    // Check temperature range and peripherals power status, if there is any
-    // peripheral or SYSPLL enabled in deepsleep or temperature range is HIGH, the
-    // simobuck must be forced to stay in active mode in deepsleep.
-    //
-    if ((psPwrStatus->eTempRange == AM_HAL_SPOTMGR_TEMPCO_RANGE_HIGH)   ||
-        (psPwrStatus->ui32DevPwrSt & DEVPWRST_MONITOR_PERIPH_MASK)      ||
-        (psPwrStatus->ui32AudSSPwrSt & AUDSSPWRST_MONITOR_PERIPH_MASK)  ||
-        (MCUCTRL->PLLCTL0_b.SYSPLLPDB == MCUCTRL_PLLCTL0_SYSPLLPDB_ENABLE))
-    {
-        g_bFrcBuckAct = true;
-        return;
-    }
-    else
-    {
-        //
-        // Check stimer status and clock source, if it is using either the HFRC
-        // or a GPIO external clock input as the clock source in
-        // deepsleep, the simobuck must be forced to stay in active mode in
-        // deepsleep.
-        //
-        if (am_hal_stimer_is_running()                                &&
-            (STIMER->STCFG_b.CLKSEL >= STIMER_STCFG_CLKSEL_HFRC_6MHZ) &&
-            (STIMER->STCFG_b.CLKSEL <= STIMER_STCFG_CLKSEL_HFRC_375KHZ))
-        {
-            g_bFrcBuckAct = true;
-            return;
-        }
-        else
-        {
-            //
-            // Check timer status and clock source, if any timer instance is using
-            // either the HFRC or a GPIO external clock input as the clock
-            // source in deepsleep, the simobuck must be forced to stay in active
-            // mode in deepsleep.
-            //
-            for (uint32_t ui32TimerNumber = 0; ui32TimerNumber < AM_REG_NUM_TIMERS; ui32TimerNumber++)
-            {
-                if ((TIMERn(ui32TimerNumber)->CTRL0_b.TMR0EN == TIMER_CTRL0_TMR0EN_EN) &&
-                    (TIMER->GLOBEN & (TIMER_GLOBEN_ENB0_EN << ui32TimerNumber))        &&
-                    ((
-#if AM_HAL_TIMER_CLOCK_HFRC_DIV4 != 0   // Avoid compiler warning "pointless comparison of unsigned integer with zero"
-                      (TIMERn(ui32TimerNumber)->CTRL0_b.TMR0CLK >= AM_HAL_TIMER_CLOCK_HFRC_DIV4)            &&
-#endif
-                      (TIMERn(ui32TimerNumber)->CTRL0_b.TMR0CLK <= AM_HAL_TIMER_CLOCK_HFRC_DIV4K))          ||
-                     ((TIMERn(ui32TimerNumber)->CTRL0_b.TMR0CLK >= AM_HAL_TIMER_CLOCK_GPIO0)                &&
-                      (TIMERn(ui32TimerNumber)->CTRL0_b.TMR0CLK <= AM_HAL_TIMER_CLOCK_GPIO99))))
-                {
-                    g_bFrcBuckAct = true;
-                    return;
-                }
-            }
-            //
-            // Set g_bFrcBuckAct to false if all the conditions above are not met.
-            //
-            g_bFrcBuckAct = false;
-        }
-    }
-}
-
-//*****************************************************************************
-//
 //! @brief Power states determine
 //!        Determine the next power state according to temperature, CPU status,
 //!        GPU status and other peripheral status.
@@ -629,6 +583,7 @@ am_hal_spotmgr_trimver_2_power_state_update(am_hal_spotmgr_stimulus_e eStimulus,
 
     am_hal_spotmgr_power_status_t sPwrStatus;
     bool bSkipAllUpdates = false, bReqPwrStateChg = true;
+    static bool bIsRadioSleepStatic = true;
 #ifdef AM_HAL_SPOTMGR_PROFILING
     bool bLogSleepChangeEvt = false;
 #endif
@@ -823,7 +778,6 @@ am_hal_spotmgr_trimver_2_power_state_update(am_hal_spotmgr_stimulus_e eStimulus,
                             ui32Status = AM_HAL_STATUS_INVALID_ARG;
                             break;
                     }
-                    spotmgr_forcelp_update(g_ui32CurPowerStateStatic);
                 }
                 else
                 {
@@ -838,6 +792,13 @@ am_hal_spotmgr_trimver_2_power_state_update(am_hal_spotmgr_stimulus_e eStimulus,
                     sPwrStatus.eCpuState = *((am_hal_spotmgr_cpu_state_e *)pArgs);
                     if (eLastCpuStateStatic != sPwrStatus.eCpuState)
                     {
+                        if ((eLastCpuStateStatic <= AM_HAL_SPOTMGR_CPUSTATE_ACTIVE_HP2) &&
+                            ((sPwrStatus.eCpuState == AM_HAL_SPOTMGR_CPUSTATE_SLEEP_DEEP) ||
+                             (sPwrStatus.eCpuState == AM_HAL_SPOTMGR_CPUSTATE_SLEEP_DEEPER)))
+                        {
+                            spotmgr_buck_deepsleep_state_determine(g_ui32CurPowerStateStatic);
+                            am_hal_clkmgr_clock_status_get(AM_HAL_CLKMGR_CLK_ID_XTAL_HS, &g_ui32HfxtalUserCount);
+                        }
                         #ifdef AM_HAL_SPOTMGR_PROFILING
                         if ((eLastCpuStateStatic >= AM_HAL_SPOTMGR_CPUSTATE_SLEEP_DEEP) ||
                             (sPwrStatus.eCpuState >= AM_HAL_SPOTMGR_CPUSTATE_SLEEP_DEEP))
@@ -874,11 +835,89 @@ am_hal_spotmgr_trimver_2_power_state_update(am_hal_spotmgr_stimulus_e eStimulus,
                 if (bOn != g_bSysPllEnableStatic)
                 {
                     g_bSysPllEnableStatic = bOn;
-                    spotmgr_forcelp_update(g_ui32CurPowerStateStatic);
                 }
                 bReqPwrStateChg = false;
                 break;
+            case AM_HAL_SPOTMGR_STIM_CM4_SLEEP:
+                bReqPwrStateChg = false;
+                if (bOn)  // request Buck_LP
+                {
+                    if (pArgs == NULL)
+                    {
+                        ui32Status = AM_HAL_STATUS_INVALID_ARG;
+                        break;
+                    }
+                    if (*((uint32_t *)pArgs) == AM_HAL_SYSCTRL_CM4_NO_RADIO_INDICATOR)
+                    {
+                        bIsRadioSleepStatic = false;
+                        //
+                        // If switch from radio to no-radio,
+                        // stop the timer and clear g_bCm4Sleep flag firstly.
+                        //
+                        if (TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN)
+                        {
+                            am_hal_spotmgr_trimver_2_internal_timer_interrupt_service();
+                        }
+                        //
+                        // For no-radio, set g_bCm4Sleep to 1 if IPC is not pending
+                        //
+                        if (!g_bIpcPending)
+                        {
+                            g_bCm4Sleep = true;
+                        }
+                        else
+                        {
+                            ui32Status = AM_HAL_STATUS_IN_USE;
+                        }
+                    }
+                    else
+                    {
+                        uint32_t ui32TimerDelayInMs = *((uint32_t *)pArgs);
+                        bIsRadioSleepStatic = true;
 
+                        if (!g_bIpcPending)
+                        {
+                            //
+                            // Set the flag g_bCm4Sleep if IPC is not pending
+                            //
+                            g_bCm4Sleep = true;
+                            //
+                            // start timer if it is off, restart timer if it is running
+                            //
+                            if (TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN)
+                            {
+                                am_hal_spotmgr_timer_restart(ui32TimerDelayInMs);
+                            }
+                            else
+                            {
+                                am_hal_spotmgr_timer_start(ui32TimerDelayInMs);
+                            }
+                        }
+                        else
+                        {
+                            ui32Status = AM_HAL_STATUS_IN_USE;
+                        }
+                    }
+                }
+                else // cancel the request
+                {
+                    //
+                    // Clear g_bCm4Sleep, stop and disable the timer if it is running.
+                    // cm4 may switch between radio and no-radio, we still need to check the timer status even for no-radio.
+                    //
+                    if (TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN)
+                    {
+                        am_hal_spotmgr_trimver_2_internal_timer_interrupt_service();
+                    }
+                    else if ( !bIsRadioSleepStatic )
+                    {
+                        //
+                        // Clear the flag if it is no-radio image
+                        //
+                        g_bCm4Sleep = false;
+                    }
+                }
+                break;
             default:
                 ui32Status = AM_HAL_STATUS_INVALID_ARG;
                 bReqPwrStateChg = false;
@@ -951,35 +990,6 @@ am_hal_spotmgr_trimver_2_power_state_update(am_hal_spotmgr_stimulus_e eStimulus,
 
 //*****************************************************************************
 //
-//! @brief SIMOBUCK initialziation handling at stage just before enabling
-//!        SIMOBUCK
-//!
-//! @return SUCCESS or Failures.
-//
-//*****************************************************************************
-uint32_t am_hal_spotmgr_trimver_2_simobuck_init_bfr_enable(void)
-{
-    SCM->SCMCNTRCTRL2_b.FCNT2            = SCM_SCMCNTRCTRL2_FCNT2_SETTING_DEFAULT;
-    SCM->SCMCNTRCTRL2_b.FCNT1            = SCM_SCMCNTRCTRL2_FCNT1_SETTING_DEFAULT;
-    SCM->LPHYSTCNT_b.LPHYSTCNT           = SCM_LPHYSTCNT_SETTING_DEFAULT;
-    SCM->ACTTHRESH1_b.ACTTHRESHVDDS      = SCM_ACTTHRESHVDDS_SETTING_DEFAULT;
-    SCM->ACTTHRESH1_b.ACTTHRESHVDDF      = SCM_ACTTHRESHVDDF_SETTING_DEFAULT;
-    SCM->ACTTHRESH2_b.ACTTHRESHVDDC      = SCM_ACTTHRESHVDDC_SETTING_DEFAULT;
-    SCM->ACTTHRESH2_b.ACTTHRESHVDDCLV    = SCM_ACTTHRESHVDDCLV_SETTING_DEFAULT;
-    SCM->ACTTHRESH3_b.ACTTHRESHVDDRF     = SCM_ACTTHRESHVDDRF_SETTING_DEFAULT;
-    SCM->SCMCNTRCTRL1                    = SCMCNTRCTRL1_SETTING_DEFAULT;
-    SCM->LPTHRESHVDDS_b.LPTHRESHVDDS     = SCM_LPTHRESHVDDS_SETTING_DEFAULT;
-    SCM->LPTHRESHVDDF_b.LPTHRESHVDDF     = SCM_LPTHRESHVDDF_SETTING_DEFAULT;
-    SCM->LPTHRESHVDDC_b.LPTHRESHVDDC     = SCM_LPTHRESHVDDC_SETTING_DEFAULT;
-    SCM->LPTHRESHVDDCLV_b.LPTHRESHVDDCLV = SCM_LPTHRESHVDDCLV_SETTING_DEFAULT;
-    SCM->LPTHRESHVDDRF_b.LPTHRESHVDDRF   = SCM_LPTHRESHVDDRF_SETTING_DEFAULT;
-    SCM->LPSTAT                          = SCM_LPSTAT_SETTING_DEFAULT;
-
-    return AM_HAL_STATUS_SUCCESS;
-}
-
-//*****************************************************************************
-//
 //! @brief SIMOBUCK initialziation handling at stage just after enabling
 //!        SIMOBUCK
 //!
@@ -988,20 +998,10 @@ uint32_t am_hal_spotmgr_trimver_2_simobuck_init_bfr_enable(void)
 //*****************************************************************************
 uint32_t am_hal_spotmgr_trimver_2_simobuck_init_aft_enable(void)
 {
-    uint32_t ui32Status;
     //
-    // Wait for LPOVRTRIG bit to be set with timeout
-    // Using 1000us timeout
+    // The initial value of SIMOBUCK11 for Ton clock handoff.
     //
-    ui32Status = am_hal_delay_us_status_check(1000,
-                                              (uint32_t)&SCM->LPSTAT,
-                                              0x1,  // LPOVRTRIG bit mask (bit 0)
-                                              0x1,  // Wait for bit to be set to 1
-                                              true);
-    if (ui32Status != AM_HAL_STATUS_SUCCESS)
-    {
-        return AM_HAL_STATUS_TIMEOUT;
-    }
+    MCUCTRL->SIMOBUCK11 = 0x8;
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -1016,7 +1016,7 @@ uint32_t am_hal_spotmgr_trimver_2_simobuck_init_aft_enable(void)
 //*****************************************************************************
 uint32_t am_hal_spotmgr_trimver_2_tempco_suspend(void)
 {
-    SCM->SCMCNTRCTRL1_b.FORCELP = 0;
+    g_bFrcBuckAct = true;
     return AM_HAL_STATUS_SUCCESS;
 }
 #endif
@@ -1060,6 +1060,11 @@ am_hal_spotmgr_trimver_2_init(void)
     // All done, mark the data as valid
     //
     g_sSpotMgrINFO1regs.ui32SpotMgrINFO1GlobalValid = INFO1GLOBALVALID;
+
+    //
+    // Initialise the timer for buck state control when CM4 is in sleep.
+    //
+    am_hal_spotmgr_timer_init();
 
 #ifdef AM_HAL_SPOTMGR_PROFILING
     am_hal_spotmgr_changelog_t changeLog;

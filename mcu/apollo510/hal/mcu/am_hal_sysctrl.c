@@ -76,7 +76,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -664,7 +664,7 @@ am_hal_sysctrl_fpu_disable(void)
     // Disable access to the FPU in both privileged and user modes.
     // NOTE: Write 0s to all reserved fields in this register.
     //
-    SCB->CPACR |= ~(0xF << 20);
+    SCB->CPACR &= ~(0xF << 20);
     __DSB();
     __ISB();
 }

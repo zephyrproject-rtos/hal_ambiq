@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -980,11 +980,27 @@ am_hal_i2s_dma_transfer_continue(void *pHandle, am_hal_i2s_config_t* psConfig, a
 
     pState->ui32RxBufferSizeBytes = pTransferCfg->ui32RxTotalCount * 4;
     pState->ui32TxBufferSizeBytes = pTransferCfg->ui32TxTotalCount * 4;
+    //
+    // Once completed, software must first write the DMACFG register to 0.
+    //
+    I2Sn(ui32Module)->DMACFG = 0x0;
+#ifdef USE_I2S_TWO_STAGE_DMA
+    I2Sn(ui32Module)->DMACFG_b.NEXTDMAEN = 1;
+#endif
+    //
+    // Clear dma status.
+    //
+    I2Sn(ui32Module)->RXDMASTAT = 0x0;
+    I2Sn(ui32Module)->TXDMASTAT = 0x0;
+    //
+    // High Priority (service immediately)
+    //
+    I2Sn(ui32Module)->DMACFG_b.RXDMAPRI = 0x1;
+    I2Sn(ui32Module)->DMACFG_b.TXDMAPRI = 0x1;
 
     switch(psConfig->eXfer)
     {
         case AM_HAL_I2S_XFER_RX:
-            I2Sn(ui32Module)->RXDMASTAT = 0x0;
 #ifdef USE_I2S_TWO_STAGE_DMA
             I2Sn(ui32Module)->RXDMAADDRNEXT   = pState->ui32RxBufferPtr = pTransferCfg->ui32RxTargetAddr;
             I2Sn(ui32Module)->RXDMATOTCNTNEXT = pState->ui32RxBufferSizeBytes >> 2;
@@ -997,7 +1013,6 @@ am_hal_i2s_dma_transfer_continue(void *pHandle, am_hal_i2s_config_t* psConfig, a
             break;
 
         case AM_HAL_I2S_XFER_TX:
-            I2Sn(ui32Module)->TXDMASTAT = 0x0;
 #ifdef USE_I2S_TWO_STAGE_DMA
             I2Sn(ui32Module)->TXDMAADDRNEXT   = pState->ui32TxBufferPtr = pTransferCfg->ui32TxTargetAddr;
             I2Sn(ui32Module)->TXDMATOTCNTNEXT = pState->ui32TxBufferSizeBytes >> 2;

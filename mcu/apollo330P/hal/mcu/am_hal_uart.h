@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -975,7 +975,6 @@ extern uint32_t am_hal_uart_interrupt_status_get(void *pHandle,
 //
 //*****************************************************************************
 extern uint32_t am_hal_uart_interrupt_enable_get(void *pHandle, uint32_t *pui32IntMask);
-
 //*****************************************************************************
 //
 //! @brief transfer data between hardware and software queue in the background.
@@ -1001,6 +1000,7 @@ extern uint32_t am_hal_uart_interrupt_service(void *pHandle,
 //
 //*****************************************************************************
 extern void am_hal_uart_dma_transfer_complete(void *pHandle);
+
 #ifdef __cplusplus
 }
 #endif

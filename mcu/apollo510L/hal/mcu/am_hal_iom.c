@@ -82,7 +82,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision stable-367695eeb7 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -136,6 +136,12 @@
 #define AM_REG_IOM_CLKCFG_FSEL_HFRC_DIV32            0x00000600
 #define AM_REG_IOM_CLKCFG_FSEL_HFRC_DIV64            0x00000700
 //! @}
+
+//
+// Apollo510L/Apollo330P I2C clock stretching is not guaranteed. Disable clock
+// stretch detection in MI2CCFG (STRDIS) by default for all I2C configurations.
+//
+#define AM_HAL_IOM_MI2CCFG_STRDIS_DEFAULT            1
 
 //
 // Only keep IOM interrupts we're interested in
@@ -2618,7 +2624,7 @@ validate_transaction(am_hal_iom_state_t *pIOMState,
          ((pIOMState->eInterfaceMode == AM_HAL_IOM_I2C_MODE) &&
           (psTransaction->ui32NumBytes > AM_HAL_IOM_MAX_TXNSIZE_I2C))           ||
          ((pIOMState->eInterfaceMode == AM_HAL_IOM_SPI_MODE) &&
-          ((psTransaction->uPeerInfo.ui32SpiChipSelect > AM_HAL_IOM_MAX_CS_SPI) ||
+          ((psTransaction->uPeerInfo.ui32SpiChipSelect >= AM_HAL_IOM_MAX_CS_SPI) ||
            (psTransaction->ui32NumBytes > AM_HAL_IOM_MAX_TXNSIZE_SPI))) )
     {
         return AM_HAL_STATUS_INVALID_ARG;
@@ -3516,7 +3522,7 @@ am_hal_iom_configure(void *pHandle, const am_hal_iom_config_t *psConfig)
                              _VAL2FLD(IOM0_CLKCFG_DIV3, IOM0_CLKCFG_DIV3_DIS)       |
                              _VAL2FLD(IOM0_CLKCFG_FSEL, IOM0_CLKCFG_FSEL_HFRC_24MHZ) |
                              _VAL2FLD(IOM0_CLKCFG_IOCLKEN, 1);
-                IOMn(ui32Module)->MI2CCFG = _VAL2FLD(IOM0_MI2CCFG_STRDIS, 0)                            |
+                IOMn(ui32Module)->MI2CCFG = _VAL2FLD(IOM0_MI2CCFG_STRDIS, AM_HAL_IOM_MI2CCFG_STRDIS_DEFAULT)                            |
                                             _VAL2FLD(IOM0_MI2CCFG_SMPCNT, 3)                            |
                                             _VAL2FLD(IOM0_MI2CCFG_SDAENDLY, 15)                         |
                                             _VAL2FLD(IOM0_MI2CCFG_SCLENDLY, 0)                          |
@@ -3536,7 +3542,7 @@ am_hal_iom_configure(void *pHandle, const am_hal_iom_config_t *psConfig)
                              _VAL2FLD(IOM0_CLKCFG_DIV3, IOM0_CLKCFG_DIV3_DIS)           |
                              _VAL2FLD(IOM0_CLKCFG_FSEL, IOM0_CLKCFG_FSEL_HFRC_24MHZ)    |
                              _VAL2FLD(IOM0_CLKCFG_IOCLKEN, 1);
-                IOMn(ui32Module)->MI2CCFG = _VAL2FLD(IOM0_MI2CCFG_STRDIS, 0)                            |
+                IOMn(ui32Module)->MI2CCFG = _VAL2FLD(IOM0_MI2CCFG_STRDIS, AM_HAL_IOM_MI2CCFG_STRDIS_DEFAULT)                            |
                                             _VAL2FLD(IOM0_MI2CCFG_SMPCNT, 3)                            |
                                             _VAL2FLD(IOM0_MI2CCFG_SDAENDLY, 15)                         |
                                             _VAL2FLD(IOM0_MI2CCFG_SCLENDLY, 2)                          |
@@ -3556,7 +3562,7 @@ am_hal_iom_configure(void *pHandle, const am_hal_iom_config_t *psConfig)
                              _VAL2FLD(IOM0_CLKCFG_DIV3, IOM0_CLKCFG_DIV3_DIS)           |
                              _VAL2FLD(IOM0_CLKCFG_FSEL, IOM0_CLKCFG_FSEL_HFRC_24MHZ)    |
                              _VAL2FLD(IOM0_CLKCFG_IOCLKEN, 1);
-                IOMn(ui32Module)->MI2CCFG = _VAL2FLD(IOM0_MI2CCFG_STRDIS, 0)                            |
+                IOMn(ui32Module)->MI2CCFG = _VAL2FLD(IOM0_MI2CCFG_STRDIS, AM_HAL_IOM_MI2CCFG_STRDIS_DEFAULT)                            |
                                             _VAL2FLD(IOM0_MI2CCFG_SMPCNT, 0x2)                          |
                                             _VAL2FLD(IOM0_MI2CCFG_SDAENDLY, 3)                          |
                                             _VAL2FLD(IOM0_MI2CCFG_SCLENDLY, 0)                          |
@@ -4813,8 +4819,8 @@ uint32_t am_hal_iom_control(void *pHandle, am_hal_iom_request_e eReq, void *pArg
             }
             if ((pIOMState->eInterfaceMode != AM_HAL_IOM_SPI_MODE) ||
                   (pDcxCfg->cs == pDcxCfg->dcx) ||
-                  (pDcxCfg->cs > AM_HAL_IOM_MAX_CS_SPI) ||
-                  ((pDcxCfg->dcx != AM_HAL_IOM_DCX_INVALID) && (pDcxCfg->dcx > AM_HAL_IOM_MAX_CS_SPI)))
+                  (pDcxCfg->cs >= AM_HAL_IOM_MAX_CS_SPI) ||
+                  ((pDcxCfg->dcx != AM_HAL_IOM_DCX_INVALID) && (pDcxCfg->dcx >= AM_HAL_IOM_MAX_CS_SPI)))
             {
                 return AM_HAL_STATUS_INVALID_ARG;
             }

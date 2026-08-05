@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -677,6 +677,21 @@ extern uint32_t am_hal_usb_ep_stall(void *pHandle, uint8_t ui8EpAddr);
 //
 //*****************************************************************************
 extern uint32_t am_hal_usb_ep_clear_stall(void *pHandle, uint8_t ui8EpAddr);
+
+//*****************************************************************************
+//
+//! @brief Abort the endpoint transfer
+//!
+//! @param pHandle Pointer to the USB handle
+//! @param ui8EpAddr Endpoint address
+//!
+//! This function is used by the upper layer USB stack to abort the endpoint
+//! transfer when the endpoint is closed.
+//!
+//! @return one of am_hal_status_e like AM_HAL_STATUS_SUCCESS
+//
+//*****************************************************************************
+extern uint32_t am_hal_usb_ep_xfer_abort(void *pHandle, uint8_t ui8EpAddr);
 
 //*****************************************************************************
 //

@@ -74,7 +74,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -103,7 +103,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -127,14 +127,21 @@
 #define AM_REGVAL(x)               (*((volatile uint32_t *)(x)))
 
 //
+// Macros used in this module for identifying device families
+//
+#if defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
+#define AM_UTIL_CPU_M55
+#endif
+#if defined(AM_PART_APOLLO4_API) || defined(AM_PART_APOLLO3) || defined(AM_PART_APOLLO3P) || defined(AM_PART_APOLLO2) || defined(AM_PART_APOLLO)
+#define AM_UTIL_CPU_M4
+#endif
+
+//
 // Macros for valid stack ranges.
 //
 #define AM_NUM_STACK_RANGES 1
 
-#if defined(AM_PART_ATOMIQ11X_API)
-  #define AM_SP_LOW    DTCM_BASEADDR
-  #define AM_SP_HIGH   (DTCM_BASEADDR + DTCM_MAX_SIZE + SSRAM_MAX_SIZE)
-#elif defined(AM_PART_APOLLO510)
+#if defined(AM_PART_APOLLO510)
   #undef  AM_NUM_STACK_RANGES
   #define AM_NUM_STACK_RANGES  2
   #define AM_SP_LOW    ITCM_BASEADDR
@@ -229,6 +236,24 @@ extern uint32_t am_util_stdio_printf(char *pui8Fmt, ...);
 
 //*****************************************************************************
 //
+// Optional recovery hook: default is empty.  Unit tests may provide a strong
+// definition (e.g. longjmp back to a Unity test).  Invoked after fault data is
+// collected and (if enabled) printed, before the infinite loop.
+//
+//*****************************************************************************
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak))
+#elif defined(__IAR_SYSTEMS_ICC__)
+__weak
+#endif
+void
+am_util_faultisr_try_recover(uint32_t *pui32IsrSP)
+{
+    (void)pui32IsrSP;
+}
+
+//*****************************************************************************
+//
 // HardFault_Handler() gets control when a hard fault occurs.  it pass the previous
 // active stack pointer (MSP or PSP) in R0 to the function am_util_faultisr_collect_data()
 // which will never return.   If AM_HF_NO_LOCAL_STACK is not defined, it sets the MSP to
@@ -253,9 +278,9 @@ HardFault_Handler(void)
           "    mrsne  r0, psp\n");                       // e: bit2=1 indicating PSP stack
 #if !defined(AM_HF_NO_LOCAL_STACK)
     __asm("    ldr    r1, =gFaultStack\n");              // get address of the base of the temp_stack
-#if defined(AM_PART_ATOMIQ11X_API) || defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
+#if defined(AM_UTIL_CPU_M55)
     __asm("    MSR msplim, r1\n");                       // for Apollo5 (M55) set MSP stack limit register
-#endif
+#endif // AM_UTIL_CPU_M55
     __asm("    add    r1, r1, #512\n"                    // address of the top of the stack.
           "    bic    r1, #3\n"                          // make sure the new stack is 8-byte aligned
           "    mov    sp, r1\n");                        // move the new stack address to the SP
@@ -507,7 +532,7 @@ am_util_faultisr_collect_data(uint32_t *u32IsrSP)
         u32Mask >>= 1;
     }
 
-#if !defined(AM_PART_ATOMIQ11X_API) && !defined(AM_PART_APOLLO510) && !defined(AM_PART_APOLLO330P_510L) // No CPU register block in Apollo5
+#if defined(AM_UTIL_CPU_M4)  // No CPU register block in Apollo5
     //
     // Print out any Apollo* Internal fault information - if any
     //
@@ -527,7 +552,7 @@ am_util_faultisr_collect_data(uint32_t *u32IsrSP)
     {
         am_util_stdio_printf("    SYS Fault Address: 0x%08X\n", sHalFaultData.ui32SYS);
     }
-#endif  // !defined(AM_PART_APOLLO510) || defined(AM_PART_APOLLO330P_510L)
+#endif  // AM_UTIL_CPU_M4
 
     am_util_stdio_printf("\n\nDone with output. Entering infinite loop.\n\n");
 
@@ -537,6 +562,8 @@ am_util_faultisr_collect_data(uint32_t *u32IsrSP)
     // local data, i.e. sFaultData.
     //
 #endif  // AM_UTIL_FAULTISR_PRINT
+
+    am_util_faultisr_try_recover(u32IsrSP);
 
     u32Mask = 0;
 

@@ -79,7 +79,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -222,14 +222,14 @@ am_hal_stimer_is_running(void)
     //
     // Check the STIMER has been configured and is currently counting
     //
-	uint32_t ui32Cfg = STIMER->STCFG;
+    uint32_t ui32Cfg = STIMER->STCFG;
 
-	bRetVal = g_bStimerConfigured &&
-		((ui32Cfg & STIMER_STCFG_CLKSEL_Msk) !=
-			_VAL2FLD(STIMER_STCFG_CLKSEL, STIMER_STCFG_CLKSEL_NOCLK)) &&
-		((ui32Cfg & (STIMER_STCFG_FREEZE_Msk | STIMER_STCFG_CLEAR_Msk)) ==
-			(_VAL2FLD(STIMER_STCFG_FREEZE, STIMER_STCFG_FREEZE_THAW) |
-			_VAL2FLD(STIMER_STCFG_CLEAR, STIMER_STCFG_CLEAR_RUN)));
+    bRetVal = g_bStimerConfigured                                           &&
+              ((ui32Cfg & STIMER_STCFG_CLKSEL_Msk) !=
+                _VAL2FLD(STIMER_STCFG_CLKSEL, STIMER_STCFG_CLKSEL_NOCLK))   &&
+              ((ui32Cfg & (STIMER_STCFG_FREEZE_Msk | STIMER_STCFG_CLEAR_Msk)) ==
+                (_VAL2FLD(STIMER_STCFG_FREEZE, STIMER_STCFG_FREEZE_THAW) |
+                 _VAL2FLD(STIMER_STCFG_CLEAR, STIMER_STCFG_CLEAR_RUN)) );
 
     AM_CRITICAL_END
 
@@ -563,6 +563,30 @@ am_hal_stimer_capture_start(uint32_t ui32CaptureNum,
     // End the critical section.
     //
     AM_CRITICAL_END
+
+    //
+    // It takes 3 STIMER clock cycles for writes to SCAPCTRL to be effective
+    // (same class of latency as COMPARE). Wait here so callers do not miss
+    // edges that arrive immediately after capture_start returns.
+    //
+    // Only wait when STIMER is already running. Existing call sites often
+    // arm capture before starting the timer; waiting then would hang forever
+    // because the counter never advances. In that case the settle occurs
+    // after the timer is started (callers must not stimulate edges for at
+    // least AM_HAL_STIMER_CAPTURE_SETTLE_CYCLES after RUN).
+    //
+    if ( am_hal_stimer_is_running() )
+    {
+        uint32_t ui32Start = am_hal_stimer_counter_get();
+        uint32_t ui32Now;
+
+        do
+        {
+            ui32Now = am_hal_stimer_counter_get();
+        } while ((ui32Now == ui32Start) ||
+                 (ui32Now == (ui32Start + 1)) ||
+                 (ui32Now == (ui32Start + 2)));
+    }
 }
 
 //*****************************************************************************

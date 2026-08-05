@@ -48,7 +48,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -609,7 +609,6 @@ am_hal_uart_dma_transfer_complete(void *pHandle)
     //
     UARTn(ui32Module)->RSR_b.DMACPL = 0x0;
     UARTn(ui32Module)->RSR_b.DMAERR = 0x0;
-    pState->bDMABusy = false;
 }
 
 //*****************************************************************************
@@ -780,7 +779,6 @@ am_hal_uart_dma_abort(void *pHandle)
     // DMA count cleared.
     //
     UARTn(ui32Module)->COUNT_b.TOTCOUNT = 0x0;
-    pState->bDMABusy = false;
 }
 
 //*****************************************************************************
@@ -2472,6 +2470,7 @@ am_hal_uart_interrupt_service(void *pHandle, uint32_t ui32Status)
             //
             am_hal_uart_dma_transfer_complete(pHandle);
         }
+        pState->bDMABusy = false;
     }
     else
     {

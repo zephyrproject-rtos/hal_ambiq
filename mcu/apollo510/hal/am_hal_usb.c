@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -87,7 +87,7 @@
 
 #include "am_mcu_apollo.h"
 
-//*****************************************************************************
+//*****************************************************************
 //
 //! For Apollo5, the USB controller is sending STATUS stage ACK automatically
 //! when DATA stage of CONTROL_TRANSFER is completed.
@@ -375,6 +375,9 @@ typedef struct
 
     //! USB PHY Electrical Tuning Parameters
     am_hal_usb_phy_tuning_param_t sPhyTuning;
+
+    //! Endpoint IN end with short flag
+    bool bInEndWithShort[AM_HAL_USB_EP_MAX_NUMBER];
 }
 am_hal_usb_state_t;
 
@@ -2670,6 +2673,58 @@ am_hal_usb_ep_clear_stall(void *pHandle, uint8_t ui8EpAddr)
     return AM_HAL_STATUS_SUCCESS;
 }
 
+//********************************************************************************
+//
+//! @brief Abort the endpoint transfer
+//!
+//! @param pHandle Pointer to the USB handle
+//! @param ui8EpAddr Endpoint address
+//!
+//! @return Status code
+//
+//********************************************************************************
+
+uint32_t
+am_hal_usb_ep_xfer_abort(void *pHandle, uint8_t ui8EpAddr)
+{
+    am_hal_usb_state_t *pState = (am_hal_usb_state_t *)pHandle;
+    uint8_t ui8EpNum = am_hal_usb_ep_number(ui8EpAddr);
+    uint8_t ui8EpDir = am_hal_usb_ep_dir(ui8EpAddr);
+    USB_Type *pUSB = USBn(pState->ui32Module);
+    am_hal_usb_ep_xfer_t *pXfer;
+
+    if (ui8EpNum == 0 || ui8EpNum > AM_HAL_USB_EP_MAX_NUMBER)
+    {
+        return AM_HAL_STATUS_INVALID_ARG;
+    }
+
+    pXfer = &pState->ep_xfers[ui8EpNum - 1][ui8EpDir];
+
+    AM_HAL_USB_ENTER_CRITICAL;
+
+    // Select the endpoint
+    EP_INDEX_Set(pUSB, ui8EpNum);
+
+    // Disable interrupts and Flush Hardware FIFO
+    if (ui8EpDir == AM_HAL_USB_EP_DIR_IN)
+    {
+        INTRINE_Disable(pUSB, 0x1 << ui8EpNum);
+        INCSRL_FlushFIFO_Set(pUSB);
+    }
+    else
+    {
+        INTROUTE_Disable(pUSB, 0x1 << ui8EpNum);
+        OUTCSRL_FlushFIFO_Set(pUSB);
+    }
+
+    // Reset the HAL transfer state
+    am_hal_usb_xfer_reset(pXfer);
+
+    AM_HAL_USB_EXIT_CRITICAL;
+
+    return AM_HAL_STATUS_SUCCESS;
+}
+
 //*****************************************************************************
 //
 //! @brief Return Size Mapping from Index.
@@ -2822,11 +2877,14 @@ am_hal_usb_ep_init(void *pHandle, uint8_t ui8EpAddr, uint8_t ui8EpAttr, uint16_t
 
             if (am_hal_usb_ep_xfer_type(ui8EpAttr) == AM_HAL_USB_EP_XFER_ISOCHRONOUS)
             {
+                POWER_IsoUpdate_Set(pUSB);
                 INCSRU_ISO_Set(pUSB);
+                INCSRU_FrcDataTog_Set(pUSB);
             }
             else
             {
                 INCSRU_ISO_Clear(pUSB);
+                INCSRU_FrcDataTog_Clear(pUSB);
             }
 
             INCSRL_ClrDataTog_Set(pUSB);
@@ -3135,6 +3193,7 @@ am_hal_usb_non_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui
                 // Handling IN endpoint transfer
                 maxpacket  = pState->epin_maxpackets[ui8EpNum - 1];
                 am_hal_usb_fifo_loading_dma1(pUSB, ui8EpNum, pui8Buf, ui32Len);
+                pState->bInEndWithShort[ui8EpNum - 1] = (ui32Len % maxpacket) ? 1 : 0;
                 if (ui32Len % maxpacket == 0)
                 {
                     pXfer->flags.zlp = 1;
@@ -3154,6 +3213,7 @@ am_hal_usb_non_ep0_xfer(am_hal_usb_state_t *pState, uint8_t ui8EpNum, uint8_t ui
             {
                 // Handling IN endpoint transfer
                 maxpacket  = pState->epin_maxpackets[ui8EpNum - 1];
+                pState->bInEndWithShort[ui8EpNum - 1] = (ui32Len % maxpacket) ? 1 : 0;
 
                 if (ui32Len < maxpacket)
                 {
@@ -4049,7 +4109,7 @@ am_hal_usb_in_ep_handling(am_hal_usb_state_t *pState, USB_Type *pUSB, uint8_t ui
     }
 
     // In endpoint FIFO is empty
-    if ((INTRINE_Get(pUSB) & (0x1 << ui8EpNum)) && (INCSRL_FIFONotEmpty(pUSB) == 0) && pXfer->flags.busy)
+    if ((INCSRL_FIFONotEmpty(pUSB) == 0) && pXfer->flags.busy)
     {
         // Packet has been sent out
         if (pXfer->remaining == 0x0)
@@ -4724,9 +4784,8 @@ am_hal_usb_interrupt_service(void *pHandle,
             EP_INDEX_Set(pUSB, ui8EpNum);
 
             am_hal_usb_ep_xfer_t* pXfer = &pState->ep_xfers[ui8EpNum - 1][AM_HAL_USB_EP_DIR_IN];
-            uint16_t maxpacket = pState->epin_maxpackets[ui8EpNum - 1];
 
-            if (pXfer->len < maxpacket && pXfer->len > 0)
+            if (pState->bInEndWithShort[ui8EpNum - 1])
             {
                 INCSRL_InPktRdy_Set(pUSB);
             }

@@ -1,18 +1,54 @@
-// ****************************************************************************
+//*****************************************************************************
 //
 //! @file am_hal_clkgen.c
 //!
 //! @brief Functions for interfacing with the CLKGEN.
 //!
-//! @addtogroup clkgen4 CLKGEN - Clock Generator
+//! @addtogroup clkgen4_ap510L CLKGEN - Clock Generator
 //! @ingroup apollo510L_hal
 //! @{
+//!
+//! Purpose: This module provides functions for interfacing with the Clock
+//!          Generator (CLKGEN) on Apollo5 devices. It supports clock source
+//!          control, frequency adjustment, clock output configuration, and
+//!          interrupt handling for flexible clock generation and management.
+//!
+//! @section hal_clkgen_features Key Features
+//!
+//! 1. @b Clock @b Source @b Control: Manage various clock sources and frequencies.
+//! 2. @b Frequency @b Adjustment: HFRC and HFRC2 frequency adjustment capabilities.
+//! 3. @b Clock @b Output: Configurable clock output generation.
+//! 4. @b Interrupt @b Support: Interrupt handling for clock events.
+//! 5. @b Power @b Management: Clock power control and management.
+//!
+//! @section hal_clkgen_functionality Functionality
+//!
+//! - Control clock sources and frequency generation
+//! - Adjust HFRC and HFRC2 frequencies
+//! - Configure clock output parameters
+//! - Handle clock interrupts and status monitoring
+//! - Manage clock power states
+//!
+//! @section hal_clkgen_usage Usage
+//!
+//! 1. Control clock sources using am_hal_clkgen_control()
+//! 2. Adjust frequencies with am_hal_clkgen_hfrcadj_target_calculate()
+//! 3. Configure clock outputs as needed
+//! 4. Handle clock interrupts and status
+//! 5. Manage clock power states
+//!
+//! @section hal_clkgen_configuration Configuration
+//!
+//! - @b Clock @b Sources: Configure HFRC, HFRC2, and other clock sources
+//! - @b Frequency @b Adjustment: Set up frequency adjustment parameters
+//! - @b Clock @b Output: Configure clock output generation
+//! - @b Interrupts: Set up interrupt sources and handlers
 //
 // ****************************************************************************
 
 // ****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 // ****************************************************************************
 

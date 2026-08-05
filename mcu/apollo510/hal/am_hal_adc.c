@@ -90,7 +90,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -996,7 +996,7 @@ am_hal_adc_control(void *pHandle,
 #define fKONST      ((1200.0f * 1024.0f) / (1023.0f * 1190.0f))
                     uint16_t ADCtemp_code;
                     fCalibration_offset = fKONST * (fCalibration_offset + 1.0f) - 1.0f;
-                    ADCtemp_code = fVoltage * 1024.0f;  // Assumes 10-bit sample
+                    ADCtemp_code = (uint16_t)(fVoltage * 1024.0f);  // Assumes 10-bit sample
                     fVoltage = ADCtemp_code / 1023.0f;
 
                     //
@@ -1460,15 +1460,23 @@ sample_correction_apply(uint32_t ui32Sample, bool bApplyCorrection)
         if ( bApplyCorrection )
         {
             //
-            // General correction equation:
-            //  sample_corrected = (sample / (1.0F - gain)) - offset
+            // Define the correction constant for the 12-bit samples
             //
-            fSampleAdj = (float)(AM_HAL_ADC_FIFO_SAMPLE(ui32Sample) * AM_HAL_ADC_VREFMV / AM_HAL_ADC_SAMPLE_DIVISOR);
-            fSampleAdj /= (1.0F - priv_correction_trims.flt.fADCgain);
-            // Convert the offset from volts to mv.
-            fSampleAdj -= (priv_correction_trims.flt.fADCoffset * 1000.0F);
-            fSampleAdj  = fSampleAdj * AM_HAL_ADC_SAMPLE_DIVISORF / AM_HAL_ADC_VREFMVF;
+            #define KONST12 ((1200.0F * 4096.0F) / (1190.0F * 4095.0F))
+
+            //
+            // General correction equation:
+            //  gain_corrected   = (1.0 - fADCgain) * K
+            //  offset_corrected = (fADCoffset + 0.05 * fADCgain) * K
+            //  sample_corrected = (sample - offset_corrected * 4095.0 / 1.2) / gain_corrected
+            //
+            float fGainCorr = (1.0F - priv_correction_trims.flt.fADCgain) * KONST12;
+            float fOffsetCorr = (priv_correction_trims.flt.fADCoffset + 0.05F * priv_correction_trims.flt.fADCgain) * KONST12;
+            fSampleAdj = ((float)AM_HAL_ADC_FIFO_SAMPLE(ui32Sample) - fOffsetCorr * 4095.0F / 1.2F) / fGainCorr;
+
+            //
             // Add overflow and underflow protection
+            //
             if ( fSampleAdj > AM_HAL_ADC_SAMPLE_12BIT_SATF )
             {
                 fSampleAdj = AM_HAL_ADC_SAMPLE_12BIT_SATF;

@@ -49,7 +49,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -78,7 +78,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #include <stdint.h>
@@ -86,7 +86,7 @@
 #include "am_mcu_apollo.h"
 #include "am_hal_clkmgr_private.h"
 #include "mcu/am_hal_crm_private.h"
-
+extern bool g_bMoxMsgPending;
 //*****************************************************************************
 //
 // Local defines
@@ -101,7 +101,7 @@
 #define AM_HAL_PWRCTRL_MAX_WAIT_OTP_US      100000
 #define AM_HAL_PWRCTRL_MAX_BOOTROM_COUNT    10000
 #define AM_HAL_PWRCTRL_MAX_WAIT_CM4_WAKEUP_US    10000
-#define AM_HAL_PWRCTRL_MAX_WAIT_CM4_MBOX_INIT_US 200000
+#define AM_HAL_PWRCTRL_MAX_WAIT_CM4_MBOX_INIT_US 600000
 
 #define AM_HAL_PWRCTRL_MEMPWRSTATUS_MASK    ( PWRCTRL_MEMPWRSTATUS_PWRSTTCM_Msk        |    \
                                               PWRCTRL_MEMPWRSTATUS_PWRSTNVM0_Msk       |    \
@@ -133,6 +133,8 @@
 #define AM_HAL_PWRCTRL_GPU_VOLTADJ_WAIT  1
 #define AM_HAL_PWRCTRL_GPU_PWRADJ_WAIT   6
 #define AM_HAL_PWRCTRL_GPU_PWRON_WAIT    1
+
+#define AM_HAL_PWRCTRL_BUCK_ACT_ADVANCE_MS 10
 
 void buck_ldo_update_override(bool bEnable);
 
@@ -664,17 +666,47 @@ am_hal_pwrctrl_rss_mbox_init_wait()
     }
 
     //
-    // Enable MBOX IRQ
+    // Enable IPC Mailbox IRQ. The user can configure the interrupt priority in
+    // application layer if necessary.
     //
-    #ifdef AM_IRQ_PRIORITY_DEFAULT
-    NVIC_SetPriority(IPC_PEND_MSG_IRQn, AM_IRQ_PRIORITY_DEFAULT);
-    NVIC_SetPriority(IPC_ERR_IRQn, AM_IRQ_PRIORITY_DEFAULT);
-    #endif // AM_IRQ_PRIORITY_DEFAULT
     NVIC_EnableIRQ(IPC_PEND_MSG_IRQn);
     NVIC_EnableIRQ(IPC_ERR_IRQn);
 
     return ui32Status;
 } // am_hal_pwrctrl_rss_mbox_init_wait()
+
+//*****************************************************************************
+//
+//! @brief Handler for mbox callback of RSS sleep notify callback
+//
+//*****************************************************************************
+static void am_hal_pwrctrl_rss_sleep_ntf_handler(void *pArgs)
+{
+    uint32_t sleep_duration = 0;
+
+    AM_CRITICAL_BEGIN
+
+    if ( AM_HAL_IPC_MBOX_STATUS_IN_PEND )
+    {
+        am_hal_ipc_mbox_data_read(&sleep_duration, 1);
+        am_hal_ipc_mbox_interrupt_clear(AM_HAL_IPC_MBOX_INT_CHANNEL_THRESHOLD);
+    }
+
+    //Disable the LP mode until the next sleep duration notification is received.
+    if ( g_bMoxMsgPending )
+    {
+        g_bMoxMsgPending = false;
+        am_hal_sysctrl_ipc_pending_notify(g_bMoxMsgPending);
+    }
+    else
+    {
+        if ( sleep_duration )
+        {
+            am_hal_sysctrl_cm4_sleep_notify(sleep_duration, AM_HAL_PWRCTRL_BUCK_ACT_ADVANCE_MS);
+        }
+    }
+    AM_CRITICAL_END
+}
 
 // ****************************************************************************
 //
@@ -700,6 +732,11 @@ am_hal_pwrctrl_rss_bootup(void)
             am_hal_delay_us(1);
             MCUCTRL->BODCTRL_b.BODRFPWD = 1;
         }
+
+        //
+        // Register RSS sleep notify callback handler
+        //
+        am_hal_ipc_mbox_handler_register(AM_HAL_IPC_MBOX_SIGNAL_MSG_RSS_SLEEP_DURATION_NTF, am_hal_pwrctrl_rss_sleep_ntf_handler, NULL);
 
         //
         // Turn on RSS power
@@ -732,6 +769,7 @@ am_hal_pwrctrl_rss_bootup(void)
         // Send the RFXTAL configuration to radio subsystem via mailbox
         //
         ui32Status = am_hal_clkmgr_private_rfxtal_config_send();
+
     }
 
     return ui32Status;
@@ -1821,12 +1859,7 @@ am_hal_pwrctrl_periph_disable(am_hal_pwrctrl_periph_e ePeripheral)
 
     if (ePeripheral == AM_HAL_PWRCTRL_PERIPH_OTP)
     {
-        if (PWRCTRL->DEVPWRSTATUS_b.PWRSTCRYPTO)
-        {
-            return AM_HAL_STATUS_IN_USE;
-        }
         // Need to wait for PTM status idle to ensure any outstanding OTP writes are done
-
         ui32Status = am_hal_delay_us_status_check(AM_HAL_PWRCTRL_MAX_WAIT_OTP_US,
                                                   (uint32_t)&OTP->PTMSTAT,
                                                   OTP_PTMSTAT_BUSY_Msk,
@@ -2168,6 +2201,13 @@ am_hal_pwrctrl_mcu_and_spotmgr_init(void)
     }
 
     //
+    // While there is full access to INFO1, this call will save full trim info
+    // internally such that INFO1 doesn't have to be accessed later.
+    // Note that ui32TrimVer is only used here as a dummy variable.
+    //
+    am_hal_mcuctrl_trim_version_get(&ui32TrimVer);
+
+    //
     // Get trim version
     //
     TrimVersionGet(&ui32TrimVer);
@@ -2315,7 +2355,7 @@ buck_ldo_override_init(void)
     MCUCTRL->VRCTRL_b.SIMOBUCKRSTB   = 1;
     if (g_bIsTrimver2OrNewer)
     {
-        MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE = 0;
+        MCUCTRL->VRCTRL_b.SIMOBUCKACTIVE = 1;
         MCUCTRL->VRCTRL_b.SIMOBUCKOVER   = 0;
     }
     else
@@ -2400,6 +2440,7 @@ am_hal_pwrctrl_control(am_hal_pwrctrl_control_e eControl, void *pArgs)
                 //
                 // Enable SIMOBUCK compensations
                 // MCUCTRL->SIMOBUCK0 = 0x0007FFBF;
+                // This WRITE_ONLY register will read back as 0x00000000.
                 //
                 MCUCTRL->SIMOBUCK0 =
                     MCUCTRL_SIMOBUCK0_VDDCRXCOMPEN_Msk   |

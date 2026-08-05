@@ -42,11 +42,12 @@
 //! - @b Frequency @b Settings: Set system frequency thresholds
 //! - @b Profile @b Options: Define power optimization profiles
 //! - @b Thermal @b Limits: Set temperature-based constraints
+//
 //*****************************************************************************
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -75,7 +76,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -98,6 +99,7 @@ typedef uint32_t (*am_hal_spotmgr_pcm_power_state_update_t)(am_hal_spotmgr_stimu
 typedef uint32_t (*am_hal_spotmgr_default_reset_t)(void);
 typedef uint32_t (*am_hal_spotmgr_simobuck_init_bfr_enable_t)(void);
 typedef uint32_t (*am_hal_spotmgr_simobuck_init_aft_enable_t)(void);
+typedef void (*am_hal_spotmgr_timer_interrupt_service_t)(void);
 typedef uint32_t (*am_hal_spotmgr_tempco_suspend_t)(void);
 
 //
@@ -121,6 +123,10 @@ typedef struct
     // Applicable PCM version: ALL
     am_hal_spotmgr_simobuck_init_bfr_enable_t pfnSpotMgrSimobuckInitBfrEnable;
     am_hal_spotmgr_simobuck_init_aft_enable_t pfnSpotMgrSimobuckInitAftEnable;
+
+    // Spotmgr timer interrupt service
+    // Applicable PCM version: trimver2
+    am_hal_spotmgr_timer_interrupt_service_t pfnTimerIntService;
 
 #if NO_TEMPSENSE_IN_DEEPSLEEP
     // Pre-DeepSleep handling to allow temperature sensing activity to be
@@ -149,6 +155,9 @@ bool g_bIsTrimver1;
 bool g_bIsTrimver1OrNewer;
 bool g_bIsTrimver2OrNewer;
 
+//! Flag for indicating CM4 is going to sleep
+bool g_bCm4Sleep = false;
+
 //! This table will be populated with SPOT manager related INFO1 values and
 //! will be used for easy lookup after OTP is powered down.
 am_hal_spotmgr_info1_regs_t g_sSpotMgrINFO1regs;
@@ -159,6 +168,140 @@ am_hal_spotmgr_info1_regs_t g_sSpotMgrINFO1regs;
 //
 //*****************************************************************************
 static am_hal_spotmgr_state_t g_sSpotMgr;
+
+//*****************************************************************************
+//
+//! Function for initializing the timer for SPOT manager.
+//
+//*****************************************************************************
+void
+am_hal_spotmgr_timer_init(void)
+{
+    //
+    // Disable the timer.
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN = 0;
+    //
+    // Apply the settings.
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0 = _VAL2FLD(TIMER_CTRL0_TMR0CLK,     AM_HAL_TIMER_CLOCK_XT)          |
+                                                 _VAL2FLD(TIMER_CTRL0_TMR0FN,      AM_HAL_TIMER_FN_EDGE)           |
+                                                 _VAL2FLD(TIMER_CTRL0_TMR0POL1,    false)                          |
+                                                 _VAL2FLD(TIMER_CTRL0_TMR0POL0,    false)                          |
+                                                 _VAL2FLD(TIMER_CTRL0_TMR0TMODE,   AM_HAL_TIMER_TRIGGER_DIS)       |
+                                                 _VAL2FLD(TIMER_CTRL0_TMR0LMT,     0)                              |
+                                                 _VAL2FLD(TIMER_CTRL0_TMR0EN,      0);
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->MODE0 = _VAL2FLD(TIMER_MODE0_TMR0TRIGSEL, AM_HAL_TIMER_TRIGGER_TMR0_OUT1);
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->TMR0CMP0 = 0xFFFFFFFF;
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->TMR0CMP1 = 0xFFFFFFFF;
+    //
+    // Clear the timer Interrupt
+    //
+    TIMER->INTCLR = (uint32_t) AM_HAL_TIMER_MASK(AM_HAL_INTERNAL_TIMER_NUM_A, AM_HAL_TIMER_COMPARE_BOTH);
+    //
+    // Enable the timer Interrupt.
+    //
+    TIMER->INTEN |= (uint32_t) AM_HAL_TIMER_MASK(AM_HAL_INTERNAL_TIMER_NUM_A, AM_HAL_TIMER_COMPARE0);
+}
+
+//*****************************************************************************
+//
+//! Function for starting the timer for SPOT manager.
+//
+//*****************************************************************************
+void
+am_hal_spotmgr_timer_start(uint32_t ui32TimerDelayInMs)
+{
+    //
+    // Request clock
+    //
+    am_hal_clkmgr_clock_request(AM_HAL_CLKMGR_CLK_ID_XTAL_LS, (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_TIMER0 + AM_HAL_INTERNAL_TIMER_NUM_A));
+    //
+    //  Set timer compare value
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->TMR0CMP0 = (uint32_t) ((uint64_t)ui32TimerDelayInMs * AM_HAL_CLKMGR_DEFAULT_XTAL_LS_FREQ_HZ / 1000ULL);
+    //
+    // Toggle the clear bit (required by the hardware), and then enable the timer.
+    //
+    TIMER->GLOBEN |= 1UL <<  AM_HAL_INTERNAL_TIMER_NUM_A;
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0CLR = 1;
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0CLR = 0;
+    //
+    // Set the timer interrupt
+    //
+    NVIC->ISER[(TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) / 32] = (1 << ((TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) % 32));
+    //
+    // Enable the timer
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN = 1;
+}
+
+//*****************************************************************************
+//
+//! Function for restarting the timer for SPOT manager.
+//
+//*****************************************************************************
+void
+am_hal_spotmgr_timer_restart(uint32_t ui32TimerDelayInMs)
+{
+    //
+    // Disable the timer, then toggle the clear bit
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN  = 0;
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0CLR = 1;
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0CLR = 0;
+    //
+    //  Set timer compare value
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->TMR0CMP0 = (uint32_t) ((uint64_t)ui32TimerDelayInMs * AM_HAL_CLKMGR_DEFAULT_XTAL_LS_FREQ_HZ / 1000ULL);
+    //
+    // clear the timer interrupt status
+    //
+    TIMER->INTCLR = (uint32_t) AM_HAL_TIMER_MASK(AM_HAL_INTERNAL_TIMER_NUM_A, AM_HAL_TIMER_COMPARE_BOTH);
+    //
+    // Clear pending NVIC interrupt for the timer-specific IRQ.
+    //
+    NVIC->ICPR[(((uint32_t)TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) >> 5UL)] = (uint32_t)(1UL << (((uint32_t)TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) & 0x1FUL));
+    //
+    // Enable the timer
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN  = 1;
+}
+
+//*****************************************************************************
+//
+//! Function for stopping the timer for SPOT manager.
+//
+//*****************************************************************************
+void
+am_hal_spotmgr_timer_stop(void)
+{
+    //
+    // Deinit the timer
+    //
+    TIMERn(AM_HAL_INTERNAL_TIMER_NUM_A)->CTRL0_b.TMR0EN  = 0;
+    TIMER->GLOBEN &= ~(1UL <<  AM_HAL_INTERNAL_TIMER_NUM_A);
+    //
+    // Release clock
+    //
+    am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_XTAL_LS, (am_hal_clkmgr_user_id_e)(AM_HAL_CLKMGR_USER_ID_TIMER0 + AM_HAL_INTERNAL_TIMER_NUM_A));
+    //
+    // Disable the timer interrupt
+    //
+    NVIC->ICER[(TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) / 32] = (1 << ((TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) % 32));
+    //
+    // clear the timer interrupt status
+    //
+    TIMER->INTCLR = (uint32_t) AM_HAL_TIMER_MASK(AM_HAL_INTERNAL_TIMER_NUM_A, AM_HAL_TIMER_COMPARE_BOTH);
+    //
+    // Flush APB writes.
+    //
+    am_hal_sysctrl_sysbus_write_flush();
+    //
+    // Clear pending NVIC interrupt for the timer-specific IRQ.
+    //
+    NVIC->ICPR[(((uint32_t)TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) >> 5UL)] = (uint32_t)(1UL << (((uint32_t)TIMER0_IRQn + AM_HAL_INTERNAL_TIMER_NUM_A) & 0x1FUL));
+}
 
 //*****************************************************************************
 //
@@ -268,6 +411,20 @@ uint32_t am_hal_spotmgr_simobuck_init_aft_enable(void)
         return g_sSpotMgr.pfnSpotMgrSimobuckInitAftEnable();
     }
     return AM_HAL_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
+//! Timer interrupt service for spotmgr
+//
+//*****************************************************************************
+void
+am_hal_spotmgr_internal_timer_interrupt_service(void)
+{
+    if (g_sSpotMgr.pfnTimerIntService)
+    {
+        g_sSpotMgr.pfnTimerIntService();
+    }
 }
 
 #if NO_TEMPSENSE_IN_DEEPSLEEP
@@ -394,8 +551,8 @@ am_hal_spotmgr_init(void)
         g_sSpotMgr.pfnSpotmgrInit = am_hal_spotmgr_trimver_2_init;
         g_sSpotMgr.pfnSpotmgrPSUpdate = am_hal_spotmgr_trimver_2_power_state_update;
         g_sSpotMgr.pfnSpotMgrDefaultRst = am_hal_spotmgr_trimver_2_default_reset;
-        g_sSpotMgr.pfnSpotMgrSimobuckInitBfrEnable = am_hal_spotmgr_trimver_2_simobuck_init_bfr_enable;
         g_sSpotMgr.pfnSpotMgrSimobuckInitAftEnable = am_hal_spotmgr_trimver_2_simobuck_init_aft_enable;
+        g_sSpotMgr.pfnTimerIntService = am_hal_spotmgr_trimver_2_internal_timer_interrupt_service;
         #if NO_TEMPSENSE_IN_DEEPSLEEP
         g_sSpotMgr.pfnSpotMgrTempcoSuspend = am_hal_spotmgr_trimver_2_tempco_suspend;
         #endif

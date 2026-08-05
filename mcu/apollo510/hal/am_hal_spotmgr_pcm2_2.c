@@ -74,7 +74,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 // ****************************************************************************
 
@@ -106,14 +106,14 @@ typedef enum
     AM_HAL_SPOTMGR_POWER_STATE_DESC_13 = 0x000211, // CPUHP + P, Temp 2
     AM_HAL_SPOTMGR_POWER_STATE_DESC_14 = 0x000111, // CPUHP + P, Temp 1
     AM_HAL_SPOTMGR_POWER_STATE_DESC_15 = 0x000011, // CPUHP + P, Temp 0
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_16 = 0x100310, // CPULP + P + GPU/SDIO, Temp 3
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_17 = 0x100210, // CPULP + P + GPU/SDIO, Temp 2
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_18 = 0x100110, // CPULP + P + GPU/SDIO, Temp 1
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_19 = 0x100010, // CPULP + P + GPU/SDIO, Temp 0
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_20 = 0x100311, // CPUHP + P + GPU/SDIO, Temp 3
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_21 = 0x100211, // CPUHP + P + GPU/SDIO, Temp 2
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_22 = 0x100111, // CPUHP + P + GPU/SDIO, Temp 1
-    AM_HAL_SPOTMGR_POWER_STATE_DESC_23 = 0x100011  // CPUHP + P + GPU/SDIO, Temp 0
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_16 = 0x100310, // CPULP + P + GPU/SDIO/Crypto, Temp 3
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_17 = 0x100210, // CPULP + P + GPU/SDIO/Crypto, Temp 2
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_18 = 0x100110, // CPULP + P + GPU/SDIO/Crypto, Temp 1
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_19 = 0x100010, // CPULP + P + GPU/SDIO/Crypto, Temp 0
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_20 = 0x100311, // CPUHP + P + GPU/SDIO/Crypto, Temp 3
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_21 = 0x100211, // CPUHP + P + GPU/SDIO/Crypto, Temp 2
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_22 = 0x100111, // CPUHP + P + GPU/SDIO/Crypto, Temp 1
+    AM_HAL_SPOTMGR_POWER_STATE_DESC_23 = 0x100011  // CPUHP + P + GPU/SDIO/Crypto, Temp 0
 } am_hal_spotmgr_power_state_desc_e;
 
 //
@@ -140,17 +140,17 @@ typedef enum
 //
 typedef enum
 {
-    AM_HAL_SPOTMGR_TRANS_SEQ_0  , // From "PCM2.1 LP" to "PCM2.0 LP peripheral on and GPU&SDIO off" or "PCM2.0 LP GPU/SDIO on"
+    AM_HAL_SPOTMGR_TRANS_SEQ_0  , // From "PCM2.1 LP" to "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off" or "PCM2.0 LP GPU/SDIO/CRYPTO on"
     AM_HAL_SPOTMGR_TRANS_SEQ_1  , // From "PCM2.1 LP" to "PCM2.1 HP"
-    AM_HAL_SPOTMGR_TRANS_SEQ_2  , // From "PCM2.0 LP peripheral on and GPU&SDIO off" or "PCM2.0 LP GPU/SDIO on" to "PCM2.1 LP"
-    AM_HAL_SPOTMGR_TRANS_SEQ_3  , // From "PCM2.0 LP peripheral on and GPU&SDIO off" to "PCM2.0 HP peripheral on" or "PCM2.0 LP GPU/SDIO on"
+    AM_HAL_SPOTMGR_TRANS_SEQ_2  , // From "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off" or "PCM2.0 LP GPU/SDIO/CRYPTO on" to "PCM2.1 LP"
+    AM_HAL_SPOTMGR_TRANS_SEQ_3  , // From "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off" to "PCM2.0 HP peripheral on" or "PCM2.0 LP GPU/SDIO/CRYPTO on"
     AM_HAL_SPOTMGR_TRANS_SEQ_4  , // From "PCM2.1 HP" to "PCM2.1 LP"
     AM_HAL_SPOTMGR_TRANS_SEQ_5  , // From "PCM2.1 HP" to "PCM2.0 HP peripheral on"
-    AM_HAL_SPOTMGR_TRANS_SEQ_6  , // From "PCM2.0 HP peripheral on" to "PCM2.0 LP peripheral on and GPU&SDIO off"
+    AM_HAL_SPOTMGR_TRANS_SEQ_6  , // From "PCM2.0 HP peripheral on" to "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off"
     AM_HAL_SPOTMGR_TRANS_SEQ_7  , // From "PCM2.0 HP peripheral on" to "PCM2.1 HP"
-    AM_HAL_SPOTMGR_TRANS_SEQ_8  , // From "PCM2.0 HP peripheral on" to "PCM2.0 LP GPU/SDIO on"
-    AM_HAL_SPOTMGR_TRANS_SEQ_9  , // From "PCM2.0 LP GPU/SDIO on" to "PCM2.0 LP peripheral on and GPU&SDIO off"
-    AM_HAL_SPOTMGR_TRANS_SEQ_10 , // From "PCM2.0 LP GPU/SDIO on" to "PCM2.0 HP peripheral on"
+    AM_HAL_SPOTMGR_TRANS_SEQ_8  , // From "PCM2.0 HP peripheral on" to "PCM2.0 LP GPU/SDIO/CRYPTO on"
+    AM_HAL_SPOTMGR_TRANS_SEQ_9  , // From "PCM2.0 LP GPU/SDIO/CRYPTO on" to "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off"
+    AM_HAL_SPOTMGR_TRANS_SEQ_10 , // From "PCM2.0 LP GPU/SDIO/CRYPTO on" to "PCM2.0 HP peripheral on"
     AM_HAL_SPOTMGR_TRANS_SEQ_11 , // Temperature transitions to > 50C and Power state 9 to 8 transition
     AM_HAL_SPOTMGR_TRANS_SEQ_12 , // Temperature transitions to > 50C and Power state 1 to 0 transition
     AM_HAL_SPOTMGR_TRANS_SEQ_13 , // Temperature transitions to < 50C and Power state 8 to 9 transition
@@ -190,8 +190,8 @@ typedef union
         uint32_t GPUMODE        : 4;
         //! Peripheral power state
         uint32_t PERIPHMODE     : 4;
-        //! GPU or SDIO power state
-        uint32_t GPUSDIOMODE       : 4;
+        //! GPU SDIO Crypto power state
+        uint32_t GPUSDIOCRYPTOMODE       : 4;
         //! Reserved
         uint32_t                : 8;
     } PWRSTATEDESC_b;
@@ -947,7 +947,7 @@ DIAG_SUPPRESS_UNUSED_VAR
 //*****************************************************************************
 //
 //! Sequences for the transition from "PCM2.1 LP" to
-//! "PCM2.0 LP peripheral on and GPU&SDIO off" or "PCM2.0 LP GPU/SDIO on".
+//! "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off" or "PCM2.0 LP GPU/SDIO/CRYPTO on".
 //! Section 3.a
 //
 //*****************************************************************************
@@ -1022,8 +1022,8 @@ transition_sequence_1(uint32_t ui32PwrState, uint32_t ui32CurPwrState, uint32_t 
 #if !AM_HAL_SPOTMGR_TIMER_DELAY_PCM2_2
 //*****************************************************************************
 //
-//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO off"
-//! or "PCM2.0 LP GPU/SDIO on" to "PCM2.1 LP".
+//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off"
+//! or "PCM2.0 LP GPU/SDIO/CRYPTO on" to "PCM2.1 LP".
 //! Section 3.c
 //
 //*****************************************************************************
@@ -1055,8 +1055,8 @@ transition_sequence_2(uint32_t ui32PwrState, uint32_t ui32CurPwrState, uint32_t 
 #else
 //*****************************************************************************
 //
-//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO off"
-//! or "PCM2.0 LP GPU/SDIO on" to "PCM2.1 LP".
+//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off"
+//! or "PCM2.0 LP GPU/SDIO/CRYPTO on" to "PCM2.1 LP".
 //! Section 3.c
 //
 //*****************************************************************************
@@ -1084,8 +1084,8 @@ transition_sequence_2(uint32_t ui32PwrState, uint32_t ui32CurPwrState, uint32_t 
 
 //*****************************************************************************
 //
-//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO off"
-//! or "PCM2.0 LP GPU/SDIO on" to "PCM2.1 LP".
+//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off"
+//! or "PCM2.0 LP GPU/SDIO/CRYPTO on" to "PCM2.1 LP".
 //! Call this from ISR.
 //! Section 3.c
 //
@@ -1113,8 +1113,8 @@ transition_sequence_2b()
 
 //*****************************************************************************
 //
-//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO off"
-//! to "PCM2.0 HP peripheral on" or "PCM2.0 LP GPU/SDIO on".
+//! Sequences for the transition from "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off"
+//! to "PCM2.0 HP peripheral on" or "PCM2.0 LP GPU/SDIO/CRYPTO on".
 //! Section 3.d
 //
 //*****************************************************************************
@@ -1203,7 +1203,7 @@ transition_sequence_5(uint32_t ui32PwrState, uint32_t ui32CurPwrState, uint32_t 
 //*****************************************************************************
 //
 //! Sequences for the transition from "PCM2.0 HP peripheral on" to
-//! "PCM2.0 LP peripheral on and GPU&SDIO off".
+//! "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off".
 //! Section 3.g
 //
 //*****************************************************************************
@@ -1330,7 +1330,7 @@ transition_sequence_7b()
 //*****************************************************************************
 //
 //! Sequences for the transition from "PCM2.0 HP peripheral on" to
-//! "PCM2.0 LP GPU/SDIO on".
+//! "PCM2.0 LP GPU/SDIO/CRYPTO on".
 //! Section 3.i
 //
 //*****************************************************************************
@@ -1349,8 +1349,8 @@ transition_sequence_8(uint32_t ui32PwrState, uint32_t ui32CurPwrState, uint32_t 
 
 //*****************************************************************************
 //
-//! Sequences for the transition from "PCM2.0 LP GPU/SDIO on" to
-//! "PCM2.0 LP peripheral on and GPU&SDIO off".
+//! Sequences for the transition from "PCM2.0 LP GPU/SDIO/CRYPTO on" to
+//! "PCM2.0 LP peripheral on and GPU&SDIO&CRYPTO off".
 //! Section 3.j
 //
 //*****************************************************************************
@@ -1370,7 +1370,7 @@ transition_sequence_9(uint32_t ui32PwrState, uint32_t ui32CurPwrState, uint32_t 
 
 //*****************************************************************************
 //
-//! Sequences for the transition from "PCM2.0 LP GPU/SDIO on" to
+//! Sequences for the transition from "PCM2.0 LP GPU/SDIO/CRYPTO on" to
 //! "PCM2.0 HP peripheral on".
 //! Section 3.k
 //
@@ -2428,13 +2428,14 @@ spotmgr_power_state_determine(am_hal_spotmgr_power_status_t * psPwrStatus, uint3
     if ((psPwrStatus->eGpuState == AM_HAL_SPOTMGR_GPUSTATE_ACTIVE_LP)     ||
         (psPwrStatus->eGpuState == AM_HAL_SPOTMGR_GPUSTATE_ACTIVE_HP)     ||
         (psPwrStatus->ui32DevPwrSt & PWRCTRL_DEVPWRSTATUS_PWRSTSDIO0_Msk) ||
-        (psPwrStatus->ui32DevPwrSt & PWRCTRL_DEVPWRSTATUS_PWRSTSDIO1_Msk))
+        (psPwrStatus->ui32DevPwrSt & PWRCTRL_DEVPWRSTATUS_PWRSTSDIO1_Msk) ||
+        (psPwrStatus->ui32DevPwrSt & PWRCTRL_DEVPWRSTATUS_PWRSTCRYPTO_Msk))
     {
-        sPwrStatDesc.PWRSTATEDESC_b.GPUSDIOMODE = 1;
+        sPwrStatDesc.PWRSTATEDESC_b.GPUSDIOCRYPTOMODE = 1;
     }
     else
     {
-        sPwrStatDesc.PWRSTATEDESC_b.GPUSDIOMODE = 0;
+        sPwrStatDesc.PWRSTATEDESC_b.GPUSDIOCRYPTOMODE = 0;
     }
 
     //
@@ -2547,38 +2548,38 @@ spotmgr_power_state_determine(am_hal_spotmgr_power_status_t * psPwrStatus, uint3
             break;
 
         case AM_HAL_SPOTMGR_POWER_STATE_DESC_12: // CPUHP + P, Temp 3
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_20: // CPUHP + P + GPU/SDIO, Temp 3
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_20: // CPUHP + P + GPU/SDIO/Crypto, Temp 3
             *pui32PwrState = 12;
             break;
 
         case AM_HAL_SPOTMGR_POWER_STATE_DESC_13: // CPUHP + P, Temp 2
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_21: // CPUHP + P + GPU/SDIO, Temp 2
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_21: // CPUHP + P + GPU/SDIO/Crypto, Temp 2
             *pui32PwrState = 13;
             break;
 
         case AM_HAL_SPOTMGR_POWER_STATE_DESC_14: // CPUHP + P, Temp 1
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_22: // CPUHP + P + GPU/SDIO, Temp 1
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_22: // CPUHP + P + GPU/SDIO/Crypto, Temp 1
             *pui32PwrState = 14;
             break;
 
         case AM_HAL_SPOTMGR_POWER_STATE_DESC_15: // CPUHP + P, Temp 0
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_23: // CPUHP + P + GPU/SDIO, Temp 0
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_23: // CPUHP + P + GPU/SDIO/Crypto, Temp 0
             *pui32PwrState = 15;
             break;
 
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_16: // CPULP + P + GPU/SDIO, Temp 3
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_16: // CPULP + P + GPU/SDIO/Crypto, Temp 3
             *pui32PwrState = 16;
             break;
 
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_17: // CPULP + P + GPU/SDIO, Temp 2
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_17: // CPULP + P + GPU/SDIO/Crypto, Temp 2
             *pui32PwrState = 17;
             break;
 
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_18: // CPULP + P + GPU/SDIO, Temp 1
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_18: // CPULP + P + GPU/SDIO/Crypto, Temp 1
             *pui32PwrState = 18;
             break;
 
-        case AM_HAL_SPOTMGR_POWER_STATE_DESC_19: // CPULP + P + GPU/SDIO, Temp 0
+        case AM_HAL_SPOTMGR_POWER_STATE_DESC_19: // CPULP + P + GPU/SDIO/Crypto, Temp 0
             *pui32PwrState = 19;
             break;
 

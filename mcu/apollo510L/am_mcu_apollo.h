@@ -2,7 +2,7 @@
 //
 //! @file am_mcu_apollo.h
 //!
-//! @brief Top Include for apollo510L class devices.
+//! @brief Top include for Apollo510L devices.
 //!
 //! This file provides all the includes necessary for an apollo device.
 //!
@@ -11,6 +11,16 @@
 //! @defgroup apollo510L_hal apollo510L
 //! @ingroup hal
 //! @{
+//!
+//! Purpose: This module provides the primary hardware abstraction layer
+//! header for the SoC, including all necessary includes for ARM architecture
+//! features, security extensions, and vector processing capabilities.
+//! It enables comprehensive access to device peripherals, system configuration,
+//! and hardware-specific features for embedded applications requiring SoC
+//! functionality.
+//! The module supports ARM Security Extensions (CMSE), M-Profile Vector
+//! Extension (MVE/Helium), and provides the foundation for all SoC HAL
+//! modules and system integration.
 //
 //*****************************************************************************
 
@@ -45,7 +55,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -61,6 +71,10 @@
 //*****************************************************************************
 #include <arm_cmse.h>               // Include ARM Security Extensions
 
+#ifdef __ZEPHYR__
+#define AM_HAL_SKIP_NO_MVE_WARNING	1
+#endif
+
 #if   (__ARM_FEATURE_MVE & 3) == 3  // MVE integer and floating point intrinsics available
 #include <arm_mve.h>                // Include M-Profile Vector Extension aka Helium
 #elif (__ARM_FEATURE_MVE & 1) == 1  // MVE integer intrinsics available
@@ -68,9 +82,7 @@
 #else
 // Compiler options for vector extensions are not enabled.
 #ifndef AM_HAL_SKIP_NO_MVE_WARNING
-#ifndef __ZEPHYR__
 #warning MVE intrinsics not available
-#endif
 #endif
 #endif
 
@@ -81,7 +93,7 @@ extern "C"
 
 //*****************************************************************************
 //
-//! AM_PART_APOLLOxxx
+//! AM_PART_APOLLO510L
 //
 //*****************************************************************************
 #if defined(AM_PART_APOLLO330P) || defined(AM_PART_APOLLO510L)
@@ -176,6 +188,7 @@ extern "C"
 #include "hal/mcu/am_hal_mram.h"
 #include "hal/mcu/am_hal_mram_recovery.h"
 #include "hal/mcu/am_hal_mspi.h"
+#include "hal/mcu/am_hal_puf.h"
 #include "hal/mcu/am_hal_reset.h"
 #include "hal/mcu/am_hal_rtc.h"
 #include "hal/mcu/am_hal_sdhc.h"
@@ -199,6 +212,8 @@ extern "C"
 #include "hal/am_hal_pdm.h"
 #include "hal/am_hal_pwrctrl.h"
 #include "hal/am_hal_spotmgr.h"
+#include "hal/am_hal_spotmgr_trimver_1.h"
+#include "hal/am_hal_spotmgr_trimver_2.h"
 #include "hal/am_hal_queue.h"
 #include "hal/am_hal_security.h"
 #include "hal/am_hal_stimer.h"

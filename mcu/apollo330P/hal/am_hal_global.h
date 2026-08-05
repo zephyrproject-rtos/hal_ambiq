@@ -11,7 +11,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_GLOBAL_H
@@ -317,6 +317,25 @@ am_hal_triple_read( uint32_t ui32TimerAddr, uint32_t ui32Data[]);
     am_timer ## n ## _isr
 
 extern void hal_internal_timer_isr(void);
+
+//*****************************************************************************
+//
+//! IPC mailbox ISRs for HAL internal use
+//
+//*****************************************************************************
+//! By default these map to the vector table names am_ipc_pend_msg_isr and
+//! am_ipc_err_isr.  Redefine hal_ipc_pend_msg_isr and/or hal_ipc_err_isr before
+//! including this header to bind the HAL implementation to custom vector names.
+//
+#ifndef hal_ipc_pend_msg_isr
+#define hal_ipc_pend_msg_isr    am_ipc_pend_msg_isr
+#endif
+#ifndef hal_ipc_err_isr
+#define hal_ipc_err_isr         am_ipc_err_isr
+#endif
+
+extern void hal_ipc_pend_msg_isr(void);
+extern void hal_ipc_err_isr(void);
 
 #ifdef __cplusplus
 }

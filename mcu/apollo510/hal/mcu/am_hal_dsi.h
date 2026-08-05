@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -58,21 +58,6 @@ extern "C"
 // DSI error codes.
 //
 //*****************************************************************************
-/*typedef enum
-{
-    AM_HAL_DSI_INT_STATUS_RX_START_TRANS_ERROR = AM_HAL_STATUS_MODULE_SPECIFIC_START,
-    AM_HAL_DSI_INT_STATUS_RX_START_TRANS_SYNC_ERROR,
-    AM_HAL_DSI_INT_STATUS_RX_END_TRANS_SYNC_ERROR,
-    AM_HAL_DSI_INT_STATUS_RX_ESCAPE_ENTRY_ERROR,
-    AM_HAL_DSI_INT_STATUS_RX_LP_TX_SYNC_ERROR,
-    AM_HAL_DSI_INT_STATUS_RX_PERIPH_TIMEOUT_ERROR,
-    AM_HAL_DSI_INT_STATUS_RX_FALSE_CONTROL_ERROR,
-    AM_HAL_DSI_INT_STATUS_RX_ECC_SINGLE_BIT_ERROR,
-    AM_HAL_DSI_INT_STATUS_RX_ECC_MULTI_BIT_ERROR,
-    AM_HAL_DSI_INT_STATUS_START_TRANS_SYNC_ERROR,
-
-}
-am_hal_dsi_interrupt_status_t;*/
 
 //*****************************************************************************
 //

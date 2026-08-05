@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -114,7 +114,7 @@ enum
     AM_HAL_IPC_MBOX_SIGNAL_MSG_RFXTAL_CONFIG_RSP,
     AM_HAL_IPC_MBOX_SIGNAL_MSG_IPC_SHM_CONFIG_REQ,
     AM_HAL_IPC_MBOX_SIGNAL_MSG_IPC_SHM_CONFIG_RSP,
-
+    AM_HAL_IPC_MBOX_SIGNAL_MSG_RSS_SLEEP_DURATION_NTF,
     AM_HAL_IPC_MBOX_SIGNAL_MSG_END
 };
 
@@ -356,6 +356,12 @@ extern uint32_t am_hal_ipc_mbox_service(uint32_t ui32Signal);
 //*****************************************************************************
 void am_hal_ipc_mbox_msg_handler(void);
 
+//*****************************************************************************
+//
+//! @brief IPC mailbox error interrupt handler.
+//
+//*****************************************************************************
+void am_hal_ipc_mbox_err_handler(void);
 
 #ifdef __cplusplus
 }

@@ -12,7 +12,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-31118eb96 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_SYSCTRL_H
@@ -80,6 +80,8 @@ typedef enum
   AM_HAL_SYSCTRL_DEEPSLEEP
 } am_hal_sysctrl_power_state_e;
 
+#define AM_HAL_SYSCTRL_CM4_NO_RADIO_INDICATOR    0xFFFFFFFFUL
+
 #define SYNC_READ       0x47FF0000
 
 //*****************************************************************************
@@ -107,6 +109,9 @@ typedef enum
 //
 //*****************************************************************************
 extern bool g_bFrcBuckAct;
+extern bool g_bIpcPending;
+// Number of CM55 and peripheral users of HFXTAL_48M before CM55 enters deep sleep.
+extern uint32_t g_ui32HfxtalUserCount;
 
 //*****************************************************************************
 //
@@ -147,6 +152,46 @@ extern void am_hal_sysctrl_sleep(am_hal_sysctrl_sleep_type_e eSleepType);
 //
 //*****************************************************************************
 extern void am_hal_sysctrl_force_buck_active_in_deepsleep(bool bFrcBuckAct);
+
+//*****************************************************************************
+//
+//! @brief Inform CM55 SPOT Manager that CM4 is going to sleep
+//!        for ui32SleepDurationInMs
+//!
+//! @param ui32SleepDurationInMs Sleep duration in milliseconds
+//! @param ui32BuckActInAdvInMs Switch buck to active by N ms before CM4 waking up.
+//!
+//! @return Status code
+//!
+//! This function is typically called in the CM55 IPC message handler.
+//! It is used to notify CM55 via IPC about CM4 system power state changes:
+//! 1. CM4 is entering deep sleep.
+//! 2. HFXTAL 48M status:
+//!    - If not used as the clock source by CM55 or its peripherals:
+//!        it is either being turned off or already turned off.
+//!    - Otherwise:
+//!        it remains enabled.
+//! 3. Baseband/RF subsystem is being powered down or already powered off.
+//! 4. CM4 is required to enter deep sleep earlier than CM55 and exit sleep
+//!    later than CM55.
+//
+//*****************************************************************************
+extern uint32_t
+am_hal_sysctrl_cm4_sleep_notify(uint32_t ui32SleepDurationInMs, uint32_t ui32BuckActInAdvInMs);
+
+//*****************************************************************************
+//
+//! @brief Report whether all IPC from CM55 to CM4 got replied.
+//! Must report pending before CM55 sends an IPC msg,
+//! and report idle after CM55 received all replies from CM4.
+//!
+//! @param bPending True for pending, False for back to idle
+//!
+//! @return Status code
+//
+//*****************************************************************************
+extern uint32_t
+am_hal_sysctrl_ipc_pending_notify(bool bPending);
 
 #ifdef __cplusplus
 }

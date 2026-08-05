@@ -47,7 +47,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -76,7 +76,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -196,6 +196,29 @@ am_hal_triple_read( uint32_t ui32TimerAddr, uint32_t ui32Data[])
 void
 hal_internal_timer_isr(void)
 {
+#if AM_HAL_SPOTMGR_INTERNAL_TIMER_NEEDED
+    //
+    // Interrupt service for SPOT manager timer
+    //
+    am_hal_spotmgr_internal_timer_interrupt_service();
+#endif
+}
+
+//*****************************************************************************
+//
+//! IPC mailbox ISRs for HAL internal use
+//
+//*****************************************************************************
+void
+hal_ipc_pend_msg_isr(void)
+{
+    am_hal_ipc_mbox_msg_handler();
+}
+
+void
+hal_ipc_err_isr(void)
+{
+    am_hal_ipc_mbox_err_handler();
 }
 
 #if defined(__GNUC__)

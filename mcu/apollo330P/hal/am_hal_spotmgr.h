@@ -41,7 +41,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 #ifndef AM_HAL_SPOTMGR_H
@@ -72,7 +72,8 @@ extern "C"
 #endif
 
 //! Macros to indicate whether Internal Timer is required by SPOT manager
-#define AM_HAL_SPOTMGR_INTERNAL_TIMER_NEEDED    (0)
+#define AM_HAL_SPOTMGR_INTERNAL_TIMER_NEEDED \
+        (!AM_HAL_SPOTMGR_TRIMVER_2_DISABLE)
 
 //*****************************************************************************
 //
@@ -83,9 +84,9 @@ extern "C"
 //! Mask of all available peripherals for DEVPWRST, excluding SYSPLL
 #define DEVPWRST_ALL_PERIPH_MASK   0xFFFDE6FE
 //! Mask of peripherals which need to boost both VDDC and VDDF for DEVPWRST,
-//! including NETAOL, OTP, USBPHY/USB, SDIO, CRYPTO, DISP/DISPPHY, GFX, MSPI,
+//! including OTP, USBPHY/USB, SDIO, CRYPTO, DISP/DISPPHY, GFX, MSPI,
 //! I2S, PDM, I3C/I3CPHY, DBG, IOM4/5.
-#define DEVPWRST_BOOST_VDDCF_PERIPH_MASK   0xCFFDC0E0
+#define DEVPWRST_BOOST_VDDCF_PERIPH_MASK   0x4FFDC0E0
 //! Mask of peripherals which need to boost VDDC only for DEVPWRST, including
 //! IOS, UART, IOM0/1/2/3, ADC.
 #define DEVPWRST_BOOST_VDDC_PERIPH_MASK   0x3000261E
@@ -101,38 +102,6 @@ extern "C"
 #define AUDSSPWRST_MONITOR_PERIPH_MASK_PS1 AUDSSPWRST_ALL_PERIPH_MASK
 //! Mask of AUDSS peripherals monitored by SPOT manager
 #define AUDSSPWRST_MONITOR_PERIPH_MASK AUDSSPWRST_ALL_PERIPH_MASK
-//! Default setting for SCMCNTRCTRL1
-#define SCMCNTRCTRL1_SETTING_DEFAULT (3)
-//! SCMCNTRCTRL1 setting for forcing buck active before deepsleep
-#define SCMCNTRCTRL1_SETTING_FRCBUCKACT (3)
-//! Default setting for SCM LPTHRESHVDDS register
-#define SCM_LPTHRESHVDDS_SETTING_DEFAULT (1)
-//! Default setting for SCM LPTHRESHVDDF register
-#define SCM_LPTHRESHVDDF_SETTING_DEFAULT (1)
-//! Default setting for SCM LPTHRESHVDDC register
-#define SCM_LPTHRESHVDDC_SETTING_DEFAULT (1)
-//! Default setting for SCM LPTHRESHVDDCLV register
-#define SCM_LPTHRESHVDDCLV_SETTING_DEFAULT (1)
-//! Default setting for SCM LPTHRESHVDDRF register
-#define SCM_LPTHRESHVDDRF_SETTING_DEFAULT (1)
-//! Default setting for SCM LPSTAT register
-#define SCM_LPSTAT_SETTING_DEFAULT (0x3)
-//! Default setting for SCM ACTTHRESHVDDS register
-#define SCM_ACTTHRESHVDDS_SETTING_DEFAULT (0xFFFF)
-//! Default setting for SCM ACTTHRESHVDDF register
-#define SCM_ACTTHRESHVDDF_SETTING_DEFAULT (0xFFFF)
-//! Default setting for SCM ACTTHRESHVDDC register
-#define SCM_ACTTHRESHVDDC_SETTING_DEFAULT (0xFFFF)
-//! Default setting for SCM ACTTHRESHVDDCLV register
-#define SCM_ACTTHRESHVDDCLV_SETTING_DEFAULT (0xFFFF)
-//! Default setting for SCM ACTTHRESHVDDRF register
-#define SCM_ACTTHRESHVDDRF_SETTING_DEFAULT (0xFFFF)
-//! Default setting for SCM SCMCNTRCTRL2 FCNT2 register
-#define SCM_SCMCNTRCTRL2_FCNT2_SETTING_DEFAULT (1600)
-//! Default setting for SCM SCMCNTRCTRL2 FCNT1 register
-#define SCM_SCMCNTRCTRL2_FCNT1_SETTING_DEFAULT (1600)
-//! Default setting for SCM LPHYSTCNT register
-#define SCM_LPHYSTCNT_SETTING_DEFAULT (0)
 
 //*****************************************************************************
 //
@@ -343,6 +312,8 @@ typedef enum
     AM_HAL_SPOTMGR_STIM_INIT_STATE,
     //! SYSPLL power state
     AM_HAL_SPOTMGR_STIM_SYSPLL,
+    //! CM4 sleep
+    AM_HAL_SPOTMGR_STIM_CM4_SLEEP,
 } am_hal_spotmgr_stimulus_e;
 
 
@@ -397,9 +368,61 @@ extern bool g_bIsTrimver1;
 extern bool g_bIsTrimver1OrNewer;
 extern bool g_bIsTrimver2OrNewer;
 
+//! Flag for indicating CM4 is going to sleep
+extern bool g_bCm4Sleep;
+
 //! This table will be populated with SPOT manager related INFO1 values and
 //! will be used for easy lookup after OTP is powered down.
 extern am_hal_spotmgr_info1_regs_t g_sSpotMgrINFO1regs;
+
+//*****************************************************************************
+//
+//! @brief Timer interrupt service for spotmgr
+//!
+//! @return None.
+//
+//*****************************************************************************
+extern void am_hal_spotmgr_internal_timer_interrupt_service(void);
+
+//*****************************************************************************
+//
+//! @brief Function for initializing the timer for SPOT manager.
+//!
+//! @return None.
+//
+//*****************************************************************************
+extern void am_hal_spotmgr_timer_init(void);
+
+//*****************************************************************************
+//
+//! @brief Function for starting the timer for SPOT manager.
+//!
+//! @param ui32TimerDelayInMs - Timer compare value in mSec.
+//!
+//! @return None.
+//
+//*****************************************************************************
+extern void am_hal_spotmgr_timer_start(uint32_t ui32TimerDelayInMs);
+
+//*****************************************************************************
+//
+//! @brief Function for restarting the timer for SPOT manager.
+//!
+//! @param ui32TimerDelayInMs - Timer compare value in mSec.
+//!
+//! @return None.
+//
+//*****************************************************************************
+extern void am_hal_spotmgr_timer_restart(uint32_t ui32TimerDelayInMs);
+
+//*****************************************************************************
+//
+//! @brief Function for stopping the timer for SPOT manager.
+//!
+//! @return None.
+//
+//*****************************************************************************
+extern void am_hal_spotmgr_timer_stop(void);
 
 //*****************************************************************************
 //

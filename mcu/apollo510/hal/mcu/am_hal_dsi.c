@@ -76,7 +76,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p2p0-db6e11a12 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -86,6 +86,17 @@
 #include <math.h>
 
 #define FORWARD_REVERSE     1                   // 1 for forward, 4 for reverse.
+
+// AFE trim bit definitions (private)
+#define AM_HAL_DSI_AFETRIM0_CONTDET_DIS     0x00000800U  // trim_0<11>: disable contention detector
+#define AM_HAL_DSI_AFETRIM0_B1_PLUS         0x00020000U  // trim_0<17>: required for B1 and later silicon
+#define AM_HAL_DSI_AFETRIM1_DATA_LANE_EN    0x00002000U  // trim_1<13>: data lane enable
+#define AM_HAL_DSI_AFETRIM1_ULPS_DATALANE  0x00000200U  // trim_1<9>: ULPS data lane control
+#define AM_HAL_DSI_AFETRIM2_1LANE_CFG       0x00480000U  // trim_2<22,19>: 1-lane TX configuration
+#define AM_HAL_DSI_AFETRIM2_2LANE_CFG       0x00400000U  // trim_2<22>: power-up Data Lane 1 for 2-lane TX
+#define AM_HAL_DSI_AFETRIM2_ULPS_LP_EN      0x0000001CU  // trim_2<2:4>: ULPS LP lines enable
+#define AM_HAL_DSI_AFETRIM3_ULPS_PATTERN    0x00030000U  // trim_3<16:17>: ULPS pattern enable
+#define AM_HAL_DSI_AFETRIM3_ULPS_LP_EN2    0x00038000U  // trim_3<15:17>: ULPS LP lines enable
 
 //
 // Transmitted length of any Low-Power state period
@@ -268,6 +279,7 @@ am_hal_dsi_timing(uint32_t ui32FreqTrim)
         double fTEotMax = 105 + FORWARD_REVERSE * 12 * fUI;
 
         //
+        // MIPI D-PHY 1.x 6.4.1: T_HS-PREPARE = 40ns + 4*UI (min), 85ns + 6*UI (max).
         // The minimum time of HS prepare is 40 + 4 * UI, the maximum is 85 + 6 * UI.
         //
         fDataTHSPrepareMin = 40 + 4 * fUI;
@@ -321,6 +333,7 @@ am_hal_dsi_timing(uint32_t ui32FreqTrim)
         ui8DataHSPrep = ui8S7 << 6 | ui8R7;
 
         //
+        // MIPI D-PHY 1.x 6.4.1: T_HS-PREPARE + T_HS-ZERO >= 145ns + 10*UI.
         // The minimum value of HS prepare + HS zero is 145 + 10 * UI.
         //
         fDataTHSPrepareAddTHSZeroMin = 145 + 10 * fUI;
@@ -328,6 +341,7 @@ am_hal_dsi_timing(uint32_t ui32FreqTrim)
         ui8DataHSZero = (int8_t)ceil(fTemp);
 
         //
+        // MIPI D-PHY 1.x 6.4.1: T_HS-TRAIL = max(n*8*UI, 60ns + n*4*UI) where n=1 for forward.
         // The max(n*8*UI,  60 ns + n*4*UI) value is the minimum time of HS trail
         //
         fDataTHSTrailMin = (FORWARD_REVERSE * 8 * fUI > 60 + FORWARD_REVERSE * 4 * fUI) ? FORWARD_REVERSE * 8 * fUI : 60 + FORWARD_REVERSE * 4 * fUI;
@@ -337,10 +351,12 @@ am_hal_dsi_timing(uint32_t ui32FreqTrim)
         fDataTHSTrailMax = (fTEotMax - 2 * 8 * fUI) / 8 / fUI;
         ui8DataHSTrail = (i8Temp + (int8_t)floor(fDataTHSTrailMax)) / 2;
 
+        // MIPI D-PHY 1.x 6.4.1: T_HS-EXIT >= 100ns.
         fTemp = (fDataTHSExitMin - 8 * fUI) / 8 / fUI;
         ui8DataHSExit = (int8_t)ceil(fTemp);
 
         //
+        // MIPI D-PHY 1.x 6.5.1: T_CLK-PREPARE = 38ns (min), 95ns (max).
         // Calculate DPHY CLK timing parameters
         //
         //
@@ -578,10 +594,10 @@ am_hal_dsi_config(am_hal_dsi_config_t *pDSIConfig)
         //
         DSI->DPIRESOLUTION = _VAL2FLD(DSI_DPIRESOLUTION_DPIRESOLUTION, pDSIConfig->ui32VACT << 16 | pDSIConfig->ui32HACT);
 
-        DSI->HSYNCCNT = _VAL2FLD(DSI_HSYNCCNT_HORZCNT, pDSIConfig->ui32HSA * fRatio);
-        DSI->HORIZBKPORCHCNT = _VAL2FLD(DSI_HORIZBKPORCHCNT_HORZBKPCNT, pDSIConfig->ui32HBP * fRatio);
-        DSI->HORIZFPORCHCNT = _VAL2FLD(DSI_HORIZFPORCHCNT_HORZFTPCNT, pDSIConfig->ui32HFP * fRatio);
-        DSI->HORZACTIVEAREACNT = _VAL2FLD(DSI_HORZACTIVEAREACNT_HORACTCNT, pDSIConfig->ui32HACT * fRatio);
+        DSI->HSYNCCNT = _VAL2FLD(DSI_HSYNCCNT_HORZCNT, (uint32_t)lroundf(pDSIConfig->ui32HSA * fRatio));
+        DSI->HORIZBKPORCHCNT = _VAL2FLD(DSI_HORIZBKPORCHCNT_HORZBKPCNT, (uint32_t)lroundf(pDSIConfig->ui32HBP * fRatio));
+        DSI->HORIZFPORCHCNT = _VAL2FLD(DSI_HORIZFPORCHCNT_HORZFTPCNT, (uint32_t)lroundf(pDSIConfig->ui32HFP * fRatio));
+        DSI->HORZACTIVEAREACNT = _VAL2FLD(DSI_HORZACTIVEAREACNT_HORACTCNT, (uint32_t)lroundf(pDSIConfig->ui32HACT * fRatio));
 
         DSI->VSYNCCNT = _VAL2FLD(DSI_VSYNCCNT_VSC, pDSIConfig->ui32VSA);
         DSI->VERTBKPORCHCNT = _VAL2FLD(DSI_VERTBKPORCHCNT_VBPSC, pDSIConfig->ui32VBP);
@@ -597,7 +613,7 @@ am_hal_dsi_config(am_hal_dsi_config_t *pDSIConfig)
             //
             // Check whether the DSI frequency can be divided by the PLL reference frequency or not.
             //
-            if ( fabs(fRatio / 12 - (uint32_t)fRatio / 12) > 0.01 )
+            if ( fmodf(fRatio, 12.0f) > 0.01f && (12.0f - fmodf(fRatio, 12.0f)) > 0.01f )
             {
                 return AM_HAL_STATUS_INVALID_ARG;
             }
@@ -643,21 +659,21 @@ am_hal_dsi_config(am_hal_dsi_config_t *pDSIConfig)
     DSI->AFETRIM2 = _VAL2FLD(DSI_AFETRIM2_AFETRIM2, 0x10000000);
     if (pDSIConfig->ui8LanesNum == 1)
     {
-        DSI->AFETRIM2 |= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, 0x00480000); // trim_2<22> and trim_2<19> need to be set for DSI TX in 1-lane configuration.
+        DSI->AFETRIM2 |= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, AM_HAL_DSI_AFETRIM2_1LANE_CFG); // trim_2<22> and trim_2<19> need to be set for DSI TX in 1-lane configuration.
     }
     else if (pDSIConfig->ui8LanesNum == 2)
     {
-        DSI->AFETRIM2 |= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, 0x00400000); // clear power down bit for Data lane 1 to support DSI TX in 2lanes configuration.
+        DSI->AFETRIM2 |= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, AM_HAL_DSI_AFETRIM2_2LANE_CFG); // clear power down bit for Data lane 1 to support DSI TX in 2lanes configuration.
     }
-    DSI->AFETRIM1 |= _VAL2FLD(DSI_AFETRIM1_AFETRIM1, 0x00002000); // trim_1<13> needs to be set
+    DSI->AFETRIM1 |= _VAL2FLD(DSI_AFETRIM1_AFETRIM1, AM_HAL_DSI_AFETRIM1_DATA_LANE_EN); // trim_1<13> needs to be set
 
     if (pDSIConfig->bSendUlpsPattern)
     {
-        DSI->AFETRIM3 |= _VAL2FLD(DSI_AFETRIM3_AFETRIM3, 0x00030000);
+        DSI->AFETRIM3 |= _VAL2FLD(DSI_AFETRIM3_AFETRIM3, AM_HAL_DSI_AFETRIM3_ULPS_PATTERN);
     }
     if (!APOLLO5_B0)
     {
-        DSI->AFETRIM0 |= _VAL2FLD(DSI_AFETRIM0_AFETRIM0, 0x00020000); // trim_0<17> needs to be set for B1 and later version.
+        DSI->AFETRIM0 |= _VAL2FLD(DSI_AFETRIM0_AFETRIM0, AM_HAL_DSI_AFETRIM0_B1_PLUS); // trim_0<17> needs to be set for B1 and later version.
     }
 #ifdef DISABLE_ERROR_AUTORECOVERY
     //
@@ -727,7 +743,8 @@ am_hal_dsi_para_config(uint8_t ui8LanesNum, uint8_t ui8DBIBusWidth, uint32_t ui3
 uint32_t
 am_hal_dsi_init(void)
 {
-    am_hal_pwrctrl_periph_enable(AM_HAL_PWRCTRL_PERIPH_DISPPHY);
+    uint32_t ui32Status = am_hal_pwrctrl_periph_enable(AM_HAL_PWRCTRL_PERIPH_DISPPHY);
+    if (ui32Status != AM_HAL_STATUS_SUCCESS) { return ui32Status; }
     DSI->RSTENBDFE = _VAL2FLD(DSI_RSTENBDFE_ENABLE, 0);
 
     //
@@ -787,9 +804,9 @@ am_hal_dsi_deinit(bool bCheckStopState)
         external_vdd18_callback(false);
     }
 
-    am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_DISPPHY);
-
-    return am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_DSI);
+    uint32_t ui32PwrStatus = am_hal_pwrctrl_periph_disable(AM_HAL_PWRCTRL_PERIPH_DISPPHY);
+    uint32_t ui32ClkStatus = am_hal_clkmgr_clock_release(AM_HAL_CLKMGR_CLK_ID_HFRC, AM_HAL_CLKMGR_USER_ID_DSI);
+    return (ui32PwrStatus != AM_HAL_STATUS_SUCCESS) ? ui32PwrStatus : ui32ClkStatus;
 }
 
 //*****************************************************************************
@@ -801,11 +818,11 @@ uint32_t
 am_hal_dsi_ulps_entry(void)
 {
     DSI->DEVICEREADY_b.ULPS = DSI_DEVICEREADY_ULPS_LOW_POWER;
-    DSI->AFETRIM0 |= _VAL2FLD(DSI_AFETRIM0_AFETRIM0, 0x00000800); //  trim_0<11> needs to be set - contention detector disabled
+    DSI->AFETRIM0 |= _VAL2FLD(DSI_AFETRIM0_AFETRIM0, AM_HAL_DSI_AFETRIM0_CONTDET_DIS); //  trim_0<11> needs to be set - contention detector disabled
     am_hal_delay_us(10);
-    DSI->AFETRIM1 |= _VAL2FLD(DSI_AFETRIM1_AFETRIM1, 0x00000200); //  trim_1<9> needs to be set
-    DSI->AFETRIM2 |= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, 0x0000001C); //  trim_2<2>, trim_2<3> & trim_2<4> need to be set
-    DSI->AFETRIM3 |= _VAL2FLD(DSI_AFETRIM3_AFETRIM3, 0x00038000); //  trim_3<15>, trim_3<16>, and trim_3<17> need to be set
+    DSI->AFETRIM1 |= _VAL2FLD(DSI_AFETRIM1_AFETRIM1, AM_HAL_DSI_AFETRIM1_ULPS_DATALANE); //  trim_1<9> needs to be set
+    DSI->AFETRIM2 |= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, AM_HAL_DSI_AFETRIM2_ULPS_LP_EN); //  trim_2<2>, trim_2<3> & trim_2<4> need to be set
+    DSI->AFETRIM3 |= _VAL2FLD(DSI_AFETRIM3_AFETRIM3, AM_HAL_DSI_AFETRIM3_ULPS_LP_EN2); //  trim_3<15>, trim_3<16>, and trim_3<17> need to be set
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -820,9 +837,9 @@ am_hal_dsi_ulps_exit(void)
 {
     DSI->DEVICEREADY_b.ULPS = DSI_DEVICEREADY_ULPS_LOW_POWER;
     am_hal_delay_us(10);
-    DSI->AFETRIM3 &= _VAL2FLD(DSI_AFETRIM3_AFETRIM3, ~0x00038000); //  trim_3<15>, trim_3<16>, and trim_3<17> need to be cleared
-    DSI->AFETRIM2 &= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, ~0x0000001C); //  trim_2<2>, trim_2<3> & trim_2<4> need to be cleared
-    DSI->AFETRIM1 &= _VAL2FLD(DSI_AFETRIM1_AFETRIM1, ~0x00000200); //  trim_1<9> needs to be cleared
+    DSI->AFETRIM3 &= _VAL2FLD(DSI_AFETRIM3_AFETRIM3, ~AM_HAL_DSI_AFETRIM3_ULPS_LP_EN2); //  trim_3<15>, trim_3<16>, and trim_3<17> need to be cleared
+    DSI->AFETRIM2 &= _VAL2FLD(DSI_AFETRIM2_AFETRIM2, ~AM_HAL_DSI_AFETRIM2_ULPS_LP_EN); //  trim_2<2>, trim_2<3> & trim_2<4> need to be cleared
+    DSI->AFETRIM1 &= _VAL2FLD(DSI_AFETRIM1_AFETRIM1, ~AM_HAL_DSI_AFETRIM1_ULPS_DATALANE); //  trim_1<9> needs to be cleared
     DSI->DEVICEREADY_b.ULPS = DSI_DEVICEREADY_ULPS_EXIT;
     //
     // Twakeup time should not be less than 1ms.
@@ -836,7 +853,7 @@ am_hal_dsi_ulps_exit(void)
         delay_function_callback(1);
     }
     DSI->DEVICEREADY_b.ULPS = DSI_DEVICEREADY_ULPS_This;
-    DSI->AFETRIM0 &= _VAL2FLD(DSI_AFETRIM0_AFETRIM0, ~0x00000800); //  trim_0<11> needs to be cleared - contention detector enable
+    DSI->AFETRIM0 &= _VAL2FLD(DSI_AFETRIM0_AFETRIM0, ~AM_HAL_DSI_AFETRIM0_CONTDET_DIS); //  trim_0<11> needs to be cleared - contention detector enable
 
     return AM_HAL_STATUS_SUCCESS;
 }

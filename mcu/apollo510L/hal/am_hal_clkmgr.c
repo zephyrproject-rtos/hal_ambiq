@@ -10,13 +10,13 @@
 //! @{
 //!
 //! Purpose: This module provides comprehensive clock management functions for
-//! Apollo5 devices, handling system clocks including HFRC, HFRC2, SYSPLL,
+//! Apollo5 devices, handling system clocks including HFRC, SYSPLL,
 //! XTAL_HS, XTAL_LS, and LFRC. It manages clock requests, releases,
 //! configuration, and power management to minimize power consumption.
 //!
 //! @section hal_clkmgr_features Key Features
 //!
-//! 1. @b Multi-Clock @b Support: Manage HFRC, HFRC2, SYSPLL, XTAL_HS, XTAL_LS, LFRC.
+//! 1. @b Multi-Clock @b Support: Manage HFRC, SYSPLL, XTAL_HS, XTAL_LS, LFRC.
 //! 2. @b Power @b Management: Automatic clock gating and power-down for efficiency.
 //! 3. @b User @b Tracking: Track multiple users requesting the same clock.
 //! 4. @b Clock @b Stabilization: Handle clock startup and stabilization timing.
@@ -48,7 +48,7 @@
 
 // ****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5_2_a_3-80ffa398f of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 // ****************************************************************************
 
@@ -89,7 +89,7 @@
 #include "mcu/am_hal_clkgen_private.h"
 
 #define AM_HAL_CLKMGR_HFRC_ADJ_WAIT_TIME_US             (10000)
-#define AM_HAL_CLKMGR_XTAL_HS_STARTUP_WAIT_TIME_US      (3000)
+#define AM_HAL_CLKMGR_XTAL_HS_STARTUP_WAIT_TIME_US      (9000)
 #define AM_HAL_CLKMGR_CLOCK_STABILIZING_LOOP_US         (10)
 
 #define AM_HAL_CLKMGR_HFRC_ADJ_WAIT_LOOP_CNT            (AM_HAL_CLKMGR_HFRC_ADJ_WAIT_TIME_US / AM_HAL_CLKMGR_CLOCK_STABILIZING_LOOP_US)
@@ -665,7 +665,7 @@ static uint32_t am_hal_clkmgr_config_PLLPOSTDIV(uint32_t ui32RequestedClk, am_ha
     am_hal_clkmgr_clkcfg_t sGeneratedConfig = {0};
     bool bConfigVco = true;
 
-    // Check whether this is a request to invalidate PLLVCO
+    // Check whether this is a request to invalidate PLLPOSTDIV
     if (ui32RequestedClk == 0)
     {
         bInvalidateConfig = true;
@@ -911,7 +911,7 @@ static uint32_t am_hal_clkmgr_request_XTAL_LS(am_hal_clkmgr_user_id_e eUserId)
     else if ((eXtalLsStatus == AM_HAL_MCUCTRL_EXT32K_STATUS_XTAL) &&
              (g_sClkMgrBoardInfo.sXtalLs.eXtalLsMode == AM_HAL_CLKMGR_XTAL_LS_MODE_EXT))
     {
-        // Current XTAL_HS mode is XTAL, but requested is external clock. Mark clock busy.
+        // Current XTAL_LS mode is XTAL, but requested is external clock. Mark clock busy.
         ui32Status = AM_HAL_STATUS_IN_USE;
     }
     #endif
@@ -1866,7 +1866,7 @@ static uint32_t am_hal_clkmgr_request_PLLVCO(am_hal_clkmgr_user_id_e eUserId)
     }
 
     //
-    // Set User Flag for SYSPLL clock first to avoid changing of clock config
+    // Set User Flag for PLLVCO clock first to avoid changing of clock config
     // when we are waiting for clock dependency to be ready.
     //
     AM_CRITICAL_BEGIN
@@ -1954,7 +1954,7 @@ static uint32_t am_hal_clkmgr_request_PLLPOSTDIV(am_hal_clkmgr_user_id_e eUserId
     }
 
     //
-    // Set User Flag for SYSPLL clock first to avoid changing of clock config
+    // Set User Flag for PLLPOSTDIV clock first to avoid changing of clock config
     // when we are waiting for clock dependency to be ready.
     //
     AM_CRITICAL_BEGIN
@@ -2547,7 +2547,7 @@ uint32_t am_hal_clkmgr_control(am_hal_clkmgr_control_e eControl, const void *pCo
 uint32_t am_hal_clkmgr_private_clkgen_hfadj_apply(void* pArgs)
 {
     //
-    // If Board Information show LFRC is absent, return INVALID OPERATION
+    // If Board Information show XTAL_LS is absent, return INVALID OPERATION
     //
     if (g_sClkMgrBoardInfo.sXtalLs.ui32XtalLsFreq == 0)
     {
@@ -2636,9 +2636,7 @@ void am_hal_clkmgr_private_deepsleep_enter(void)
 //*****************************************************************************
 void am_hal_clkmgr_private_deepsleep_exit(void)
 {
-    // Disable and Power Off SYSPLL from SW register if CPU is the only user of
-    // SYSPLL.
-    // Note: HW will keep SYSPLL powered up until deepsleep is entered
+    // Enable and Power On SYSPLL from SW register
     if (g_bSysPllDisabledForDeepSleep)
     {
         // Request HFRC if it was disabled before deep sleep
@@ -2651,10 +2649,10 @@ void am_hal_clkmgr_private_deepsleep_exit(void)
             g_bSysPllReleasedHFRCForDeepSleep = false;
         }
 
-        // Power Off SYSPLL
+        // Power On SYSPLL
         am_hal_pwrctrl_syspll_enable();
 
-        // Disable SYSPLL
+        // Enable SYSPLL
         am_hal_syspll_enable(g_pSyspllHandle);
 
         // Clear SYSPLL disabled for deep sleep flag
