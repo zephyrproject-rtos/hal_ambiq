@@ -91,7 +91,10 @@ static const struct device *gpu_dev = DEVICE_DT_GET(GPU_NODE);
 #define ASSETS_HEAP_ATTR
 #endif
 
-#if CONFIG_NEMAGFX_RENDER_HEAP_IN_NONCACHE_SRAM
+#if CONFIG_NEMAGFX_RENDER_HEAP_IN_PSRAM
+#define RENDER_HEAP_ATTR                                                                           \
+	Z_GENERIC_SECTION(LINKER_DT_NODE_REGION_NAME_TOKEN(DT_CHOSEN(ambiq_external_ram_region)))
+#elif CONFIG_NEMAGFX_RENDER_HEAP_IN_NONCACHE_SRAM
 #define RENDER_HEAP_ATTR Z_GENERIC_SECTION(SRAM_NO_CACHE)
 #else
 #define RENDER_HEAP_ATTR
@@ -134,13 +137,19 @@ int32_t nema_sys_init(void)
 	cpu_only_heap.heap.init_mem = cpu_only_buffer;
 	cpu_only_heap.heap.init_bytes = sizeof(cpu_only_buffer);
 
+	/*
+	 * Resume the PSRAM before initialising any heap that lives in it.
+	 * k_heap_init() writes allocator metadata into the buffer it is given, so
+	 * the device has to be awake first. This has to cover the render heap as
+	 * well as the assets heap: the board may place either, or both, in PSRAM.
+	 */
+#if CONFIG_NEMAGFX_ASSETS_HEAP_IN_PSRAM || CONFIG_NEMAGFX_RENDER_HEAP_IN_PSRAM
+	pm_device_runtime_get(DEVICE_DT_GET(DT_CHOSEN(ambiq_psram)));
+#endif
+
 	k_heap_init(&render_heap, render_buffer, sizeof(render_buffer));
 	render_heap.heap.init_mem = render_buffer;
 	render_heap.heap.init_bytes = sizeof(render_buffer);
-
-#if CONFIG_NEMAGFX_ASSETS_HEAP_IN_PSRAM
-	pm_device_runtime_get(DEVICE_DT_GET(DT_CHOSEN(ambiq_psram)));
-#endif
 
 	k_heap_init(&assets_heap, assets_buffer, sizeof(assets_buffer));
 	assets_heap.heap.init_mem = assets_buffer;
