@@ -1006,92 +1006,21 @@ void am_devices_em9305_register_cm_pwm_ops(em9305_cm_pwm_ctrl_fun cm_pwm)
 
 //*****************************************************************************
 //
-//! @brief Update EM9305 firmware if bundled image is newer than current.
+// Leave configuration mode: deassert CM and pulse RESET so the controller
+// reloads NVM instead of staying in CM after an interrupted update.
 //
 //*****************************************************************************
-uint32_t am_devices_em9305_update_fw(ImageRecord **pFwImage, uint8_t record_size, NvmPage *erase_pages, uint32_t erase_size, uint32_t image_ver, bool force)
+static void fw_exit_cm_mode(void)
 {
-    uint32_t st;
-    uint32_t current_ver = 0;
-
-    /* Store references for use by helper functions */
-    g_fw_image_records = pFwImage;
-    g_fw_image_record_size = record_size;
-    g_fw_erase_pages = erase_pages;
-    g_fw_erase_pages_size = erase_size;
-
-    /* Read current FW version */
-    st = am_devices_em9305_get_fw_version(&current_ver);
-    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
-    {
-        LOG_WRN("EM9305: version read failed, proceeding with update");
-        current_ver = EM9305_FW_VER_INVALID;
-    }
-    if (!force && (current_ver == image_ver))
-    {
-        LOG_INF("EM9305: FW already up-to-date (0x%08x)", (unsigned int)image_ver);
-        return AM_DEVICES_EM9305_STATUS_SUCCESS;
-    }
-    if (!force && (current_ver != EM9305_FW_VER_INVALID) && (current_ver > image_ver))
-    {
-        LOG_INF("EM9305: current FW 0x%08x >= image 0x%08x, skipping update", (unsigned int)current_ver, (unsigned int)image_ver);
-        return AM_DEVICES_EM9305_STATUS_SUCCESS;
-    }
-    LOG_INF("EM9305: Updating FW from 0x%08x to 0x%08x", (unsigned int)current_ver, (unsigned int)image_ver);
-    /* Enter configuration mode */
-    st = fw_enter_cm_mode();
-    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
-    {
-        return st;
-    }
-    
-    if (!force && fw_check_programmed())
-    {
-        LOG_INF("EM9305: NVM already matches bundled image, skipping flash");
-        
-        st = fw_update_version(image_ver);
-        if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
-        {
-            LOG_ERR("EM9305: version refresh failed");
-        }
-        goto exit_cm;
-    }
-    /* Erase NVM main area */
-    st = fw_erase_nvm_main();
-    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
-    {
-        goto exit_cm;
-    }
-    /* Write image records */
-    st = fw_write_image();
-    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
-    {
-        goto exit_cm;
-    }
-    /* Verify on-device CRC matches the host-computed CRC for every record */
-    st = fw_verify_image();
-    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
-    {
-        LOG_ERR("EM9305: firmware CRC verification failed");
-        goto exit_cm;
-    }
-    /* Update version in NVM info page */
-    st = fw_update_version(image_ver);
-    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
-    {
-        LOG_ERR("EM9305: version update failed");
-        goto exit_cm;
-    }
-    LOG_INF("EM9305: FW update successful");
-
-exit_cm:
-    /* Deassert CM GPIO */
     if (g_gpio_ops.set_cm)
     {
         g_gpio_ops.set_cm(false);
     }
 
-    return st;
+    if (g_Em9305cb.reset)
+    {
+        g_Em9305cb.reset();
+    }
 }
 
 //*****************************************************************************
@@ -1143,6 +1072,148 @@ static uint32_t em9305_reset_and_wait_active(void)
         }
     }
 
+    return AM_DEVICES_EM9305_STATUS_SUCCESS;
+}
+
+//*****************************************************************************
+//
+//! @brief Update EM9305 firmware if bundled image is newer than current.
+//
+//*****************************************************************************
+uint32_t am_devices_em9305_update_fw(ImageRecord **pFwImage, uint8_t record_size, NvmPage *erase_pages, uint32_t erase_size, uint32_t image_ver, bool force)
+{
+    uint32_t st;
+    uint32_t current_ver = 0;
+
+    /* Store references for use by helper functions */
+    g_fw_image_records = pFwImage;
+    g_fw_image_record_size = record_size;
+    g_fw_erase_pages = erase_pages;
+    g_fw_erase_pages_size = erase_size;
+
+    /* Read current FW version */
+    st = am_devices_em9305_get_fw_version(&current_ver);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_WRN("EM9305: version read failed, proceeding with update");
+        current_ver = EM9305_FW_VER_INVALID;
+    }
+    if (!force && (current_ver != EM9305_FW_VER_INVALID) && (current_ver > image_ver))
+    {
+        LOG_INF("EM9305: current FW 0x%08x >= image 0x%08x, skipping update", (unsigned int)current_ver, (unsigned int)image_ver);
+        return AM_DEVICES_EM9305_STATUS_SUCCESS;
+    }
+    if (!force && (current_ver == image_ver))
+    {
+        LOG_INF("EM9305: FW version 0x%08x matches bundle, verifying NVM...",
+                (unsigned int)image_ver);
+        st = fw_enter_cm_mode();
+        if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            return st;
+        }
+        if (fw_check_programmed())
+        {
+            LOG_INF("EM9305: NVM integrity verified");
+            st = AM_DEVICES_EM9305_STATUS_SUCCESS;
+            goto exit_cm;
+        }
+        LOG_WRN("EM9305: NVM corrupt despite matching version; reprogramming");
+    }
+    else
+    {
+        LOG_INF("EM9305: Updating FW from 0x%08x to 0x%08x", (unsigned int)current_ver, (unsigned int)image_ver);
+    }
+    /* Enter configuration mode (skip if verify path above already entered). */
+    if (force || (current_ver != image_ver))
+    {
+        st = fw_enter_cm_mode();
+        if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            return st;
+        }
+    }
+    
+    if (!force && fw_check_programmed())
+    {
+        LOG_INF("EM9305: NVM already matches bundled image, skipping flash");
+        
+        st = fw_update_version(image_ver);
+        if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            LOG_ERR("EM9305: version refresh failed");
+        }
+        goto exit_cm;
+    }
+    /* Erase NVM main area */
+    st = fw_erase_nvm_main();
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        goto exit_cm;
+    }
+    /* Write image records */
+    st = fw_write_image();
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        goto exit_cm;
+    }
+    /* Verify on-device CRC matches the host-computed CRC for every record */
+    st = fw_verify_image();
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: firmware CRC verification failed");
+        goto exit_cm;
+    }
+    /* Update version in NVM info page */
+    st = fw_update_version(image_ver);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: version update failed");
+        goto exit_cm;
+    }
+    LOG_INF("EM9305: FW update successful");
+
+exit_cm:
+    fw_exit_cm_mode();
+
+    return st;
+}
+
+//*****************************************************************************
+//
+// Force a full bundled-image reflash via configuration mode and wait for the
+// controller to return to active state.  Used when normal boot fails because
+// NVM was left corrupt by an interrupted prior update.
+//
+//*****************************************************************************
+static uint32_t em9305_nvm_recovery_reflash(void)
+{
+    uint32_t st;
+
+    if (!g_cm_pwm_ctrl)
+    {
+        LOG_ERR("EM9305: NVM recovery requires CM PWM callback");
+        return AM_DEVICES_EM9305_STATUS_ERROR;
+    }
+
+    LOG_WRN("EM9305: forcing NVM reflash to recover from corrupt firmware");
+
+    st = am_devices_em9305_update_fw(image_records, IMAGE_RECORDS_SIZE, erase_pages,
+                                     erase_pages_size, ble_fw_image_bin_ver, true);
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: forced NVM reflash failed (status %u)", (unsigned int)st);
+        return st;
+    }
+
+    st = em9305_reset_and_wait_active();
+    if (st != AM_DEVICES_EM9305_STATUS_SUCCESS)
+    {
+        LOG_ERR("EM9305: active state timeout after NVM recovery reflash");
+        return st;
+    }
+
+    LOG_INF("EM9305: NVM recovery reflash successful");
     return AM_DEVICES_EM9305_STATUS_SUCCESS;
 }
 
@@ -1254,10 +1325,7 @@ uint32_t am_devices_em9305_crystal_trim_set(uint8_t trim_value, bool force_updat
     }
 
 trim_exit_cm:
-    if (g_gpio_ops.set_cm)
-    {
-        g_gpio_ops.set_cm(false);
-    }
+    fw_exit_cm_mode();
 
     if (st == AM_DEVICES_EM9305_STATUS_SUCCESS)
     {
@@ -1291,7 +1359,15 @@ uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb)
 
     if (em9305_reset_and_wait_active() != AM_DEVICES_EM9305_STATUS_SUCCESS)
     {
-        return AM_DEVICES_EM9305_STATUS_ERROR;
+        if (cb->skip_fw_update)
+        {
+            return AM_DEVICES_EM9305_STATUS_ERROR;
+        }
+
+        if (em9305_nvm_recovery_reflash() != AM_DEVICES_EM9305_STATUS_SUCCESS)
+        {
+            return AM_DEVICES_EM9305_STATUS_ERROR;
+        }
     }
 
 #if defined(CONFIG_BT_AMBIQ_EM9305_HF_CRYSTAL_CUSTOM_TRIM)
@@ -1320,23 +1396,48 @@ uint32_t am_devices_em9305_init(am_devices_em9305_callback_t *cb)
       LOG_WRN("BLE FW version read failed (status %u)", (unsigned int)ui32Status);
     }
 
-    /* Auto-update only after a successful version read (avoids treating
-    * uninitialized 0x00000000 as "older than bundle" on SPI/HCI failure).
-    */
-    if ((ui32Status == AM_DEVICES_EM9305_STATUS_SUCCESS) && ((image_version == EM9305_FW_VER_INVALID) || (image_version < ble_fw_image_bin_ver)))
+    /* Auto-update when the bundled image is newer, or when the version word
+     * matches but NVM must be CRC-verified (catches interrupted updates that
+     * wrote the version before the image was complete).
+     */
+    if (!cb->skip_fw_update &&
+        ((ui32Status != AM_DEVICES_EM9305_STATUS_SUCCESS) ||
+         (image_version == EM9305_FW_VER_INVALID) ||
+         (image_version <= ble_fw_image_bin_ver)))
     {
-      LOG_INF("EM9305: bundled FW 0x%08x > device FW 0x%08x, updating...", (unsigned int)ble_fw_image_bin_ver, (unsigned int)image_version);
-      uint32_t fw_st = am_devices_em9305_update_fw( image_records, IMAGE_RECORDS_SIZE, erase_pages, erase_pages_size, ble_fw_image_bin_ver, false);
+      if ((ui32Status == AM_DEVICES_EM9305_STATUS_SUCCESS) &&
+          (image_version == ble_fw_image_bin_ver))
+      {
+        LOG_INF("EM9305: verifying bundled FW 0x%08x in NVM...", (unsigned int)ble_fw_image_bin_ver);
+      }
+      else if (ui32Status == AM_DEVICES_EM9305_STATUS_SUCCESS)
+      {
+        LOG_INF("EM9305: bundled FW 0x%08x > device FW 0x%08x, updating...",
+                (unsigned int)ble_fw_image_bin_ver, (unsigned int)image_version);
+      }
+      else
+      {
+        LOG_WRN("EM9305: version unknown; updating to bundled FW 0x%08x",
+                (unsigned int)ble_fw_image_bin_ver);
+      }
+
+      uint32_t fw_st = am_devices_em9305_update_fw(image_records, IMAGE_RECORDS_SIZE,
+                                                   erase_pages, erase_pages_size,
+                                                   ble_fw_image_bin_ver, false);
 
       if (fw_st == AM_DEVICES_EM9305_STATUS_SUCCESS)
       {
-        LOG_INF("EM9305: FW update done, resetting controller");
-
-        /* Reset and wait for active state again */
+        /* Reflash or verify-only both exit CM with a reset; wait for active
+         * state before returning to the HCI driver.
+         */
         if (em9305_reset_and_wait_active() != AM_DEVICES_EM9305_STATUS_SUCCESS)
         {
-          LOG_ERR("EM9305 active state timeout after FW update");
-          return AM_DEVICES_EM9305_STATUS_ERROR;
+          LOG_WRN("EM9305: post-update boot failed; attempting NVM recovery");
+          if (em9305_nvm_recovery_reflash() != AM_DEVICES_EM9305_STATUS_SUCCESS)
+          {
+            LOG_ERR("EM9305: NVM recovery failed after update");
+            return AM_DEVICES_EM9305_STATUS_ERROR;
+          }
         }
       }
       else

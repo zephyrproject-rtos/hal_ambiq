@@ -155,11 +155,30 @@ typedef struct
     *************************************************************************************
     */
     bt_spi_transceive_fun transceive;
+
+    /**
+     *************************************************************************************
+     * @brief When true, skip bundled-firmware auto-update during init.
+     *
+     * Use for early board bring-up (e.g. EXTREF wake) when a later HCI init pass
+     * will perform the update with full board hooks (CLKREQ, CM PWM, etc.).
+     *
+     *************************************************************************************
+     */
+    bool skip_fw_update;
 } am_devices_em9305_callback_t;
 
 //*****************************************************************************
 //
 //! @brief Initialize the BLE controller driver.
+//!
+//! Brings the EM9305 out of reset and waits for the active-state vendor event.
+//! If normal boot fails (e.g. NVM left corrupt by an interrupted FW update),
+//! a forced configuration-mode reflash of the bundled image is attempted
+//! automatically when @a skip_fw_update is false and CM PWM is registered.
+//!
+//! When the NVM version matches the bundled image, a CRC integrity check is
+//! performed on every init; mismatches trigger a full reprogram.
 //!
 //! @param cb pointer of BLE Controller callback
 //!
@@ -322,9 +341,11 @@ uint32_t am_devices_em9305_sleep_set(bool enable);
 //
 //! @brief Update EM9305 firmware if the bundled image is newer.
 //!
-//! Stores references to the FW image records and erase page list then
-//! compares versions.  Called internally from am_devices_em9305_init() but
-//! exposed here for testing / forced updates.
+//! When @a force is false and the NVM version already matches @a image_ver,
+//! enters configuration mode and CRC-verifies every image record before
+//! skipping the flash.  Corrupt NVM (e.g. from an interrupted update) is
+//! reprogrammed even when the version word matches.  Always leaves
+//! configuration mode with a controller reset.
 //!
 //! @param pFwImage     Array of ImageRecord pointers (from ble_fw_image_em9305.h)
 //! @param record_size  Number of records in pFwImage
