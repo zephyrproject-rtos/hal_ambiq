@@ -52,10 +52,11 @@ extern "C"
 //*****************************************************************************
 typedef enum
 {
-    AM_HAL_CC312_CLK_AES  = 0,  //!< AES engine clock.
-    AM_HAL_CC312_CLK_HASH = 1,  //!< HASH engine clock.
-    AM_HAL_CC312_CLK_PKA  = 2,  //!< PKA engine clock.
-    AM_HAL_CC312_CLK_DMA  = 3,  //!< DMA engine clock.
+    AM_HAL_CC312_CLK_AES    = 0,  //!< AES engine clock.
+    AM_HAL_CC312_CLK_HASH   = 1,  //!< HASH engine clock.
+    AM_HAL_CC312_CLK_PKA    = 2,  //!< PKA engine clock.
+    AM_HAL_CC312_CLK_DMA    = 3,  //!< DMA engine clock.
+    AM_HAL_CC312_CLK_CHACHA = 4,  //!< ChaCha/Salsa engine clock.
 }
 am_hal_cc312_clk_type_t;
 
@@ -139,6 +140,9 @@ am_hal_cc312_buffer_t;
 #define AM_HAL_CC_HAL_WAIT_TIMEOUT             100000UL
 // Minimum alignment for CC312 DMA source/destination buffers.
 #define AM_HAL_CC312_DMA_ALIGNMENT             32U
+// Largest single DLLI transfer accepted by the CC312 symmetric DMA. The LLI
+// size field is 16 bits, so a transfer must be strictly less than 64KiB.
+#define AM_HAL_CC312_DLLI_MAX_BUFF_SIZE        0x10000UL
 
 //*****************************************************************************
 //
@@ -270,6 +274,36 @@ extern bool am_hal_cc312_clock_is_enabled(am_hal_cc312_clk_type_t clk_type);
 
 //*****************************************************************************
 //
+//! @brief Clean and invalidate a region of the data cache.
+//!
+//! Cleans (writes back) dirty lines and then invalidates the data cache over
+//! the given address range. Use before handing a buffer to the CryptoCell DMA
+//! so the engine sees the latest CPU writes and stale lines are dropped.
+//!
+//! @param pv     - start address of the region.
+//! @param length - size of the region in bytes.
+//
+//*****************************************************************************
+extern void am_hal_cc312_cache_clean_invalidate_region(const void *pv,
+                                                        uint32_t length);
+
+//*****************************************************************************
+//
+//! @brief Invalidate a region of the data cache.
+//!
+//! Invalidates the data cache over the given address range without cleaning.
+//! Use after the CryptoCell DMA has written an output buffer so the CPU reads
+//! the engine's results rather than stale cached data.
+//!
+//! @param pv     - start address of the region.
+//! @param length - size of the region in bytes.
+//
+//*****************************************************************************
+extern void am_hal_cc312_cache_invalidate_region(const void *pv,
+                                                  uint32_t length);
+
+//*****************************************************************************
+//
 //! @brief Set buffer security attributes for DMA operations.
 //!
 //! Configures the AHBMHNONSEC register to set read/write security attributes
@@ -324,26 +358,6 @@ extern void am_hal_cc312_set_dma_source(am_hal_cc312_dma_addr_type_e addr_type,
 extern void am_hal_cc312_set_dma_destination(am_hal_cc312_dma_addr_type_e addr_type,
                                               uint32_t address,
                                               uint32_t length);
-
-//*****************************************************************************
-//
-//! @brief Clean+invalidate data cache for a specific memory range.
-//!
-//! @param addr   - Start address of range.
-//! @param length - Range length in bytes.
-//
-//*****************************************************************************
-extern void am_hal_cc312_cache_clean_invalidate_region(const void *addr, uint32_t length);
-
-//*****************************************************************************
-//
-//! @brief Invalidate data cache for a specific memory range.
-//!
-//! @param addr   - Start address of range.
-//! @param length - Range length in bytes.
-//
-//*****************************************************************************
-extern void am_hal_cc312_cache_invalidate_region(const void *addr, uint32_t length);
 
 //*****************************************************************************
 //
