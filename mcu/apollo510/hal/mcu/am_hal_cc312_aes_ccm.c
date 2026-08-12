@@ -212,15 +212,21 @@ aes_ccm_process(am_hal_cc312_aes_ccm_context_t *ctx,
     }
 
     //
-    // Perform DLLI-mode dummy read flush after state capture.
+    // Perform DLLI-mode dummy read flush after state capture, then invalidate
+    // the output region.  CBC-MAC blocks (B0 / AAD) pass output == NULL and
+    // configure no output DMA, so there is nothing to flush or invalidate for
+    // them.  Mirrors the output != NULL guard used in am_hal_aes_gcm_process().
     //
-    status = am_hal_cc312_flush_dummy_dlli(output_info.ui32DataAddr, length);
-    if (status != AM_HAL_STATUS_SUCCESS)
+    if (output != NULL)
     {
-        goto process_exit;
-    }
+        status = am_hal_cc312_flush_dummy_dlli(output_info.ui32DataAddr, length);
+        if (status != AM_HAL_STATUS_SUCCESS)
+        {
+            goto process_exit;
+        }
 
-    am_hal_cc312_cache_invalidate_region((const void *)(uintptr_t)output_info.ui32DataAddr, length);
+        am_hal_cc312_cache_invalidate_region((const void *)(uintptr_t)output_info.ui32DataAddr, length);
+    }
 
 process_exit:
     //
