@@ -63,6 +63,7 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/linker/devicetree_regions.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 
 #include "nema_hal.h"
@@ -73,9 +74,13 @@
 #include "nema_vg_context.h"
 
 // nema_hal.c serves as the hardware interface layer for the NemaSDK.
-// It calls low-level APIs provided in gpu.c to operate hardware registers
-// and retrieve hardware operational status.
+// It calls low-level APIs provided by the Ambiq GPU driver to operate
+// hardware registers and retrieve hardware operational status.
+#if __has_include(<zephyr/drivers/gpu/gpu_ambiq.h>)
+#include <zephyr/drivers/gpu/gpu_ambiq.h>
+#else
 #include "gpu.h"
+#endif
 
 LOG_MODULE_REGISTER(nemagfx, CONFIG_NEMAGFX_LOG_LEVEL);
 
@@ -132,6 +137,22 @@ static nema_ringbuffer_t ring_buffer_str = {
 
 int32_t nema_sys_init(void)
 {
+#if defined(GPU_AMBIQ_ZEPHYR_DRIVER)
+	int ret;
+
+	/* GPU may be runtime-suspended after driver init; ring-buffer setup
+	 * programs NEMA registers and will bus-fault if the block is off.
+	 * Use a direct resume action (not runtime get) so usage count stays
+	 * at zero and init does not hold a runtime PM reference that would
+	 * block suspend, nor drop it with put and power-gate the ring buffer.
+	 */
+	ret = pm_device_action_run(gpu_dev, PM_DEVICE_ACTION_RESUME);
+	if (ret < 0 && ret != -EALREADY && ret != -ENOSYS) {
+		LOG_ERR("Failed to resume GPU: %d", ret);
+		return ret;
+	}
+#endif
+
 	// Initialize the various memory heaps used by the graphics SDK
 	k_heap_init(&cpu_only_heap, cpu_only_buffer, sizeof(cpu_only_buffer));
 	cpu_only_heap.heap.init_mem = cpu_only_buffer;
