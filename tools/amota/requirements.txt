@@ -1,0 +1,5 @@
+# Python dependencies for AMOTA image-blob tooling
+# Install: python -m pip install -r requirements.txt
+cryptography==44.0.0
+PyYAML==6.0.2
+pycryptodome

@@ -1,0 +1,20 @@
+# *****************************************************************************
+#
+#    apollo4l_keys.py
+#
+#    Define various Apollo4 keys.
+#
+# *****************************************************************************
+
+# *****************************************************************************
+#
+#    ${copyright}
+#
+#  This is part of revision the Ambiq AMOTA tooling release.
+#
+# *****************************************************************************
+
+AM_HAL_FLASH_PROGRAM_KEY = 0x12344321
+INFO_KEY = 0xd894e09e
+# Dummy key encryption key - just for test purpose
+KEK = [0xC8, 0x4B, 0x18, 0x8A, 0x09, 0x99, 0x6C, 0x05, 0x2A, 0xBA, 0xAA, 0x5C, 0xAF, 0x4D, 0x31, 0x37]

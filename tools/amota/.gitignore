@@ -1,0 +1,9 @@
+OTA_update_*.bin
+update_*.bin
+*.bin
+scripts/**/starter_binary_*.bin
+scripts/**/temp_*.bin
+scripts/**/keys_info.py
+__pycache__/
+scripts/**/__pycache__/
+*.log

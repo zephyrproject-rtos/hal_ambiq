@@ -1,0 +1,17 @@
+#******************************************************************************
+#
+# filelist.txt
+#
+# List of files to be included in public builds and delivered to customers.
+#
+#******************************************************************************
+[minimal]
+am_oem_key_gen_util
+cert_utils
+common_cert_lib
+common_utils
+lib
+oem_asset_prov_utils
+oem_prov_tool
+proj.cfg
+README.txt
