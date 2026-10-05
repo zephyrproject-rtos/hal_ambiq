@@ -48,7 +48,7 @@
 
 //*****************************************************************************
 //
-// Copyright (c) 2025, Ambiq Micro, Inc.
+// Copyright (c) 2026, Ambiq Micro, Inc.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// This is part of revision release_sdk5p1p0-366b80e084 of the AmbiqSuite Development Package.
+// This is part of revision v5.2.0-zephyr-685438d73f of the AmbiqSuite Development Package.
 //
 //*****************************************************************************
 
@@ -553,6 +553,10 @@ uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArg
     AM_HAL_I2S_CHK_HANDLE(pHandle);
 #endif // AM_HAL_DISABLE_API_VALIDATION
 
+    uint32_t ui32ChannelNumbersForMono = 0;
+    uint32_t ui32FramePeriod = 0;
+    am_hal_i2s_data_format_t* pI2SData = NULL;
+    am_hal_i2s_io_signal_t* pIoConfig = NULL;
     switch (eReq)
     {
         case AM_HAL_I2S_REQ_INTSET:
@@ -576,7 +580,6 @@ uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArg
         case AM_HAL_I2S_REQ_WRITE_TXLOWERLIMIT:
             I2Sn(ui32Module)->TXLOWERLIMIT = *((uint32_t*)pArgs);
             break;
-
         case AM_HAL_I2S_REQ_SET_CH_NUM_FOR_MONO:
             if (pArgs == NULL)
             {
@@ -584,15 +587,15 @@ uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArg
             }
 
             // Only 1 or 2 channels are allowed for mono mode.
-            uint32_t ui32ChannelNumbersForMono = *((uint32_t*)pArgs);
+            ui32ChannelNumbersForMono = *((uint32_t*)pArgs);
             if ((ui32ChannelNumbersForMono != 1) && (ui32ChannelNumbersForMono != 2))
             {
                 return AM_HAL_STATUS_INVALID_ARG;
             }
 
-            am_hal_i2s_data_format_t* pI2SData = &(pState->sDataFormat);
-            am_hal_i2s_io_signal_t* pIoConfig = &(pState->sIoConfig);
-            uint32_t ui32FramePeriod = ui32ChannelNumbersForMono * ui32I2sWordLength[pI2SData->eChannelLenPhase1];
+            pI2SData = &(pState->sDataFormat);
+            pIoConfig = &(pState->sIoConfig);
+            ui32FramePeriod = ui32ChannelNumbersForMono * ui32I2sWordLength[pI2SData->eChannelLenPhase1];
             if ((pI2SData->ePhase == AM_HAL_I2S_DATA_PHASE_SINGLE) && (pI2SData->ui32ChannelNumbersPhase1 == 1))
             {
                 I2Sn(ui32Module)->I2SIOCFG_b.FPER = ui32FramePeriod - 1;
@@ -612,7 +615,6 @@ uint32_t am_hal_i2s_control(void *pHandle, am_hal_i2s_request_e eReq, void *pArg
             {
                 return AM_HAL_STATUS_INVALID_OPERATION;
             }
-
             break;
 
         case AM_HAL_I2S_REQ_MAX:
@@ -978,32 +980,17 @@ am_hal_i2s_dma_transfer_continue(void *pHandle, am_hal_i2s_config_t* psConfig, a
 
     pState->ui32RxBufferSizeBytes = pTransferCfg->ui32RxTotalCount * 4;
     pState->ui32TxBufferSizeBytes = pTransferCfg->ui32TxTotalCount * 4;
-    //
-    // Once completed, software must first write the DMACFG register to 0.
-    //
-    I2Sn(ui32Module)->DMACFG = 0x0;
-#ifdef USE_I2S_TWO_STAGE_DMA
-    I2Sn(ui32Module)->DMACFG_b.NEXTDMAEN = 1;
-#endif
-    //
-    // Clear dma status.
-    //
-    I2Sn(ui32Module)->RXDMASTAT = 0x0;
-    I2Sn(ui32Module)->TXDMASTAT = 0x0;
-    //
-    // High Priority (service immediately)
-    //
-    I2Sn(ui32Module)->DMACFG_b.RXDMAPRI = 0x1;
-    I2Sn(ui32Module)->DMACFG_b.TXDMAPRI = 0x1;
 
     switch(psConfig->eXfer)
     {
         case AM_HAL_I2S_XFER_RX:
+            I2Sn(ui32Module)->RXDMASTAT = 0x0;
 #ifdef USE_I2S_TWO_STAGE_DMA
             I2Sn(ui32Module)->RXDMAADDRNEXT   = pState->ui32RxBufferPtr = pTransferCfg->ui32RxTargetAddr;
             I2Sn(ui32Module)->RXDMATOTCNTNEXT = pState->ui32RxBufferSizeBytes >> 2;
             I2Sn(ui32Module)->DMAENNEXTCTRL   = I2S0_DMAENNEXTCTRL_RXDMAENNEXT_Msk;
 #else
+            I2Sn(ui32Module)->DMACFG_b.RXDMAEN = 0;
             I2Sn(ui32Module)->RXDMAADDR   = pState->ui32RxBufferPtr = pTransferCfg->ui32RxTargetAddr;
             I2Sn(ui32Module)->RXDMATOTCNT = pState->ui32RxBufferSizeBytes >> 2;
 #endif
@@ -1011,11 +998,13 @@ am_hal_i2s_dma_transfer_continue(void *pHandle, am_hal_i2s_config_t* psConfig, a
             break;
 
         case AM_HAL_I2S_XFER_TX:
+            I2Sn(ui32Module)->TXDMASTAT = 0x0;
 #ifdef USE_I2S_TWO_STAGE_DMA
             I2Sn(ui32Module)->TXDMAADDRNEXT   = pState->ui32TxBufferPtr = pTransferCfg->ui32TxTargetAddr;
             I2Sn(ui32Module)->TXDMATOTCNTNEXT = pState->ui32TxBufferSizeBytes >> 2;
             I2Sn(ui32Module)->DMAENNEXTCTRL   = I2S0_DMAENNEXTCTRL_TXDMAENNEXT_Msk;
 #else
+            I2Sn(ui32Module)->DMACFG_b.TXDMAEN = 0;
             I2Sn(ui32Module)->TXDMAADDR   = pState->ui32TxBufferPtr = pTransferCfg->ui32TxTargetAddr;
             I2Sn(ui32Module)->TXDMATOTCNT = pState->ui32TxBufferSizeBytes >> 2;
 #endif
@@ -1023,13 +1012,17 @@ am_hal_i2s_dma_transfer_continue(void *pHandle, am_hal_i2s_config_t* psConfig, a
             break;
 
         case AM_HAL_I2S_XFER_RXTX:
+            I2Sn(ui32Module)->RXDMASTAT = 0x0;
+            I2Sn(ui32Module)->TXDMASTAT = 0x0;
 #ifdef USE_I2S_TWO_STAGE_DMA
             I2Sn(ui32Module)->TXDMAADDRNEXT   = pState->ui32TxBufferPtr = pTransferCfg->ui32TxTargetAddr;
             I2Sn(ui32Module)->TXDMATOTCNTNEXT = pState->ui32TxBufferSizeBytes >> 2;
             I2Sn(ui32Module)->RXDMAADDRNEXT   = pState->ui32RxBufferPtr = pTransferCfg->ui32RxTargetAddr;
             I2Sn(ui32Module)->RXDMATOTCNTNEXT = pState->ui32RxBufferSizeBytes >> 2;
-            I2Sn(ui32Module)->DMAENNEXTCTRL   = I2S0_DMAENNEXTCTRL_TXDMAENNEXT_Msk | I2S0_DMAENNEXTCTRL_TXDMAENNEXT_Msk;
+            I2Sn(ui32Module)->DMAENNEXTCTRL   = I2S0_DMAENNEXTCTRL_RXDMAENNEXT_Msk | I2S0_DMAENNEXTCTRL_TXDMAENNEXT_Msk;
 #else
+            I2Sn(ui32Module)->DMACFG_b.RXDMAEN = 0;
+            I2Sn(ui32Module)->DMACFG_b.TXDMAEN = 0;
             I2Sn(ui32Module)->TXDMAADDR   = pState->ui32TxBufferPtr = pTransferCfg->ui32TxTargetAddr;
             I2Sn(ui32Module)->TXDMATOTCNT = pTransferCfg->ui32TxTotalCount;
             I2Sn(ui32Module)->RXDMAADDR   = pState->ui32RxBufferPtr = pTransferCfg->ui32RxTargetAddr;
@@ -1204,7 +1197,35 @@ am_hal_i2s_interrupt_enable(void *pHandle, uint32_t ui32IntMask)
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
 
-    I2Sn(ui32Module)->INTEN |= ui32IntMask;
+    if ((ui32IntMask & AM_HAL_I2S_INT_RXDMACPL) == AM_HAL_I2S_INT_RXDMACPL)
+    {
+        I2Sn(ui32Module)->IPBIRPT |= I2S0_IPBIRPT_RXDMAM_Msk;
+        I2Sn(ui32Module)->INTEN   |= I2S0_INTSTAT_RXDMACPL_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_TXDMACPL) == AM_HAL_I2S_INT_TXDMACPL)
+    {
+        I2Sn(ui32Module)->IPBIRPT |= I2S0_IPBIRPT_TXDMAM_Msk;
+        I2Sn(ui32Module)->INTEN   |= I2S0_INTSTAT_TXDMACPL_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_RXREQCNT) == AM_HAL_I2S_INT_RXREQCNT)
+    {
+        I2Sn(ui32Module)->IPBIRPT |= I2S0_IPBIRPT_RXFFM_Msk;
+        I2Sn(ui32Module)->INTEN   |= I2S0_INTSTAT_RXREQCNT_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_TXREQCNT) == AM_HAL_I2S_INT_TXREQCNT)
+    {
+        I2Sn(ui32Module)->IPBIRPT |= I2S0_IPBIRPT_TXFFM_Msk;
+        I2Sn(ui32Module)->INTEN   |= I2S0_INTSTAT_TXREQCNT_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_TXFIFO_EMPTY) == AM_HAL_I2S_INT_TXFIFO_EMPTY)
+    {
+        I2Sn(ui32Module)->IPBIRPT |= I2S0_IPBIRPT_TXEM_Msk;
+        I2Sn(ui32Module)->INTEN   |= I2S0_INTSTAT_IPB_Msk;
+    }
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -1225,7 +1246,35 @@ am_hal_i2s_interrupt_disable(void *pHandle, uint32_t ui32IntMask)
     //
     AM_HAL_I2S_CHK_HANDLE(pHandle);
 
-    I2Sn(ui32Module)->INTEN &= ~ui32IntMask;
+    if ((ui32IntMask & AM_HAL_I2S_INT_RXDMACPL) == AM_HAL_I2S_INT_RXDMACPL)
+    {
+        I2Sn(ui32Module)->IPBIRPT &= ~I2S0_IPBIRPT_RXDMAM_Msk;
+        I2Sn(ui32Module)->INTEN   &= ~I2S0_INTSTAT_RXDMACPL_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_TXDMACPL) == AM_HAL_I2S_INT_TXDMACPL)
+    {
+        I2Sn(ui32Module)->IPBIRPT &= ~I2S0_IPBIRPT_TXDMAM_Msk;
+        I2Sn(ui32Module)->INTEN   &= ~I2S0_INTSTAT_TXDMACPL_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_RXREQCNT) == AM_HAL_I2S_INT_RXREQCNT)
+    {
+        I2Sn(ui32Module)->IPBIRPT &= ~I2S0_IPBIRPT_RXFFM_Msk;
+        I2Sn(ui32Module)->INTEN   &= ~I2S0_INTSTAT_RXREQCNT_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_TXREQCNT) == AM_HAL_I2S_INT_TXREQCNT)
+    {
+        I2Sn(ui32Module)->IPBIRPT &= ~I2S0_IPBIRPT_TXFFM_Msk;
+        I2Sn(ui32Module)->INTEN   &= ~I2S0_INTSTAT_TXREQCNT_Msk;
+    }
+
+    if ((ui32IntMask & AM_HAL_I2S_INT_TXFIFO_EMPTY) == AM_HAL_I2S_INT_TXFIFO_EMPTY)
+    {
+        I2Sn(ui32Module)->IPBIRPT &= ~I2S0_IPBIRPT_TXEM_Msk;
+        I2Sn(ui32Module)->INTEN   &= ~I2S0_INTSTAT_IPB_Msk;
+    }
 
     return AM_HAL_STATUS_SUCCESS;
 }
@@ -1760,6 +1809,15 @@ am_hal_i2s_dma_transfer_complete(void *pHandle)
     //
     I2Sn(ui32Module)->RXDMASTAT = 0x0;
     I2Sn(ui32Module)->TXDMASTAT = 0x0;
+    I2Sn(ui32Module)->I2SCTL = 0;
+    I2Sn(ui32Module)->TXDMATOTCNT = 0;
+    I2Sn(ui32Module)->RXDMATOTCNT = 0;
+    I2Sn(ui32Module)->TXDMATOTCNTNEXT = 0;
+    I2Sn(ui32Module)->RXDMATOTCNTNEXT = 0;
+    I2Sn(ui32Module)->TXCHANID = 0;
+    I2Sn(ui32Module)->RXCHANID = 0;
+    I2Sn(ui32Module)->INTCLR = 0xFFFFFFFF;
+    I2Sn(ui32Module)->I2SCTL = 0x22;
 
     return AM_HAL_STATUS_SUCCESS;
 }
